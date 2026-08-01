@@ -10,10 +10,7 @@ use futures::future::BoxFuture;
 use http_body_util::{BodyExt as _, Full};
 use tower::ServiceExt as _;
 
-use swe_edge_loadbalancer::{
-    build_backend_pool, report_backend_outcome, select_backend, BackendPoolInstance,
-    LoadbalancerConfig, Outcome,
-};
+use swe_edge_loadbalancer::{BackendPoolInstance, LoadbalancerConfig, LoadbalancerSvc, Outcome};
 
 use crate::api::Conversions as StatusConversions;
 use crate::api::{GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse};
@@ -63,8 +60,8 @@ impl TonicLbGrpcEgress {
         // tonic 0.12: balance_list returns Channel directly (not a tuple).
         let channel = tonic::transport::Channel::balance_list(endpoints.into_iter());
 
-        let pool =
-            build_backend_pool(config).map_err(|e| GrpcEgressError::Unavailable(e.to_string()))?;
+        let pool = LoadbalancerSvc::build_pool(config)
+            .map_err(|e| GrpcEgressError::Unavailable(e.to_string()))?;
 
         Ok(Self {
             channel,
@@ -96,8 +93,8 @@ impl GrpcEgress for TonicLbGrpcEgress {
 
         Box::pin(async move {
             // Health-check gate: fail fast when no healthy backend is available.
-            let backend =
-                select_backend(&pool).map_err(|e| GrpcEgressError::Unavailable(e.to_string()))?;
+            let backend = LoadbalancerSvc::select(&pool)
+                .map_err(|e| GrpcEgressError::Unavailable(e.to_string()))?;
 
             // URI = backend URL + method path (e.g. `http://host:50051/pkg.Svc/Method`).
             let method = request.method.trim_start_matches('/');
@@ -143,7 +140,7 @@ impl GrpcEgress for TonicLbGrpcEgress {
                     reason: "grpc call failed or timed out".to_string(),
                 },
             };
-            report_backend_outcome(&pool, &backend.id, outcome);
+            LoadbalancerSvc::report_outcome(&pool, &backend.id, outcome);
 
             let resp = call_result
                 .map_err(|_| GrpcEgressError::Timeout("per-call deadline exceeded".to_string()))?
@@ -215,7 +212,7 @@ impl GrpcEgress for TonicLbGrpcEgress {
     ) -> BoxFuture<'_, GrpcEgressResult<()>> {
         let pool = Arc::clone(&self.pool);
         Box::pin(async move {
-            select_backend(&pool)
+            LoadbalancerSvc::select(&pool)
                 .map(|_| ())
                 .map_err(|e| GrpcEgressError::Unavailable(e.to_string()))
         })
