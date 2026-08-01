@@ -1,0 +1,1883 @@
+{
+  "timestamp": "2026-07-18T02:13:08.356346300+00:00",
+  "results": [
+    {
+      "id": "cargo_toml_exists",
+      "category": "project",
+      "description": "Every crate directory must contain a Cargo.toml manifest at its root.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.388
+    },
+    {
+      "id": "docs_dir_exists",
+      "category": "project",
+      "description": "A docs/ directory must exist at the workspace root to house project-level.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.186
+    },
+    {
+      "id": "build_bootstrap_exclusivity",
+      "category": "project",
+      "description": "The project root must not contain both a build.* script and a bootstrap.*.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "root_whitelist",
+      "category": "project",
+      "description": "Every file and directory at the project root must appear in the configured.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "single_architecture_config",
+      "category": "project",
+      "description": "Exactly one architecture.toml may exist — either at the project root or.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "doc_dir_exists",
+      "category": "project",
+      "description": "Library crates must have a doc/ or docs/ directory for design and API.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "examples_dir_lib",
+      "category": "project",
+      "description": "Library crates should have an examples/ directory demonstrating canonical.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "bootstrap_sh_exists",
+      "category": "project",
+      "description": "A bootstrap.sh (or build.sh) must exist at the workspace root to provide.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "bootstrap_ps1_exists",
+      "category": "project",
+      "description": "A bootstrap.ps1 (or build.ps1) must exist at the workspace root for.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "cargo_pkg_name_exists",
+      "category": "conventions",
+      "description": "Every crate must declare `package.name` in Cargo.toml.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0318
+    },
+    {
+      "id": "cargo_pkg_version_exists",
+      "category": "conventions",
+      "description": "Every crate must declare `package.version` using semantic versioning.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0013
+    },
+    {
+      "id": "cargo_pkg_edition_exists",
+      "category": "conventions",
+      "description": "Every crate must declare `package.edition` to pin which Rust language dialect it compiles under.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0007999999999999999
+    },
+    {
+      "id": "cargo_pkg_description_exists",
+      "category": "conventions",
+      "description": "Every crate must declare a one-line `package.description` stating what it does.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0014
+    },
+    {
+      "id": "cargo_pkg_repository_exists",
+      "category": "conventions",
+      "description": "Every crate should declare `package.repository` pointing to its source repository URL.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0007999999999999999
+    },
+    {
+      "id": "cargo_pkg_authors_exists",
+      "category": "conventions",
+      "description": "Every crate should declare `package.authors` listing the people or team responsible for it.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0005
+    },
+    {
+      "id": "cargo_pkg_rust_version_exists",
+      "category": "conventions",
+      "description": "Every crate should declare `package.rust-version` (MSRV) — the minimum Rust toolchain that can compile it.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0009
+    },
+    {
+      "id": "cargo_pkg_keywords_exists",
+      "category": "conventions",
+      "description": "Library crates should declare up to 5 `package.keywords` to aid discovery on crates.io.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0007
+    },
+    {
+      "id": "cargo_pkg_categories_exists",
+      "category": "conventions",
+      "description": "Library crates should declare `package.categories` using valid crates.io category slugs.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0007
+    },
+    {
+      "id": "readme_exists",
+      "category": "conventions",
+      "description": "A `README.md` must exist at the workspace or project root.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 4.4548
+    },
+    {
+      "id": "changelog_exists",
+      "category": "conventions",
+      "description": "A `CHANGELOG.md` must exist at the workspace root to record notable changes per release.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 6.6023000000000005
+    },
+    {
+      "id": "gitignore_has_target",
+      "category": "conventions",
+      "description": "`.gitignore` at the workspace root must contain a `target/` entry to exclude build artifacts.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 1.1264999999999998
+    },
+    {
+      "id": "cargo_pkg_name_kebab_case",
+      "category": "naming",
+      "description": "The [package].name in Cargo.toml must be all-lowercase kebab-case.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 1.0315999999999999
+    },
+    {
+      "id": "rs_files_snake_case",
+      "category": "naming",
+      "description": "Every .rs source file must use snake_case: all-lowercase, words separated by underscores.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 1.5257
+    },
+    {
+      "id": "rs_files_no_uppercase",
+      "category": "naming",
+      "description": "Source file names under main/src/ must contain no uppercase letters.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.5995
+    },
+    {
+      "id": "src_dir_exists",
+      "category": "package",
+      "description": "The configured source directory (default: main/src/) must exist in every.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.2977
+    },
+    {
+      "id": "no_nested_src_dir",
+      "category": "package",
+      "description": "A src/ directory must not exist inside main/src/ — the path.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0515
+    },
+    {
+      "id": "no_gateway_in_lib",
+      "category": "package",
+      "description": "A library crate (application_type = 'lib') must not contain a gateway/.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.0379
+    },
+    {
+      "id": "no_weak_fs_patterns",
+      "category": "security",
+      "description": "Path construction must use `Path::join` (for host I/O) or a forward-slash-only abstraction (for emitted artifacts) — never `MAIN_SEPARATOR`, literal `\\\\`, or string-replace hacks.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 130.2224
+    },
+    {
+      "id": "tests_dir_exists",
+      "category": "test_organization",
+      "description": "Every crate must have a tests/ directory at the same level as main/src/ to house its integration and external tests.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.2553
+    },
+    {
+      "id": "api_facade_hides_core",
+      "category": "encapsulation",
+      "description": "api/ types must not expose internal core/ implementation types in their public signatures — parameters, return types, and associated types must all use api/-owned abstractions.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "saf_mod_no_api_direct_reexport",
+      "category": "interface",
+      "description": "saf/mod.rs and saf/<theme>/mod.rs must not contain `pub use crate::api::` — all api/ re-exports must live in a dedicated _svc.rs file.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "module_entry_declarations_only",
+      "category": "package",
+      "description": "mod.rs files must contain only mod declarations and pub use re-exports —.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "mod_rs_not_reexport_shim",
+      "category": "package",
+      "description": "A SEA layer's mod.rs must not consist solely of wildcard re-exports.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "deps_no_local_path",
+      "category": "conventions",
+      "description": "`[dependencies]` must not use `path = '...'` pointing outside the workspace; use git or registry sources.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "bench_harness_false",
+      "category": "conventions",
+      "description": "Every `[[bench]]` target must set `harness = false` when using criterion or a custom main function.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "lib_path_correct",
+      "category": "package",
+      "description": "The [lib] path declared in Cargo.toml must point to a file that actually.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "bin_path_correct",
+      "category": "package",
+      "description": "Every [[bin]] target declared in Cargo.toml must point to a source file.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_undeclared_benches",
+      "category": "package",
+      "description": "Every .rs file inside benches/ must have a corresponding [[bench]] target.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "example_targets_if_dir",
+      "category": "package",
+      "description": "If an examples/ directory exists it must have at least one [[example]].",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_targets_declared",
+      "category": "test_organization",
+      "description": "Every .rs file under tests/ must have a matching [[test]] entry in Cargo.toml so it participates in `cargo test`.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_undeclared_tests",
+      "category": "test_organization",
+      "description": "Every .rs file in tests/ must be registered in Cargo.toml; orphan test files that Cargo never compiles must be declared or deleted.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_paths_resolve",
+      "category": "test_organization",
+      "description": "Every [[test]] path declared in Cargo.toml must point to a file that exists on disk.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_explicit_test_targets",
+      "category": "test_organization",
+      "description": "Cargo.toml must not contain explicit [[test]] entries — Cargo auto-discovers every .rs file directly under tests/ as a test target.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "service_type_defined",
+      "category": "application_type",
+      "description": "Every non-workspace crate must declare its functional role via `service_type` in `[package.metadata.arch]` so the engine can verify the matching trait and contract are present.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "config_methods_pub_crate",
+      "category": "encapsulation",
+      "description": "Config struct methods must be pub(crate), not pub — Config is internal wiring resolved at the composition root, not public API.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "cross_crate_error_coupling",
+      "category": "encapsulation",
+      "description": "A crate's saf/ or api/ must not expose another crate's error type in a Result return position — wrap it in a locally owned error type.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "error_types_in_api",
+      "category": "interface",
+      "description": "Error types returned from api/ trait methods must be declared in api/, never in core/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "suggest_builder_pattern",
+      "category": "conventions",
+      "description": "Structs with 5+ fields or 3+ `Option<T>` fields should have a companion `*Builder` type to avoid telescoping constructors.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "module_name_not_prefix_type",
+      "category": "naming",
+      "description": "A type name must not repeat its enclosing module name as a prefix.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "package_name_no_sea_suffix",
+      "category": "naming",
+      "description": "Package names must not end with a SEA layer suffix (-api, -core, -saf, -spi, -gateway).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "module_names_match",
+      "category": "naming",
+      "description": "Every `mod foo;` declaration must have a corresponding `foo.rs` or `foo/mod.rs` on disk.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "folder_names_snake_case",
+      "category": "naming",
+      "description": "Directory names under main/src/ must be snake_case — all lowercase, underscores only.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "bin_names_valid",
+      "category": "naming",
+      "description": "[[bin]] target names in Cargo.toml must be lowercase with only hyphens or underscores.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "trait_names_not_plural",
+      "category": "naming",
+      "description": "Trait names must be singular nouns, not plurals.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "config_file_to_builder_naming",
+      "category": "naming",
+      "description": "Each `.toml` config file must have a corresponding `<Name>ConfigBuilder` struct.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_default_suffix",
+      "category": "naming",
+      "description": "Struct and enum names must not end with `Default` — use the `Default*` prefix instead.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "module_names_no_stutter",
+      "category": "naming",
+      "description": "A file or directory name must not begin and end with the same snake_case token (stutter).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "layer_structural_name_ban",
+      "category": "naming",
+      "description": "File stems and type names must not start with a token from [config.naming] banned_prefix_tokens, or end with one from banned_suffix_tokens (both default to: trait, interface, type, api, core, spi, dto, vo, struct, impl; banned_suffix_tokens also includes ext).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "cargo_pkg_name_has_prefix",
+      "category": "naming",
+      "description": "Every workspace member package name must share the common workspace prefix.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "boundary_dep_direction",
+      "category": "interface",
+      "description": "Domain (business-logic) crates must not list adapter (infrastructure/IO) crates as Cargo dependencies.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "boundary_no_pub_trait_in_adapter",
+      "category": "interface",
+      "description": "Adapter crates must not define public traits — all port contracts must be owned by the domain crate.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "boundary_adapter_implements_port",
+      "category": "interface",
+      "description": "Every adapter crate must implement at least one pub trait declared in a domain crate.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "boundary_no_antipattern_names",
+      "category": "naming",
+      "description": "Crate names must not end with catch-all suffixes: -core, -utils, -api, -common, -shared, -helpers.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "license_field_exists",
+      "category": "conventions",
+      "description": "Every crate must declare `package.license` (SPDX expression) or `package.license-file` (path to a LICENSE file).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "crate_root_exists",
+      "category": "package",
+      "description": "Every non-workspace crate must have main/src/lib.rs (library) or.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "benches_dir_if_declared",
+      "category": "package",
+      "description": "If Cargo.toml declares [[bench]] targets, a benches/ directory must exist.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "src_no_path_stutter",
+      "category": "package",
+      "description": "No directory path under main/src/ may contain the same segment twice.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "file_names_are_nouns",
+      "category": "naming",
+      "description": "Source file names must be nouns — not verb phrases or boolean assertions.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "library_entry_declarations_only",
+      "category": "package",
+      "description": "lib.rs must contain only module declarations (mod, pub mod) and.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "sea_layer_substantive_code",
+      "category": "package",
+      "description": "Every file in a SEA layer directory must contain substantive Rust code —.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "lib_rs_not_shim",
+      "category": "package",
+      "description": "lib.rs must declare its submodules explicitly — it must not consist only.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "sea_layer_min_loc",
+      "category": "package",
+      "description": "Each SEA layer directory must meet a minimum lines-of-code threshold:.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "lib_path_inside_src",
+      "category": "package",
+      "description": "The [lib] path and all [[bin]] paths in Cargo.toml must point to files.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "structural_checks_match_lib_path",
+      "category": "package",
+      "description": "A non-standard [lib] path and a main/src/ directory must not coexist —.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_unused_deps",
+      "category": "conventions",
+      "description": "Every entry in `[dependencies]` must be imported somewhere in `main/src/`; test-only deps belong in `[dev-dependencies]`.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_file_suffixes",
+      "category": "test_organization",
+      "description": "Every test file in tests/ must end in a recognised category suffix so the test kind is unambiguous from the filename.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_file_prefix_matches_source",
+      "category": "test_organization",
+      "description": "Every test file's name prefix must resolve to a real source module in main/src/, optionally followed by a public function name from that module.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "layer_scoped_test_source_correspondence",
+      "category": "test_organization",
+      "description": "A test file with a layer prefix (e.g. core_scanner_int_test.rs) must have a corresponding source file at main/src/<layer>/scanner.rs (or scanner/mod.rs).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_fn_scenario_path_coverage",
+      "category": "test_organization",
+      "description": "Any test file that uses the _happy scenario suffix must also contain at least one _error or _edge test — happy-path-only coverage with scenario labels is incomplete.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_not_placeholder",
+      "category": "test_organization",
+      "description": "A #[test] function body must not consist solely of panic!, todo!(), unimplemented!(), or be empty — such tests cannot fail and prove nothing.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_no_self_comparison",
+      "category": "test_organization",
+      "description": "An assertion must not compare a value to itself (assert_eq!(x.is_ok(), x.is_ok())), because such comparisons are always true and catch no bug.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_assertion_not_weak_only",
+      "category": "test_organization",
+      "description": "A test that only checks is_ok() or is_some() — with no payload assertion and no negative counterpart — is too weak to catch wrong-value bugs.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_has_real_assertion",
+      "category": "test_organization",
+      "description": "Every #[test] function must contain at least one assertion macro (assert!, assert_eq!, assert_ne!, assert!(matches!(...))) or be annotated #[should_panic].",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_coverage_threshold",
+      "category": "test_organization",
+      "description": "The pipeline measures line coverage with cargo llvm-cov; the package must reach the threshold in config.dynamic_checks.coverage_min_line_pct.",
+      "result": {
+        "status": "skip",
+        "reason": "dynamic check — enforced by the pipeline, not static audit"
+      }
+    },
+    {
+      "id": "test_mutation_score",
+      "category": "test_organization",
+      "description": "cargo-mutants must report no more than config.dynamic_checks.mutation_max_missed surviving mutants; each surviving mutant is a line that tests never falsify.",
+      "result": {
+        "status": "skip",
+        "reason": "dynamic check — enforced by the pipeline, not static audit"
+      }
+    },
+    {
+      "id": "test_fn_prefixes",
+      "category": "test_organization",
+      "description": "Test functions in tests/<file>.rs must follow <feature>_<type_kind>_<fn>_<suffix>; functions in tests/<feature>/<file>.rs drop the feature prefix.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_fn_suffixes",
+      "category": "test_organization",
+      "description": "Every #[test] function name must either start with test_ or end in a recognised category suffix (_test, _int_test, _e2e_test, _perf_test, etc.).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "unit_tests_colocated",
+      "category": "test_organization",
+      "description": "Files in api/, saf/, and gateway/ must not have inline #[cfg(test)] blocks that test public functions — those tests must live in external tests/ files.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_test_in_src",
+      "category": "test_organization",
+      "description": "Any #[test] function in main/src/ that is not inside a #[cfg(test)] block is test code leaking into the production build.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "all_methods_tested",
+      "category": "test_organization",
+      "description": "Every pub fn in main/src/ must have at least one test function whose name contains the function's name.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_covers_annotation",
+      "category": "test_organization",
+      "description": "Every #[test] function must have a `/// @covers: fn_name` doc comment linking it to the production function it exercises.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_mocks_in_integration",
+      "category": "test_organization",
+      "description": "Files named *_int_test.rs must not import mock libraries (mockall, mockito, etc.) or use generated Mock* types — integration tests must exercise real implementations.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "deps_have_integration_tests",
+      "category": "test_organization",
+      "description": "Every external crate listed in [dependencies] that is used in main/src/ must have at least one *_int_test.rs or *_e2e_test.rs file that imports and exercises it.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_location_by_deps",
+      "category": "test_organization",
+      "description": "A test file's suffix must match its actual dependency scope: _test.rs for same-module imports only, _e2e_test.rs for intra-crate imports, _int_test.rs for external crate imports.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_println_in_library_code",
+      "category": "conventions",
+      "description": "Library code must not call `println!` or `eprintln!`; use `tracing::info!` / `warn!` / `error!` instead.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_allow_unused_imports",
+      "category": "conventions",
+      "description": "Source files must not use `#[allow(unused_imports)]` to silence the lint; the import must be removed instead.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "embed_config_needs_override",
+      "category": "conventions",
+      "description": "`include_str!` embedding a config or policy file must be paired with a runtime `std::fs::read_to_string` path; the embed is a fallback, not the sole source.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_bare_unwrap",
+      "category": "conventions",
+      "description": "`.unwrap()` calls in production source are forbidden; use `?`, `match`, or `unwrap_or_else` instead.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_bare_expect",
+      "category": "conventions",
+      "description": "`.expect('')` or `.expect('TODO')` (empty or placeholder messages) are forbidden; provide a meaningful invariant description or use `?`.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_panic_in_lib",
+      "category": "conventions",
+      "description": "`panic!()` calls are forbidden in library code; return `Result<_, E>` and propagate errors instead.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "clippy_error_lints_configured",
+      "category": "conventions",
+      "description": "`Cargo.toml` must configure `[lints.clippy]` with `unwrap_used` and `expect_used` set to `'deny'` or `'warn'`.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_allow_dead_code",
+      "category": "conventions",
+      "description": "`#[allow(dead_code)]` and `#[expect(dead_code)]` are forbidden in production source; dead items must be deleted or wired in.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "xdg_dirs_crate",
+      "category": "security",
+      "description": "CLI binaries must resolve user-specific directories (config, data, cache) through the `dirs` crate rather than constructing paths manually.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_hardcoded_home_paths",
+      "category": "security",
+      "description": "Source code must not contain literal home-directory path segments (`/home/`, `~/`, `/Users/`, `C:\\Users\\`).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_stub_fn_bodies",
+      "category": "test_organization",
+      "description": "Production functions in main/src/ must not have stub bodies consisting of todo!(), unimplemented!(), or an empty body — these panic at runtime and are never safe to ship.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "security_no_hardcoded_secrets",
+      "category": "security",
+      "description": "Source files must not contain literal credential values — API keys, passwords, tokens, private keys, or connection strings with embedded credentials.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "security_policy_file_exists",
+      "category": "security",
+      "description": "Every project must have a `SECURITY.md` (or `.github/SECURITY.md`) documenting how to report vulnerabilities and which versions are supported.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "security_unsafe_documented",
+      "category": "security",
+      "description": "Every `unsafe { ... }` block must be immediately preceded by a `// SAFETY:` comment that explains why the operation is sound.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "security_dependency_audit_configured",
+      "category": "security",
+      "description": "The project must have `cargo-deny` (via `deny.toml`) or `cargo audit` wired into CI to scan dependencies against the RustSec advisory database.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "application_type_defined",
+      "category": "application_type",
+      "description": "Every crate must declare its architectural role via `application_type` in `[package.metadata.arch]` so the engine knows which SEA layer rules apply.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_no_core_import",
+      "category": "encapsulation",
+      "description": "api/ files must not import from core/ (use crate::core::) — L2 depends only on L1 abstractions, never on L3 implementations.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 11.532
+    },
+    {
+      "id": "boundary_cargo_cross_level",
+      "category": "encapsulation",
+      "description": "L2 domain primitive crates must not have Cargo.toml dependencies on L3+ assembler-layer crates.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 0.6376
+    },
+    {
+      "id": "sea_api_no_core_dep",
+      "category": "encapsulation",
+      "description": "api/ must not import from core/ — api/ defines abstractions only and must be self-contained (mirrors api_no_core_import but with test-code exclusions).",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 11.5253
+    },
+    {
+      "id": "api_no_spi_dep",
+      "category": "encapsulation",
+      "description": "api/ must not import from spi/ — api/ is the innermost layer and must be independent of all implementation layers, including extension points.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 7.9925
+    },
+    {
+      "id": "api_no_gateway_dep",
+      "category": "encapsulation",
+      "description": "api/ must not import from gateway/ — api/ is the innermost layer, gateway/ is the outermost; depending on it completely inverts the layer stack.",
+      "result": {
+        "status": "pass"
+      },
+      "duration_ms": 10.2045
+    },
+    {
+      "id": "type_theme_cohesion",
+      "category": "encapsulation",
+      "description": "Types in api/<theme_a>/types/ must not be referenced in trait files from a different theme api/<theme_b>/traits/ — cross-theme type coupling violates domain isolation.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_orphan_types",
+      "category": "encapsulation",
+      "description": "Every type and error declared in api/ must appear in at least one native trait method signature — orphan types with no trait usage are dead weight. Scans every api/ declaration, not just types/vo/errors/ subdirectories, and exempts concrete trait implementors (impl Trait for Self in core/spi) regardless of where they're declared.",
+      "result": {
+        "status": "fail",
+        "violations": [
+          {
+            "check_id": "no_orphan_types",
+            "path": "main\\src\\api\\retry\\types\\application_config_builder.rs",
+            "message": "'ApplicationConfigBuilder' is declared in api/ but not referenced by any trait file — remove it or add a trait that uses it",
+            "severity": "warning",
+            "rule_type": "builtin:no_orphan_types",
+            "expected": "referenced in at least one api/traits/ file",
+            "actual": "no reference found",
+            "fix_hint": "Add the type as a method parameter or return type in a pub trait in api/traits/ (or api/<theme>/traits/), remove the unused type declaration, or confirm it's a genuine trait implementor (impl Trait for Self in core/spi) — implementors are exempt. A bare 'pub use' re-export in traits/mod.rs is not sufficient.",
+            "llm_prompt": "WHAT: Every type and error declared in api/ must appear in at least one native trait method signature — orphan types with no trait usage are dead weight.\nWHY: An orphaned type has no role in the contract; it confuses readers who wonder which trait uses it, and is likely left over from a refactoring that removed the only trait reference.\nBEFORE (violation):\n  // api/types/analysis_result.rs\n  pub struct AnalysisResult { ... } // declared but never appears in any api/traits/ method signature\nAFTER (compliant):\n  // api/traits/analyzer.rs\n  pub trait Analyzer { fn analyze(&self, input: &str) -> AnalysisResult; } // type now has a home\nDECISION:\n  - Search api/traits/**/*.rs (not mod.rs) for the type name in method signatures, return types, or associated type bounds\n  - pub use re-exports in traits/mod.rs do NOT satisfy this rule; only actual method signatures count\n  - If no trait needs it: delete the file and remove from mod.rs; run cargo check\nEDGE CASES:\n  - Error types in Result<T, MyError> return positions: the method return type counts — MyError is not orphaned\n  - Types used only in core/ or saf/: they still need a trait signature in api/ to satisfy this rule\n  - A pub struct/enum that never appears in a trait signature but has `impl SomeOwnTrait for Self` in core/ or spi/ is a concrete trait implementor, not an orphan — exempt regardless of directory\n",
+            "cmd": "arch explain no_orphan_types",
+            "principles": [
+              "single_responsibility",
+              "encapsulation"
+            ]
+          },
+          {
+            "check_id": "no_orphan_types",
+            "path": "main\\src\\api\\retry\\types\\backoff_track.rs",
+            "message": "'BackoffTrack' is declared in api/ but not referenced by any trait file — remove it or add a trait that uses it",
+            "severity": "warning",
+            "rule_type": "builtin:no_orphan_types",
+            "expected": "referenced in at least one api/traits/ file",
+            "actual": "no reference found",
+            "fix_hint": "Add the type as a method parameter or return type in a pub trait in api/traits/ (or api/<theme>/traits/), remove the unused type declaration, or confirm it's a genuine trait implementor (impl Trait for Self in core/spi) — implementors are exempt. A bare 'pub use' re-export in traits/mod.rs is not sufficient.",
+            "llm_prompt": "WHAT: Every type and error declared in api/ must appear in at least one native trait method signature — orphan types with no trait usage are dead weight.\nWHY: An orphaned type has no role in the contract; it confuses readers who wonder which trait uses it, and is likely left over from a refactoring that removed the only trait reference.\nBEFORE (violation):\n  // api/types/analysis_result.rs\n  pub struct AnalysisResult { ... } // declared but never appears in any api/traits/ method signature\nAFTER (compliant):\n  // api/traits/analyzer.rs\n  pub trait Analyzer { fn analyze(&self, input: &str) -> AnalysisResult; } // type now has a home\nDECISION:\n  - Search api/traits/**/*.rs (not mod.rs) for the type name in method signatures, return types, or associated type bounds\n  - pub use re-exports in traits/mod.rs do NOT satisfy this rule; only actual method signatures count\n  - If no trait needs it: delete the file and remove from mod.rs; run cargo check\nEDGE CASES:\n  - Error types in Result<T, MyError> return positions: the method return type counts — MyError is not orphaned\n  - Types used only in core/ or saf/: they still need a trait signature in api/ to satisfy this rule\n  - A pub struct/enum that never appears in a trait signature but has `impl SomeOwnTrait for Self` in core/ or spi/ is a concrete trait implementor, not an orphan — exempt regardless of directory\n",
+            "cmd": "arch explain no_orphan_types",
+            "principles": [
+              "single_responsibility",
+              "encapsulation"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "trait_declared_outside_traits_dir",
+      "category": "encapsulation",
+      "description": "A pub trait declared in api/ must live under a traits/ (or <theme>/traits/) subdirectory — traits declared elsewhere cause no_orphan_types to misreport the types they reference as unused.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_implementor_in_vo",
+      "category": "encapsulation",
+      "description": "A type declared under api/<theme>/vo/ (or api/vo/) must not implement a trait in core/ or spi/ — vo/ holds plain-data value objects; concrete trait implementors belong elsewhere in api/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "cross_theme_impl",
+      "category": "encapsulation",
+      "description": "A core/ impl block must not implement a trait from api/<theme_a>/ for a type from api/<theme_b>/ — the impl must live within the type's own theme.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "vo_nests_vo_only",
+      "category": "encapsulation",
+      "description": "A type declared under api/<theme>/vo/ (or api/vo/) must only reference other vo/-declared types as fields — referencing a type declared under entity/, dto/, or any other non-vo/ leaf is a violation, including transitively through a chain of vo/-declared intermediaries.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "entity_no_embedded_entity",
+      "category": "encapsulation",
+      "description": "A type declared under api/<theme>/entity/ (or api/entity/) must not embed another entity/-declared type directly as a field — reference other entities only via a named vo/-declared ID type.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "entity_reference_requires_named_id_type",
+      "category": "encapsulation",
+      "description": "A field in an api/<theme>/entity/ (or api/entity/) type whose name looks like a reference to another entity (ends in _id, _key, _ids, or _keys) must be typed as a named vo/-declared ID type, not a bare primitive (Uuid, String, ...).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "dto_no_embedded_entity",
+      "category": "encapsulation",
+      "description": "A type declared under api/<theme>/dto/ (or api/dto/) must not embed an entity/-declared type directly as a field — DTOs must never embed entities directly.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "config_policy_theme_placement",
+      "category": "encapsulation",
+      "description": "A type whose name ends in Config or Policy, declared under a vo/ leaf in a domain-grouped layout, must live under the policy theme (api/policy/vo/) — declaring it under any other theme's vo/ is a violation. Only applies once domain-grouping is active; flat layouts (no theme segment at all) are exempt, since the 'which theme owns this' conflict this rule exists to catch cannot arise without multiple themes to arbitrate between.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "field_type_purity",
+      "category": "encapsulation",
+      "description": "api/ struct fields must be trait objects (Arc<dyn Trait> or Box<dyn Trait>) or value types — not concrete domain structs from other layers.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "types_no_trait_import",
+      "category": "encapsulation",
+      "description": "api/'s recognized data leaves (types/vo/errors/error, or whatever a repo configures via allowed_dir_names, excluding traits/) must not import from api/traits/ — VOs and DTOs are pure data; importing a domain trait signals the type carries behavior and belongs in core/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "theme_native_trait",
+      "category": "interface",
+      "description": "Every api/<theme>/ directory that has a types/ subdirectory must also have a traits/ subdirectory with at least one natively-declared pub trait (not a re-export).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_no_loose_rs_files",
+      "category": "package",
+      "description": "The api/ layer root must contain only mod.rs — no loose .rs files and no.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_unrecognized_leaf_dirs",
+      "category": "package",
+      "description": "api/ (or api/<domain>/) contains a well-known leaf directory (vo/, entity/, dto/, types/, traits/, errors/, error/) but [config.naming.layer.api] allowed_dir_names is not configured, so it is invisible to structural rules.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_terminal_leaf_no_subdir",
+      "category": "package",
+      "description": "The terminal leaf directories of the api/ layer (types/, traits/, errors/).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "core_implements_api_traits",
+      "category": "interface",
+      "description": "Every pub trait declared in api/ must have at least one `impl Trait for Struct` block in core/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "core_structs_have_trait",
+      "category": "interface",
+      "description": "Every core/ struct that exposes pub or pub(crate) methods must implement at least one trait declared in api/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "core_api_module_correspondence",
+      "category": "interface",
+      "description": "For every subdirectory under core/, there must be a corresponding module in api/ containing real trait or type declarations (not just re-exports).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_pub_items_have_doc_comments",
+      "category": "interface",
+      "description": "Every pub trait, every method in a pub trait, and every pub struct/enum in api/types/ or api/errors/ must have a `///` doc comment.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_foreign_type",
+      "category": "encapsulation",
+      "description": "api/ must not reference external crate types in type positions (struct fields, fn parameters, return types) — wrap them in a local newtype declared in api/types/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "trait_must_be_object_safe",
+      "category": "interface",
+      "description": "Every pub trait in api/ must have at least one `&self` or `&mut self` method to be usable as `dyn Trait` at runtime.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_factory_trait",
+      "category": "interface",
+      "description": "Traits named *Factory must not be declared as pub in api/ because they are static constructor namespaces, not injectable port contracts.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "trait_result_named_error",
+      "category": "interface",
+      "description": "The E in `Result<T, E>` for pub trait methods in api/ must be a named local error enum — String, &str, Box<dyn Error>, anyhow::Error, and eyre::Report are all banned.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "trait_result_named_response",
+      "category": "interface",
+      "description": "The T in `Result<T, E>` for pub trait methods in api/ should be a named struct from api/types/, not a primitive (String, u64, bool, etc.).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "result_both_sides_named",
+      "category": "interface",
+      "description": "In api/ trait methods returning `Result<T, E>`, BOTH T and E must be named local types — a mixed shape (named T, opaque E, or vice versa) is banned.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_method_returns_result",
+      "category": "interface",
+      "description": "Every `pub fn` with a `self` receiver in an api/ pub trait must return `Result<T, E>` — infallible signatures are banned because they hide the failure contract.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_method_takes_request",
+      "category": "interface",
+      "description": "Every `pub fn` with a `self` receiver in an api/ pub trait must accept exactly one parameter whose type ends with `Request`, declared in api/types/. A second parameter named `ctx`/`context` (configurable via `config.contract.context_param_names`, see #333) is exempted as a dispatch-context object and must come after the `*Request` parameter, not before it.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_response_type_named",
+      "category": "interface",
+      "description": "The T in `Result<T, E>` for pub trait methods in api/ must end with `Response` or be `()` for side-effect-only operations.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_dto_request_response_files_exist",
+      "category": "interface",
+      "description": "Every api/ trait method whose signature already satisfies api_method_takes_request and api_response_type_named must have a corresponding dto/<snake_case(TypeName)>.rs file for its request type and one for its response type.",
+      "result": {
+        "status": "fail",
+        "violations": [
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\backoff_scheduler.rs",
+            "message": "trait `BackoffScheduler::schedule` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ request file at 'main/src/api/retry/dto/backoff_schedule_request.rs' declaring `BackoffScheduleRequest`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/backoff_schedule_request.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/backoff_schedule_request.rs' declaring `BackoffScheduleRequest`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\backoff_scheduler.rs",
+            "message": "trait `BackoffScheduler::schedule` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ response file at 'main/src/api/retry/dto/schedule_response.rs' declaring `ScheduleResponse`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/schedule_response.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/schedule_response.rs' declaring `ScheduleResponse`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\config_builder_provider.rs",
+            "message": "trait `ConfigBuilderProvider::create_config_builder` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ request file at 'main/src/api/retry/dto/config_builder_request.rs' declaring `ConfigBuilderRequest`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/config_builder_request.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/config_builder_request.rs' declaring `ConfigBuilderRequest`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\config_builder_provider.rs",
+            "message": "trait `ConfigBuilderProvider::create_config_builder` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ response file at 'main/src/api/retry/dto/config_builder_response.rs' declaring `ConfigBuilderResponse`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/config_builder_response.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/config_builder_response.rs' declaring `ConfigBuilderResponse`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\jitter_rng.rs",
+            "message": "trait `JitterRng::next_unit` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ request file at 'main/src/api/retry/dto/next_unit_request.rs' declaring `NextUnitRequest`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/next_unit_request.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/next_unit_request.rs' declaring `NextUnitRequest`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\jitter_rng.rs",
+            "message": "trait `JitterRng::next_unit` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ response file at 'main/src/api/retry/dto/next_unit_response.rs' declaring `NextUnitResponse`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/next_unit_response.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/next_unit_response.rs' declaring `NextUnitResponse`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\retry_decorator.rs",
+            "message": "trait `RetryDecorator::describe_policy` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ request file at 'main/src/api/retry/dto/describe_policy_request.rs' declaring `DescribePolicyRequest`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/describe_policy_request.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/describe_policy_request.rs' declaring `DescribePolicyRequest`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\retry_decorator.rs",
+            "message": "trait `RetryDecorator::describe_policy` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ response file at 'main/src/api/retry/dto/describe_policy_response.rs' declaring `DescribePolicyResponse`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/describe_policy_response.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/describe_policy_response.rs' declaring `DescribePolicyResponse`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\retry_inspector.rs",
+            "message": "trait `RetryInspector::describe` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ request file at 'main/src/api/retry/dto/retry_inspect_request.rs' declaring `RetryInspectRequest`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/retry_inspect_request.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/retry_inspect_request.rs' declaring `RetryInspectRequest`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          },
+          {
+            "check_id": "api_dto_request_response_files_exist",
+            "path": "main\\src\\api\\retry\\traits\\retry_inspector.rs",
+            "message": "trait `RetryInspector::describe` has a `*Request`/`*Response`-shaped signature but no corresponding dto/ response file at 'main/src/api/retry/dto/retry_inspect_response.rs' declaring `RetryInspectResponse`",
+            "severity": "error",
+            "rule_type": "builtin:api_dto_request_response_files_exist",
+            "expected": "main/src/api/retry/dto/retry_inspect_response.rs",
+            "actual": "missing",
+            "fix_hint": "Create 'main/src/api/retry/dto/retry_inspect_response.rs' declaring `RetryInspectResponse`",
+            "depends_on": [
+              "api_method_takes_request",
+              "api_response_type_named"
+            ],
+            "llm_prompt": "WHAT: Every api/ trait method that already uses a *Request parameter and *Response success type must have those types declared in dto/<snake_case(TypeName)>.rs, only when this project has opted into the dto/ leaf via allowed_dir_names. The expected file is keyed by the TYPE name, not the method name.\n\nWHY: Request/Response type NAMING alone (api_method_takes_request / api_response_type_named) doesn't guarantee discoverability — a reader has to grep for the type. Filing it under a file named after the type it declares makes the correspondence locatable by path alone. Keying by type rather than method also handles legitimate sharing correctly: some methods intentionally reuse an identical *Request/*Response type (e.g. a shared zero-field UnitRequest marker used by many no-argument accessor methods, or a shared CheckResponse used by a family of boolean-check methods) — method-keyed naming would force duplicating that shared type's declaration once per method, which misrepresents it as method-specific data. Type-keyed naming means every method sharing a type is satisfied by the same single file, with zero special-case logic.\n\nBEFORE (violating, dto/ configured but files missing):\n  pub trait UserService {\n      fn create_user(&self, req: CreateUserRequest) -> Result<CreateUserResponse, UserError>;  // no dto/create_user_request.rs or dto/create_user_response.rs found\n  }\n\nAFTER (compliant):\n  // api/dto/create_user_request.rs\n  pub struct CreateUserRequest { pub name: String }\n  // api/dto/create_user_response.rs\n  pub struct CreateUserResponse { pub id: Uuid }\n\nSHARED-TYPE CASE (compliant, no duplication):\n  pub trait UserService {\n      fn active(&self, req: UnitRequest) -> Result<ActiveResponse, UserError>;\n      fn archived(&self, req: UnitRequest) -> Result<ArchivedResponse, UserError>;\n  }\n  // api/dto/unit_request.rs declares UnitRequest once — satisfies both methods.\n  // api/dto/active_response.rs and api/dto/archived_response.rs still each need\n  // their own file, since those response types are NOT shared.\n\nEDGE CASES:\n- This rule is a no-op (Skip) for any project that has not configured \"dto\" in allowed_dir_names — it never forces adoption.\n- Only methods that already pass api_method_takes_request and api_response_type_named are checked; this rule stays silent on methods that don't yet use the *Request/*Response naming convention at all.\n- Theme-grouped layouts (api/<theme>/traits/) expect api/<theme>/dto/, not a flat api/dto/.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "explicit_over_implicit",
+              "single_responsibility",
+              "locality_of_reference"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "api_error_type_named",
+      "category": "interface",
+      "description": "The E in `Result<T, E>` for pub trait methods in api/ must end with `Error` — non-`*Error` names obscure the failure contract.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_no_inherent_impl",
+      "category": "encapsulation",
+      "description": "api/ files must not contain impl blocks — api/ is a pure declaration layer (traits, types, error structs; no logic).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "encapsulation.package_access_violation",
+      "category": "encapsulation",
+      "description": "Only pub trait contracts from api/ may cross the crate boundary — lib.rs must delegate via saf/, saf/ must not re-export concrete types, and all layer mod paths must be private.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_pub_enum",
+      "category": "encapsulation",
+      "description": "Enums in api/ must be in api/types/ or be pub(crate) — a bare pub enum in the wrong subdirectory exposes an unsealed variant set to all downstream pattern matchers.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_type_alias_leaks_impl",
+      "category": "encapsulation",
+      "description": "Type aliases in api/ must not expose internal core/ types — use a newtype struct or opaque impl Trait instead of a transparent alias.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "saf_trait_svc_correspondence",
+      "category": "interface",
+      "description": "For every pub trait declared in api/, there must be a corresponding <trait_snake>_svc_factory.rs file in saf/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_trait_fn_scenario_coverage",
+      "category": "test_organization",
+      "description": "Every method on every pub trait in api/ must have three test functions in tests/: one _happy, one _error, and one _edge — exercised through a test-double implementation of the trait.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "impl_layer_mirrors_api_domains",
+      "category": "interface",
+      "description": "Every submodule declared in api/mod.rs must have a matching submodule declaration in core/mod.rs.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_orphan_src_files",
+      "category": "package",
+      "description": "No .rs files (other than lib.rs/main.rs) may sit directly at the.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "layers_no_free_standing_fn",
+      "category": "encapsulation",
+      "description": "SEA layer files must not contain free-standing fn — all functions must be methods on a type declared in api/ or the same layer.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "layer_module_no_underscore",
+      "category": "naming",
+      "description": "Directory names inside SEA layers (api/, core/, saf/, spi/, gateway/) must not contain underscores.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_pub_struct",
+      "category": "encapsulation",
+      "description": "api/ must not contain bare pub struct outside designated homes — api/error/ or api/<domain>/errors/ for error types; api/types/ or api/<domain>/types/ for value objects.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "has_traits_dir",
+      "category": "interface",
+      "description": "The api/ layer must contain at least one traits/ subdirectory holding real pub trait declarations.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "has_error_dir",
+      "category": "interface",
+      "description": "The api/ layer must contain at least one error/ subdirectory holding the crate's public error types.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "service_type_primary_trait_exists",
+      "category": "application_type",
+      "description": "`api/traits.rs` must contain a `pub trait <PrimaryTrait>` whose name matches the declared `service_type` (e.g. `service_type = 'validator'` → `pub trait Validator`).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "service_type_core_implements_trait",
+      "category": "application_type",
+      "description": "At least one struct in `core/` must implement the primary api trait declared for this crate's `service_type`.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "service_type_has_validator",
+      "category": "application_type",
+      "description": "Every non-orchestrator crate must declare a `pub trait Validator` in `api/traits.rs` that checks whether its input is structurally valid before the primary operation runs.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "deprecated_trait_usage",
+      "category": "conventions",
+      "description": "Deprecated traits in `api/traits.rs` are surfaced so they can be removed after consumers migrate to the replacement.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "pub_types_in_api_only",
+      "category": "encapsulation",
+      "description": "All public types (struct, enum, trait, type alias) must be declared in api/ — no other layer is a legal declaration site.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "sea_layers_no_crates",
+      "category": "package",
+      "description": "SEA layer directories (api/, core/, saf/, spi/) must not contain a.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "filename_matches_type",
+      "category": "naming",
+      "description": "Every public type, trait, or enum in api/ must live in its own file whose stem matches the type's snake_case name.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "no_default_prefix",
+      "category": "naming",
+      "description": "Files and types in api/ must not use the Default* prefix — that prefix is reserved for core/ implementation variants.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_module_declaration",
+      "category": "encapsulation",
+      "description": "lib.rs's `mod api;` declaration must match [config.naming.layer.api] module_declaration. Unconfigured (no compiled fallback, #317/#318) is not enforced -- Skip/Pass, not assumed private.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "api_layer_mirrors_core_domains",
+      "category": "structure",
+      "description": "Every domain subdirectory under core/ must have a matching subdirectory under api/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "spi_organization_follows_api",
+      "category": "structure",
+      "description": "Every domain subdirectory under api/ must have a matching subdirectory under spi/.",
+      "result": {
+        "status": "fail",
+        "violations": [
+          {
+            "check_id": "spi_organization_follows_api",
+            "path": null,
+            "message": "api/retry/ has no corresponding spi/retry/ domain",
+            "severity": "warning",
+            "rule_type": "builtin:spi_organization_follows_api",
+            "expected": "spi/retry/ exists",
+            "actual": "not found",
+            "fix_hint": "Create main/src/spi/retry/ to mirror api/retry/",
+            "llm_prompt": "WHAT: Every domain subdirectory under api/ must have a matching subdirectory under spi/.\n\nWHY: saf/'s counterpart check (`saf_layer_mirrors_api_domains`), applied to spi/: a published api/ domain that has no spi/ extension point means that domain can never be customized/extended, even if the contract was designed to support it.\n\nBEFORE (violating):\n  main/src/api/\n    scanner/       // pub trait Scanner\n  main/src/spi/\n    (no scanner/)  // ❌ — no extension point for it\n\nAFTER (compliant):\n  main/src/spi/\n    scanner/\n      mod.rs       // pub struct CustomScanner; impl Scanner for CustomScanner { ... }\n\nEDGE CASES:\n- Not every api/ domain is meant to be extensible -- if a domain genuinely has no spi/ counterpart by design, scope it out via [config.exclusions] rather than treating every api/ domain as requiring one.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "stratified_encapsulation",
+              "open_closed",
+              "separation_of_concerns"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "saf_implements_port_traits",
+      "category": "structure",
+      "description": "Every `impl Trait for Type` found in saf/ must implement a trait actually declared under api/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "saf_layer_mirrors_api_domains",
+      "category": "structure",
+      "description": "Every domain subdirectory under api/ must have a matching subdirectory under saf/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "saf_file_organization_matches_api",
+      "category": "structure",
+      "description": "Every non-mod.rs file under api/ should have a same-stem `*_svc_factory.rs` counterpart under saf/.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "one_type_per_file",
+      "category": "package",
+      "description": "Each public struct, trait, or enum must live in its own .rs file named.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "shared_prefix_grouping",
+      "category": "package",
+      "description": "Sibling .rs files sharing a common prefix must be grouped into a.",
+      "result": {
+        "status": "fail",
+        "violations": [
+          {
+            "check_id": "shared_prefix_grouping",
+            "path": "main\\src\\api\\retry\\types\\grpc_retry_client.rs",
+            "message": "5 files in main/src/api/retry/types/ share prefix 'grpc': grpc_retry_client, grpc_retry_config, grpc_retry_config_builder, grpc_retry_facade, grpc_retry_svc — group into main/src/api/retry/types/grpc/",
+            "severity": "warning",
+            "rule_type": "builtin:shared_prefix_grouping",
+            "expected": "Subdirectory module: main/src/api/retry/types/grpc/",
+            "actual": "grpc_retry_client, grpc_retry_config, grpc_retry_config_builder, grpc_retry_facade, grpc_retry_svc",
+            "fix_hint": "Create a subdirectory named after the shared prefix and move files into it (e.g., `check_runner.rs` → `check/runner.rs`)",
+            "llm_prompt": "WHAT: Sibling .rs files sharing a common prefix must be grouped into a\nsubdirectory named after that prefix.\n\nWHY: A shared prefix is a signal that the files form a cohesive concern.\nLeaving them as siblings obscures the grouping — the directory does not\ncommunicate what belongs together. Promoting them to a subdirectory makes\nthe module boundary explicit and discoverable.\n\nBEFORE (violating):\n  core/\n    check_runner.rs   // ❌ — shared prefix\n    check_result.rs   // ❌\n    check_config.rs   // ❌\n\nAFTER (compliant):\n  core/\n    check/\n      mod.rs          // pub(crate) mod runner; mod result; mod config;  ✅\n      runner.rs\n      result.rs\n      config.rs\n\nEDGE CASES:\n- Strip the prefix from the filename when moving: check_runner.rs → check/runner.rs.\n- If only two files share a prefix and one is a mod.rs, the grouping is already\n  correct; do not over-nest.\n- Update all `use crate::core::check_runner::` paths to `use crate::core::check::runner::`.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "locality_of_reference",
+              "separation_of_concerns"
+            ]
+          },
+          {
+            "check_id": "shared_prefix_grouping",
+            "path": "main\\src\\api\\retry\\types\\backoff_schedule.rs",
+            "message": "3 files in main/src/api/retry/types/ share prefix 'backoff': backoff_schedule, backoff_schedule_request, backoff_track — group into main/src/api/retry/types/backoff/",
+            "severity": "warning",
+            "rule_type": "builtin:shared_prefix_grouping",
+            "expected": "Subdirectory module: main/src/api/retry/types/backoff/",
+            "actual": "backoff_schedule, backoff_schedule_request, backoff_track",
+            "fix_hint": "Create a subdirectory named after the shared prefix and move files into it (e.g., `check_runner.rs` → `check/runner.rs`)",
+            "llm_prompt": "WHAT: Sibling .rs files sharing a common prefix must be grouped into a\nsubdirectory named after that prefix.\n\nWHY: A shared prefix is a signal that the files form a cohesive concern.\nLeaving them as siblings obscures the grouping — the directory does not\ncommunicate what belongs together. Promoting them to a subdirectory makes\nthe module boundary explicit and discoverable.\n\nBEFORE (violating):\n  core/\n    check_runner.rs   // ❌ — shared prefix\n    check_result.rs   // ❌\n    check_config.rs   // ❌\n\nAFTER (compliant):\n  core/\n    check/\n      mod.rs          // pub(crate) mod runner; mod result; mod config;  ✅\n      runner.rs\n      result.rs\n      config.rs\n\nEDGE CASES:\n- Strip the prefix from the filename when moving: check_runner.rs → check/runner.rs.\n- If only two files share a prefix and one is a mod.rs, the grouping is already\n  correct; do not over-nest.\n- Update all `use crate::core::check_runner::` paths to `use crate::core::check::runner::`.\n",
+            "remediation_strategy": "manual",
+            "principles": [
+              "locality_of_reference",
+              "separation_of_concerns"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "api_impl_public_tests_external",
+      "category": "test_organization",
+      "description": "Every public function in api/ must be verified by an external test file in tests/; inline #[cfg(test)] blocks in api/ source files are not sufficient for public functions.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "trait_has_test_file",
+      "category": "test_organization",
+      "description": "Every pub trait declared in api/traits.rs must have a corresponding test file in tests/ (e.g. tests/foo_int_test.rs for trait Foo).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "sea_layer_test_coverage",
+      "category": "test_organization",
+      "description": "Every source file in api/, core/, saf/, and spi/ must be covered by at least one of: inline #[cfg(test)] block, a matching test file, or a layer-level test file.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "pub_layer_tests_standalone",
+      "category": "test_organization",
+      "description": "Files in saf/ and api/ must not contain any #[cfg(test)] block — all tests for these layers must live in standalone tests/ files.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "int_test_no_core_import",
+      "category": "test_organization",
+      "description": "Test files for api/ and saf/ layers cannot `use crate::core::` or `use crate::spi::` directly — they must test through the public api:: interface.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "test_location_mutually_exclusive",
+      "category": "test_organization",
+      "description": "For each api/ domain, tests must exist in exactly one location: either api/<domain>/tests/ (colocated) or tests/<domain>_* (external) — never both.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "source_module_has_test_file",
+      "category": "test_organization",
+      "description": "Every .rs file under api/<domain>/traits/ (except mod.rs) must have a corresponding <trait>_e2e_test.rs in the configured test location. Stand-alone structural dirs (api/types/, api/errors/) are exempt.",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "colocated_test_mirrors_source_depth",
+      "category": "test_organization",
+      "description": "Colocated test files must live at api/<domain>/tests/<trait>_e2e_test.rs — never inside structural leaf directories (traits/tests/, types/tests/, errors/tests/).",
+      "result": {
+        "status": "pass"
+      }
+    },
+    {
+      "id": "structure_matches_app_type",
+      "category": "application_type",
+      "description": "The on-disk directory structure inside `main/src/` must match what the declared `application_type` requires.",
+      "result": {
+        "status": "pass"
+      }
+    }
+  ],
+  "summary": {
+    "total": 184,
+    "passed": 178,
+    "failed": 4,
+    "skipped": 2,
+    "duration_ms": 1228.1762999999999
+  },
+  "project_layout": "library",
+  "application_type": "lib",
+  "rule_labels": {
+    "core_structs_have_trait": [
+      "core",
+      "spi"
+    ],
+    "core_types_name_cohesive": [
+      "core",
+      "spi"
+    ],
+    "core_impl_name_has_trait_suffix": [
+      "core",
+      "spi"
+    ],
+    "core_filename_matches_type": [
+      "core",
+      "spi"
+    ],
+    "core_structs_not_pub": [
+      "core",
+      "spi"
+    ],
+    "no_traits_in_impl_layer": [
+      "core",
+      "spi"
+    ],
+    "no_loose_core_files": [
+      "core",
+      "spi"
+    ]
+  },
+  "active_filters": [
+    "halted_at=api"
+  ],
+  "gate_pipeline": [
+    {
+      "name": "project",
+      "status": "pass"
+    },
+    {
+      "name": "workspace",
+      "status": "skipped"
+    },
+    {
+      "name": "package",
+      "status": "pass"
+    },
+    {
+      "name": "api",
+      "status": "fail",
+      "violations": 4
+    },
+    {
+      "name": "core",
+      "status": "skipped"
+    },
+    {
+      "name": "spi",
+      "status": "skipped"
+    },
+    {
+      "name": "saf",
+      "status": "skipped"
+    },
+    {
+      "name": "gateway",
+      "status": "skipped"
+    }
+  ],
+  "halted_at": "api"
+}
