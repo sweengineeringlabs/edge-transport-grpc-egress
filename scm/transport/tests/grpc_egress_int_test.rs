@@ -14,7 +14,7 @@ use futures::stream;
 use http_body::Frame;
 use http_body_util::{BodyExt as _, Full, StreamBody};
 
-use edge_application::SecurityContext;
+use edge_security_runtime::SecurityContext;
 use edge_transport_grpc_egress_transport::{
     CallStreamRequest, CallUnaryWithContextRequest, GrpcChannelConfig, GrpcEgress, GrpcEgressError,
     GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode, HealthCheckRequest,

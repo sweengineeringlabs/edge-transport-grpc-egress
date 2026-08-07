@@ -48,7 +48,7 @@ tonic            = { version = "0.12", default-features = false, features = ["tr
 prost            = { version = "0.13", optional = true }
 tower            = { version = "0.4", features = ["util"] }
 swe-edge-loadbalancer  = { workspace = true }
-edge-application            = { workspace = true }
+edge-security-runtime = { workspace = true }
 tracing          = { workspace = true }
 
 [dev-dependencies]
