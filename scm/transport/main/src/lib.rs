@@ -25,7 +25,7 @@ pub use api::{
     ResilientGrpcClientPort, TraceContextGrpcEgressInterceptor, TraceContextSource, TransportSvc,
     ValidationRequest, Validator, DEFAULT_MAX_MESSAGE_BYTES,
 };
-pub use edge_application::SecurityContext;
+pub use edge_security_runtime::SecurityContext;
 pub use saf::{
     GrpcEgressFactory, GrpcEgressInterceptorFactory, ProcessorFactory, ResilienceValidatorFactory,
     ResilientGrpcClientPortFactory, TransportConstruction, ValidatorFactory,

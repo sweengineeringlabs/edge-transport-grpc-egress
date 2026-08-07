@@ -1,6 +1,6 @@
 //! Integration tests for `CallUnaryWithContextRequest`.
 
-use edge_application::SecurityContext;
+use edge_security_runtime::SecurityContext;
 use edge_transport_grpc_egress_transport::{CallUnaryWithContextRequest, GrpcRequest};
 
 /// @covers: CallUnaryWithContextRequest

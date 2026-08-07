@@ -19,7 +19,7 @@ unwrap_used = "deny"
 expect_used = "deny"
 
 [workspace.dependencies]
-edge-application            = { git = "https://github.com/sweengineeringlabs/edge-application.git", tag = "v0.20.0", features = ["security"] }
+edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
 swe-edge-security      = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22", package = "edge-security-transport-egress-grpc" }
 edge-transport-grpc-egress             = { package = "edge-transport-grpc-egress-transport", path = "transport" }
