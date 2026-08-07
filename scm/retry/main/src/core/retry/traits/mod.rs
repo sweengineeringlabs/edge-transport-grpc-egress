@@ -3,4 +3,3 @@
 pub(crate) mod config_builder_provider;
 pub(crate) mod default_processor;
 pub(crate) mod grpc_retry_facade;
-pub(crate) mod jitter_rng;

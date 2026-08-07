@@ -6,11 +6,12 @@ use edge_transport_grpc_egress::{
 };
 use futures::future::BoxFuture;
 
-use crate::api::{
-    Admission, AdmitRequest, BreakerTransition, GrpcBreakerClient, RecordOutcomeRequest,
-    BREAKER_EGRESS_LOG_PREFIX,
+use edge_transport_breaker::DefaultBreakerTransition;
+use edge_transport_breaker_policy::{
+    Admission, AdmitRequest, BreakerTransition, RecordOutcomeRequest,
 };
-use crate::core::breaker::breaker_transition::DefaultBreakerTransition;
+
+use crate::api::{GrpcBreakerClient, BREAKER_EGRESS_LOG_PREFIX};
 use crate::core::breaker::failure_classifier::DefaultFailureClassifier;
 
 impl<T: GrpcEgress + Send + Sync + 'static> GrpcEgress for GrpcBreakerClient<T> {
@@ -21,7 +22,7 @@ impl<T: GrpcEgress + Send + Sync + 'static> GrpcEgress for GrpcBreakerClient<T> 
                 state: node_snapshot.state,
                 consecutive_failures: node_snapshot.consecutive_failures,
                 consecutive_successes: node_snapshot.consecutive_successes,
-                config: (*self.config).clone(),
+                config: (*self.config).clone().into(),
             }) {
                 Ok(resp) => resp,
                 // BreakerDomainError is never actually constructed by admit();
@@ -63,7 +64,7 @@ impl<T: GrpcEgress + Send + Sync + 'static> GrpcEgress for GrpcBreakerClient<T> 
                         state: node_snapshot.state,
                         consecutive_failures: node_snapshot.consecutive_failures,
                         consecutive_successes: node_snapshot.consecutive_successes,
-                        config: (*self.config).clone(),
+                        config: (*self.config).clone().into(),
                         outcome,
                     }) {
                         Ok(resp) => resp,

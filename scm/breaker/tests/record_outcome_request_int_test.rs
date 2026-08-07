@@ -11,7 +11,7 @@ fn test_record_outcome_request_success_happy() {
         state: BreakerState::Closed,
         consecutive_failures: 0,
         consecutive_successes: 1,
-        config: GrpcBreakerConfig::default(),
+        config: GrpcBreakerConfig::default().into(),
         outcome: Outcome::Success,
     };
     assert_eq!(req.outcome, Outcome::Success);
@@ -24,7 +24,7 @@ fn test_record_outcome_request_failure_error() {
         state: BreakerState::Closed,
         consecutive_failures: 3,
         consecutive_successes: 0,
-        config: GrpcBreakerConfig::default(),
+        config: GrpcBreakerConfig::default().into(),
         outcome: Outcome::Failure,
     };
     assert_eq!(req.outcome, Outcome::Failure);
@@ -37,7 +37,7 @@ fn test_record_outcome_request_half_open_state_edge() {
         state: BreakerState::HalfOpen,
         consecutive_failures: 0,
         consecutive_successes: 0,
-        config: GrpcBreakerConfig::default(),
+        config: GrpcBreakerConfig::default().into(),
         outcome: Outcome::Success,
     };
     assert!(matches!(req.state, BreakerState::HalfOpen));

@@ -1,15 +1,16 @@
-//! `impl BackoffScheduler for DefaultBackoffScheduler` — delegates to the
-//! existing [`BackoffScheduler`](crate::core::retry::backoff::backoff_scheduler::BackoffScheduler)
-//! static computation so the two never drift apart.
+//! `impl BackoffScheduler for DefaultBackoffScheduler` — delegates to
+//! `edge_transport_retry::BackoffScheduler` (moved per ADR-003/ADR-004) so the two never drift
+//! apart.
 
 use tracing::trace;
+
+use edge_transport_retry::BackoffScheduler as BackoffComputation;
 
 use crate::api::BackoffScheduleRequest;
 use crate::api::BackoffTrack;
 use crate::api::Error;
 use crate::api::ScheduleResponse;
 use crate::api::BACKOFF_SCHEDULER_LOG_TARGET;
-use crate::core::retry::backoff::backoff_scheduler::BackoffScheduler as BackoffComputation;
 
 /// Default [`crate::api::BackoffScheduler`] implementation.
 pub(crate) struct DefaultBackoffScheduler;

@@ -9,9 +9,9 @@ use edge_transport_grpc_egress::{
 use futures::future::BoxFuture;
 use tracing::{debug, trace, warn};
 
+use edge_transport_retry::{BackoffScheduler, DefaultJitterRng};
+
 use crate::api::{GrpcRetryClient, RetryDecision};
-use crate::core::retry::backoff::backoff_scheduler::BackoffScheduler;
-use crate::core::retry::traits::jitter_rng::DefaultJitterRng;
 
 impl<T: GrpcEgress + Send + Sync + 'static> GrpcEgress for GrpcRetryClient<T> {
     fn call_unary(&self, request: GrpcRequest) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
@@ -88,7 +88,7 @@ impl<T: GrpcEgress + Send + Sync + 'static> GrpcRetryClient<T> {
                     }
 
                     let sleep_for = BackoffScheduler::next_backoff(
-                        &self.config,
+                        self.config.as_ref(),
                         standard_attempt,
                         rng.next_unit(),
                     );
@@ -121,7 +121,7 @@ impl<T: GrpcEgress + Send + Sync + 'static> GrpcRetryClient<T> {
                     });
 
                     let sleep_for = BackoffScheduler::rate_limit_backoff(
-                        &self.config,
+                        self.config.as_ref(),
                         rate_lim_attempt,
                         hint,
                         rng.next_unit(),

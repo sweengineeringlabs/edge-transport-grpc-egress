@@ -38,6 +38,16 @@ impl GrpcBreakerConfig {
     }
 }
 
+impl From<GrpcBreakerConfig> for edge_transport_breaker_policy::BreakerConfig {
+    fn from(cfg: GrpcBreakerConfig) -> Self {
+        Self {
+            failure_threshold: cfg.failure_threshold,
+            cool_down_seconds: cfg.cool_down_seconds,
+            half_open_probe_count: cfg.half_open_probe_count,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
