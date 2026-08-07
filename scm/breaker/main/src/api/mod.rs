@@ -16,8 +16,8 @@ pub use breaker::{
     GrpcBreakerClient, GrpcBreakerConfig, GrpcBreakerFacade, GrpcBreakerSvc, ObserveStateRequest,
     ObserveStateResponse, Outcome, Processor, RecordOutcomeRequest, RecordOutcomeResponse,
     Validator, WrapBreakerRequest, WrapBreakerResponse, BREAKER_DECORATOR_LABEL,
-    BREAKER_EGRESS_LOG_PREFIX, BREAKER_TRANSITION_LOG_TARGET, CONFIG_BUILDER_PROVIDER_SECTION,
-    FAILURE_CLASSIFIER_LOG_TARGET, GRPC_BREAKER_CLIENT_LOG_TARGET,
+    BREAKER_EGRESS_LOG_PREFIX, CONFIG_BUILDER_PROVIDER_SECTION, FAILURE_CLASSIFIER_LOG_TARGET,
+    GRPC_BREAKER_CLIENT_LOG_TARGET,
 };
 
 pub(crate) use breaker::BreakerNode;

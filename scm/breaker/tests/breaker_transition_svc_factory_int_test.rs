@@ -14,7 +14,7 @@ fn test_create_produces_a_working_transition_happy() {
             state: BreakerState::Closed,
             consecutive_failures: 0,
             consecutive_successes: 0,
-            config: GrpcBreakerConfig::default(),
+            config: GrpcBreakerConfig::default().into(),
         })
         .expect("factory-produced transition must admit successfully");
     assert_eq!(resp.admission, Admission::Proceed);
@@ -31,7 +31,7 @@ fn test_create_rejects_when_open_error() {
             },
             consecutive_failures: 5,
             consecutive_successes: 0,
-            config: GrpcBreakerConfig::default(),
+            config: GrpcBreakerConfig::default().into(),
         })
         .expect("admit is infallible");
     assert_eq!(resp.admission, Admission::RejectOpen);
@@ -47,7 +47,7 @@ fn test_create_produces_independent_instances_edge() {
             state: BreakerState::Closed,
             consecutive_failures: 0,
             consecutive_successes: 0,
-            config: GrpcBreakerConfig::default(),
+            config: GrpcBreakerConfig::default().into(),
         })
         .expect("first must admit");
     let resp2 = second
@@ -55,7 +55,7 @@ fn test_create_produces_independent_instances_edge() {
             state: BreakerState::Closed,
             consecutive_failures: 0,
             consecutive_successes: 0,
-            config: GrpcBreakerConfig::default(),
+            config: GrpcBreakerConfig::default().into(),
         })
         .expect("second must admit");
     assert_eq!(resp1.admission, resp2.admission);

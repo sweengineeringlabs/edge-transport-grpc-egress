@@ -23,6 +23,8 @@ path = "main/src/lib.rs"
 
 [dependencies]
 edge-transport-grpc-egress = { workspace = true }
+edge-transport-retry-policy = { workspace = true }
+edge-transport-retry        = { workspace = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
 # `from_config` loads policy from TOML. `serde` derives the

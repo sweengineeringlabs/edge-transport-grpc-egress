@@ -752,6 +752,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-transport-breaker"
+version = "0.1.1"
+source = "git+https://github.com/sweengineeringlabs/edge-transport-breaker.git?tag=v0.1.1#0a3b8d1fe731a640ffb236e0eefd40fdcdaf551c"
+dependencies = [
+ "edge-transport-breaker-policy",
+ "tracing",
+]
+
+[[package]]
+name = "edge-transport-breaker-policy"
+version = "0.1.1"
+source = "git+https://github.com/sweengineeringlabs/edge-transport-breaker.git?tag=v0.1.1#0a3b8d1fe731a640ffb236e0eefd40fdcdaf551c"
+dependencies = [
+ "thiserror 2.0.19",
+]
+
+[[package]]
 name = "edge-transport-grpc-egress-auth-bearer"
 version = "0.5.0"
 dependencies = [
@@ -770,6 +787,8 @@ dependencies = [
 name = "edge-transport-grpc-egress-breaker"
 version = "0.5.0"
 dependencies = [
+ "edge-transport-breaker",
+ "edge-transport-breaker-policy",
  "edge-transport-grpc-egress-transport",
  "futures",
  "serde",
@@ -800,6 +819,8 @@ name = "edge-transport-grpc-egress-retry"
 version = "0.5.0"
 dependencies = [
  "edge-transport-grpc-egress-transport",
+ "edge-transport-retry",
+ "edge-transport-retry-policy",
  "futures",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
@@ -834,6 +855,22 @@ dependencies = [
  "tonic",
  "tower 0.4.13",
  "tracing",
+]
+
+[[package]]
+name = "edge-transport-retry"
+version = "0.1.0"
+source = "git+https://github.com/sweengineeringlabs/edge-transport-retry.git?tag=v0.1.0#7e72740e59aaf825e575a3ef485385c0fd91918c"
+dependencies = [
+ "edge-transport-retry-policy",
+]
+
+[[package]]
+name = "edge-transport-retry-policy"
+version = "0.1.0"
+source = "git+https://github.com/sweengineeringlabs/edge-transport-retry.git?tag=v0.1.0#7e72740e59aaf825e575a3ef485385c0fd91918c"
+dependencies = [
+ "thiserror 2.0.19",
 ]
 
 [[package]]

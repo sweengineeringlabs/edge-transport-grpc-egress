@@ -3,7 +3,6 @@
 
 pub mod breaker_decorator;
 pub mod breaker_egress;
-pub mod breaker_transition;
 pub mod config_builder_provider;
 pub mod errors;
 pub mod failure_classifier;
@@ -13,7 +12,6 @@ pub mod types;
 
 pub use breaker_decorator::BREAKER_DECORATOR_LABEL;
 pub use breaker_egress::BREAKER_EGRESS_LOG_PREFIX;
-pub use breaker_transition::BREAKER_TRANSITION_LOG_TARGET;
 pub use config_builder_provider::CONFIG_BUILDER_PROVIDER_SECTION;
 pub use failure_classifier::FAILURE_CLASSIFIER_LOG_TARGET;
 pub use grpc::GRPC_BREAKER_CLIENT_LOG_TARGET;

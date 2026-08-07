@@ -12,7 +12,6 @@
 
 pub mod backoff_scheduler;
 pub mod config_builder_provider;
-pub mod jitter_rng;
 pub mod processor;
 pub mod retry_decorator;
 pub mod retry_inspector;
@@ -20,8 +19,10 @@ pub mod validator;
 
 pub use backoff_scheduler::BackoffScheduler;
 pub use config_builder_provider::ConfigBuilderProvider;
-pub use jitter_rng::JitterRng;
 pub use processor::Processor;
 pub use retry_decorator::RetryDecorator;
 pub use retry_inspector::RetryInspector;
 pub use validator::Validator;
+
+// Moved to edge-transport-retry-policy (ADR-003/ADR-004).
+pub use edge_transport_retry_policy::JitterRng;

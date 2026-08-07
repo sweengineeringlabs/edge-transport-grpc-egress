@@ -27,7 +27,11 @@ impl<T> GrpcBreakerClient<T> {
         Self {
             inner,
             config: Arc::new(config),
-            node: Arc::new(Mutex::new(BreakerNode::new())),
+            node: Arc::new(Mutex::new(BreakerNode {
+                state: BreakerState::Closed,
+                consecutive_failures: 0,
+                consecutive_successes: 0,
+            })),
         }
     }
 

@@ -27,6 +27,38 @@ impl swe_edge_configbuilder::ConfigSection for GrpcRetryConfig {
     }
 }
 
+impl edge_transport_retry_policy::BackoffPolicy for GrpcRetryConfig {
+    fn initial_backoff_ms(&self) -> u64 {
+        self.initial_backoff_ms
+    }
+
+    fn max_backoff_ms(&self) -> u64 {
+        self.max_backoff_ms
+    }
+
+    fn backoff_multiplier(&self) -> f64 {
+        self.backoff_multiplier
+    }
+
+    fn jitter_factor(&self) -> f64 {
+        self.jitter_factor
+    }
+}
+
+impl edge_transport_retry_policy::RateLimitBackoffPolicy for GrpcRetryConfig {
+    fn rate_limit_max_attempts(&self) -> u32 {
+        self.rate_limit_max_attempts
+    }
+
+    fn rate_limit_initial_backoff_ms(&self) -> u64 {
+        self.rate_limit_initial_backoff_ms
+    }
+
+    fn rate_limit_max_backoff_ms(&self) -> u64 {
+        self.rate_limit_max_backoff_ms
+    }
+}
+
 impl GrpcRetryConfig {
     /// Parse a config from TOML text.
     ///
