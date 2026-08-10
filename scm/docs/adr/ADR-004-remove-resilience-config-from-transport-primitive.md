@@ -1,6 +1,6 @@
 # ADR-004: Remove Resilience Config Primitive From the Transport Crate
 
-**Status:** Proposed
+**Status:** Accepted (amended 2026-08-10 — see Amendment: one-composer / decorator)
 **Date:** 2026-08-07
 **See also:** [ADR-003](ADR-003-extract-retry-breaker-to-shared-crates.md) (this repo),
 [edge-transport-http-egress ADR-005](https://github.com/sweengineeringlabs/edge-transport-http-egress/blob/dev/scm/docs/adr/ADR-005-retry-breaker-composition-moves-out-of-transport.md)
@@ -62,3 +62,39 @@ nothing to do with sending bytes over a gRPC channel.
   `transport` alone no longer touches anything resilience-shaped.
 - No sequencing dependency on ADR-003's shared-crate extraction — this can land independently,
   before or after.
+
+---
+
+## Amendment (2026-08-10): one composer — retire the composing facade, expose a decorator
+
+The original decision above removes the resilience *config* from `transport` but **keeps**
+`edge-transport-grpc-egress-resilient`'s `create_resilient_transport_from_config` — the facade that
+builds the base gRPC client *and* wraps it (`base → GrpcRetryClient → GrpcBreakerClient`). This
+amendment extends ADR-004: that facade is a **composing library** (a library assembling a finished
+client), which the wider `edge` architecture forbids.
+
+**Principle (confirmed with the repo owner; established on the HTTP side — edge-bootstrap ADR-008,
+edge-transport-http-egress#28/#29/#37/#38):** there is exactly **one composer**, `edge-bootstrap`'s
+`RuntimeBuilder`. Libraries expose *primitives* — a bare transport, and a *decorator* — never a
+composed result. The HTTP `resilient` crate models this: it exposes `DefaultResilientLayers.apply_defaults`,
+a decorator applied to an already-built client by the composition root. The gRPC `resilient` crate must
+do the same.
+
+### Additional changes (supersede "keep the facade")
+
+- `edge-transport-grpc-egress-resilient` exposes a public **decorator**: wrap an already-built
+  `Arc<dyn GrpcEgress>` in retry + breaker — e.g.
+  `apply_resilience(inner: Arc<dyn GrpcEgress>, cfg: ResilienceConfig) -> Arc<dyn GrpcEgress>`.
+  `GrpcRetryClient`/`GrpcBreakerClient` (today `pub(crate)`) and their configs become public, with
+  SWE-default values.
+- `create_resilient_transport_from_config` (base-building facade) is **removed**. The composition root
+  builds the base via `transport::create_transport_from_config` and applies the decorator itself.
+- The resilience config type still lands in `resilient` (Layer 1 above), now consumed by the decorator
+  rather than the facade.
+
+### Consumer
+
+`edge-bootstrap`'s `RuntimeBuilder` composes gRPC egress = bare client + resilient decorator, alongside
+its HTTP equivalent — one composer, both protocols. Tracked: edge-transport-grpc-egress#14 (Layer 2),
+edge-bootstrap#39. This also makes gRPC egress resilient in bootstrap for the first time (today it calls
+the bare path and silently gets no retry/breaker).
