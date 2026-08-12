@@ -8,6 +8,5 @@ pub(crate) mod egress_interceptor_chain;
 pub(crate) mod keep_alive_config;
 pub(crate) mod mtls_config;
 pub(crate) mod request;
-pub(crate) mod resilience;
 pub(crate) mod trace_context_grpc_egress_interceptor;
 pub(crate) mod transport_svc;

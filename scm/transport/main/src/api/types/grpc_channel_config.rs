@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use crate::api::types::compression_mode::CompressionMode;
 use crate::api::types::keep_alive_config::KeepAliveConfig;
 use crate::api::types::mtls_config::MtlsConfig;
-use crate::api::types::resilience_config_resilience_validator::ResilienceConfigResilienceValidator;
 
 /// Default ceiling for inbound message bytes (4 MiB).
 pub const DEFAULT_MAX_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
@@ -33,13 +32,6 @@ pub struct GrpcChannelConfig {
     pub max_message_bytes: usize,
     /// Compression mode for outbound payloads.
     pub compression: CompressionMode,
-    /// Optional retry + circuit breaker policy.
-    ///
-    /// When `Some`, [`crate::saf::TransportConstruction::create_transport_from_config`] wraps the
-    /// bare transport in a [`crate::ResilientGrpcClient`] (retry + circuit
-    /// breaker). When `None`, the transport is returned unwrapped.
-    #[serde(default)]
-    pub resilience: Option<ResilienceConfigResilienceValidator>,
     /// Client-side fallback timeout in seconds.
     ///
     /// Applied as a `tokio::time::timeout` backstop on each request, independent

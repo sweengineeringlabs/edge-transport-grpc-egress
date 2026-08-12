@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use edge_transport_grpc_egress::{GrpcChannelConfig, GrpcEgress, TransportConstruction};
-use edge_transport_grpc_egress_breaker::{GrpcBreakerClient, GrpcBreakerConfig};
-use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig};
+use edge_transport_grpc_egress::GrpcEgress;
+use edge_transport_grpc_egress_breaker::GrpcBreakerFacade;
+use edge_transport_grpc_egress_retry::GrpcRetryFacade;
 
 use crate::api::{
     ApplicationConfigBuilder, ConfigBuilderProvider, ConfigBuilderRequest, ConfigValidationRequest,
@@ -23,42 +23,23 @@ impl GrpcResilientFacade {
             .builder)
     }
 
-    /// Build a resilient outbound gRPC transport from a [`GrpcChannelConfig`].
+    /// Wrap an already-built, bare `inner` transport in the retry then
+    /// circuit-breaker decorators, driven by `config`.
     ///
-    /// When `config.resilience` is `Some`, wraps the base transport in a
-    /// [`GrpcRetryClient`] then a [`GrpcBreakerClient`].
-    pub fn create_resilient_transport_from_config(
-        config: &GrpcChannelConfig,
+    /// This is a decorator only — it never builds the base transport. The
+    /// composition root builds `inner` itself (e.g. via `transport`'s
+    /// `create_tonic_client_from_config`) and applies this on top, per the
+    /// one-composer model (ADR-004 amendment, edge-bootstrap ADR-008/010).
+    pub fn apply_resilience<T: GrpcEgress + Send + Sync + 'static>(
+        inner: T,
+        config: ResilienceConfig,
     ) -> Result<Arc<dyn GrpcEgress>, ResilientTransportError> {
-        let base = TransportConstruction::create_tonic_client_from_config(config)?;
+        DefaultValidator.validate(ConfigValidationRequest {
+            config: config.clone(),
+        })?;
 
-        match &config.resilience {
-            None => Ok(Arc::new(base)),
-            Some(r) => {
-                DefaultValidator.validate(ConfigValidationRequest {
-                    config: ResilienceConfig(r.clone()),
-                })?;
-
-                let retry_cfg = GrpcRetryConfig {
-                    max_attempts: r.max_attempts,
-                    initial_backoff_ms: r.initial_backoff_ms,
-                    backoff_multiplier: r.backoff_multiplier,
-                    jitter_factor: r.jitter_factor,
-                    max_backoff_ms: r.max_backoff_ms,
-                    rate_limit_max_attempts: r.rate_limit_max_attempts,
-                    rate_limit_initial_backoff_ms: r.rate_limit_initial_backoff_ms,
-                    rate_limit_max_backoff_ms: r.rate_limit_max_backoff_ms,
-                };
-                let breaker_cfg = GrpcBreakerConfig {
-                    failure_threshold: r.failure_threshold,
-                    cool_down_seconds: r.cool_down_seconds,
-                    half_open_probe_count: r.half_open_probe_count,
-                };
-
-                let with_retry = GrpcRetryClient::new(base, retry_cfg);
-                let with_breaker = GrpcBreakerClient::new(with_retry, breaker_cfg);
-                Ok(Arc::new(with_breaker))
-            }
-        }
+        let with_retry = GrpcRetryFacade::wrap_retry(inner, config.to_retry_config());
+        let with_breaker = GrpcBreakerFacade::wrap_breaker(with_retry, config.to_breaker_config())?;
+        Ok(with_breaker)
     }
 }

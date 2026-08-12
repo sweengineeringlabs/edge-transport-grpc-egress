@@ -1,7 +1,5 @@
-//! `impl Validator for DefaultValidator` — delegates to the transport
-//! crate's own `ResilienceConfig::validate` so the two never drift apart.
-
-use edge_transport_grpc_egress::TransportSvc;
+//! `impl Validator for DefaultValidator` — validates this crate's own
+//! [`crate::api::ResilienceConfig`], the sole owner of this shape (ADR-004).
 
 use crate::api::{ConfigValidationRequest, ResilientTransportError, Validator};
 
@@ -10,8 +8,7 @@ pub(crate) struct DefaultValidator;
 
 impl Validator for DefaultValidator {
     fn validate(&self, req: ConfigValidationRequest) -> Result<(), ResilientTransportError> {
-        TransportSvc::validate_resilience_config(&req.config.0)
-            .map_err(|e| ResilientTransportError::InvalidResilience(e.to_string()))
+        req.config.validate()
     }
 }
 
@@ -20,8 +17,8 @@ mod tests {
     use super::*;
     use crate::api::ResilienceConfig;
 
-    fn valid() -> edge_transport_grpc_egress::ResilienceConfigResilienceValidator {
-        edge_transport_grpc_egress::ResilienceConfigResilienceValidator {
+    fn valid() -> ResilienceConfig {
+        ResilienceConfig {
             max_attempts: 3,
             initial_backoff_ms: 10,
             backoff_multiplier: 2.0,
@@ -39,9 +36,7 @@ mod tests {
     #[test]
     fn test_validate_valid_config_returns_ok() {
         assert!(DefaultValidator
-            .validate(ConfigValidationRequest {
-                config: ResilienceConfig(valid())
-            })
+            .validate(ConfigValidationRequest { config: valid() })
             .is_ok());
         // Sibling negative case in the same test: a single field flipped to
         // invalid on an otherwise-valid config must fail, proving is_ok()
@@ -49,9 +44,7 @@ mod tests {
         let mut invalid = valid();
         invalid.max_attempts = 0;
         assert!(DefaultValidator
-            .validate(ConfigValidationRequest {
-                config: ResilienceConfig(invalid)
-            })
+            .validate(ConfigValidationRequest { config: invalid })
             .is_err());
     }
 
@@ -60,9 +53,7 @@ mod tests {
         let mut cfg = valid();
         cfg.max_attempts = 0;
         let err = DefaultValidator
-            .validate(ConfigValidationRequest {
-                config: ResilienceConfig(cfg),
-            })
+            .validate(ConfigValidationRequest { config: cfg })
             .unwrap_err();
         assert!(matches!(err, ResilientTransportError::InvalidResilience(_)));
     }

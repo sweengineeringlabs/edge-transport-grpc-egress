@@ -11,9 +11,7 @@
 //! new core/grpc/ directory.
 
 use crate::api::{CompressionMode, GrpcChannelConfig, DEFAULT_MAX_MESSAGE_BYTES};
-use crate::api::{
-    GrpcChannelConfigBuilder, KeepAliveConfig, MtlsConfig, ResilienceConfigResilienceValidator,
-};
+use crate::api::{GrpcChannelConfigBuilder, KeepAliveConfig, MtlsConfig};
 
 impl GrpcChannelConfig {
     /// Construct a TLS-required channel for `endpoint`.
@@ -25,7 +23,6 @@ impl GrpcChannelConfig {
             keep_alive: None,
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
             compression: CompressionMode::None,
-            resilience: None,
             request_timeout_secs: None,
         }
     }
@@ -60,12 +57,6 @@ impl GrpcChannelConfig {
         self
     }
 
-    /// Attach a resilience policy (retry + circuit breaker).
-    pub fn with_resilience(mut self, policy: ResilienceConfigResilienceValidator) -> Self {
-        self.resilience = Some(policy);
-        self
-    }
-
     /// Set the client-side fallback request timeout.
     ///
     /// This backstop is applied on every request via `tokio::time::timeout`,
@@ -89,7 +80,6 @@ impl Default for GrpcChannelConfig {
             keep_alive: None,
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
             compression: CompressionMode::None,
-            resilience: None,
             request_timeout_secs: None,
         }
     }
@@ -133,11 +123,6 @@ impl GrpcChannelConfigBuilder {
         self.compression = Some(v);
         self
     }
-    /// Set the resilience (retry/circuit-breaker) configuration.
-    pub fn resilience(mut self, v: ResilienceConfigResilienceValidator) -> Self {
-        self.resilience = Some(v);
-        self
-    }
 
     /// Build the [`GrpcChannelConfig`]. Returns `Err` when endpoint is unset.
     pub fn build(self) -> Result<GrpcChannelConfig, String> {
@@ -148,7 +133,6 @@ impl GrpcChannelConfigBuilder {
         cfg.keep_alive = self.keep_alive;
         cfg.max_message_bytes = self.max_message_bytes.unwrap_or(DEFAULT_MAX_MESSAGE_BYTES);
         cfg.compression = self.compression.unwrap_or(CompressionMode::None);
-        cfg.resilience = self.resilience;
         Ok(cfg)
     }
 }

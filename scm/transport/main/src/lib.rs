@@ -14,21 +14,19 @@ mod spi;
 pub use api::GrpcEgressProstCodec;
 pub use api::{
     AfterCallRequest, ApplicationConfigBuilder, CallStreamRequest, CallUnaryWithContextRequest,
-    CircuitStateRequest, CircuitStateResponse, CompressionMode, ConfigValidationRequest,
-    ConsecutiveFailuresRequest, ConsecutiveFailuresResponse, Conversions, DescribeRequest,
-    DescribeResponse, GrpcChannelConfig, GrpcChannelConfigBuilder, GrpcChannelConfigError,
-    GrpcClientBuilder, GrpcEgress, GrpcEgressError, GrpcEgressInterceptor,
-    GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
-    GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest, KeepAliveConfig,
-    LastErrorRequest, LastErrorResponse, MtlsConfig, ProcessingRequest, Processor,
-    ResilienceConfigBuilder, ResilienceConfigResilienceValidator, ResilienceValidator,
-    ResilientGrpcClientPort, TraceContextGrpcEgressInterceptor, TraceContextSource, TransportSvc,
-    ValidationRequest, Validator, DEFAULT_MAX_MESSAGE_BYTES,
+    CircuitStateRequest, CircuitStateResponse, CompressionMode, ConsecutiveFailuresRequest,
+    ConsecutiveFailuresResponse, Conversions, DescribeRequest, DescribeResponse, GrpcChannelConfig,
+    GrpcChannelConfigBuilder, GrpcChannelConfigError, GrpcClientBuilder, GrpcEgress,
+    GrpcEgressError, GrpcEgressInterceptor, GrpcEgressInterceptorChain, GrpcEgressResult,
+    GrpcMessageStreamResponse, GrpcRequest, GrpcRequestBuilder, GrpcResponse, GrpcStatusCode,
+    HealthCheckRequest, KeepAliveConfig, LastErrorRequest, LastErrorResponse, MtlsConfig,
+    ProcessingRequest, Processor, ResilientGrpcClientPort, TraceContextGrpcEgressInterceptor,
+    TraceContextSource, TransportSvc, DEFAULT_MAX_MESSAGE_BYTES,
 };
 pub use edge_security_runtime::SecurityContext;
 pub use saf::{
-    GrpcEgressFactory, GrpcEgressInterceptorFactory, ProcessorFactory, ResilienceValidatorFactory,
-    ResilientGrpcClientPortFactory, TransportConstruction, ValidatorFactory,
+    GrpcEgressFactory, GrpcEgressInterceptorFactory, ProcessorFactory,
+    ResilientGrpcClientPortFactory, TransportConstruction,
 };
 pub use swe_edge_loadbalancer::{BackendConfig, BackendPoolInstance, LoadbalancerConfig, Strategy};
 

@@ -13,23 +13,17 @@ use std::sync::{
 use std::time::Duration;
 
 use edge_transport_grpc_egress::{
-    GrpcChannelConfig, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse,
-    GrpcStatusCode, HealthCheckRequest, ResilienceConfigResilienceValidator,
+    GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    HealthCheckRequest,
 };
 use edge_transport_grpc_egress_breaker::{BreakerState, GrpcBreakerClient, GrpcBreakerConfig};
-use edge_transport_grpc_egress_resilient::{GrpcResilientFacade, ResilientTransportError};
+use edge_transport_grpc_egress_resilient::{
+    GrpcResilientFacade, ResilienceConfig, ResilientTransportError,
+};
 use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig};
 use futures::future::BoxFuture;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-
-fn ensure_tls_provider() {
-    use std::sync::Once;
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-    });
-}
 
 fn ok_response() -> GrpcEgressResult<GrpcResponse> {
     Ok(GrpcResponse {
@@ -63,8 +57,8 @@ fn req() -> GrpcRequest {
     GrpcRequest::new("svc/Method", vec![], Duration::from_secs(10))
 }
 
-fn valid_resilience() -> ResilienceConfigResilienceValidator {
-    ResilienceConfigResilienceValidator {
+fn valid_resilience() -> ResilienceConfig {
+    ResilienceConfig {
         max_attempts: 3,
         initial_backoff_ms: 10,
         backoff_multiplier: 2.0,
@@ -134,62 +128,51 @@ fn fast_retry(max_attempts: u32) -> GrpcRetryConfig {
     }
 }
 
-// ── factory smoke tests ───────────────────────────────────────────────────────
+// ── facade smoke tests ────────────────────────────────────────────────────────
+//
+// `GrpcResilientFacade::apply_resilience` is a decorator only — it never
+// builds a base client (that moved to the composition root, ADR-004
+// amendment). These tests wrap `CountingMock` rather than a real transport;
+// the "genuinely connects" proof that used to live here belongs to
+// `transport`'s own test suite now (`transport_svc_int_test.rs`).
 
-/// @covers: create_resilient_transport_from_config
+/// @covers: apply_resilience
 #[tokio::test]
-async fn test_create_resilient_transport_from_config_without_resilience_returns_ok_happy() {
-    ensure_tls_provider();
-    let config = GrpcChannelConfig::new("http://127.0.0.1:50051").allow_plaintext();
-    let transport = GrpcResilientFacade::create_resilient_transport_from_config(&config)
-        .expect("assembly must succeed for a valid plaintext config");
-    // Nothing listens on 127.0.0.1:50051 in the test environment, so a real
-    // call must genuinely fail — proves this is a connectable client, not a stub.
-    let health = transport.health_check(HealthCheckRequest).await;
-    assert!(
-        matches!(health, Err(GrpcEgressError::Unavailable(_))),
-        "health_check against an unbound port must report Unavailable, got: {health:?}"
+async fn test_apply_resilience_default_config_wraps_and_delegates_happy() {
+    let hits = Arc::new(AtomicUsize::new(0));
+    let mock = CountingMock::with_responses(Arc::clone(&hits), vec![ok_response()]);
+    let wrapped = GrpcResilientFacade::apply_resilience(mock, ResilienceConfig::default())
+        .expect("apply_resilience must succeed for the default config");
+    let result = wrapped.call_unary(req()).await;
+    assert!(result.is_ok(), "the wrapped client must delegate through");
+    assert_eq!(hits.load(Ordering::SeqCst), 1);
+}
+
+/// @covers: apply_resilience — a transient failure is genuinely retried
+#[tokio::test]
+async fn test_apply_resilience_retries_a_transient_failure_happy() {
+    let hits = Arc::new(AtomicUsize::new(0));
+    let mock = CountingMock::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
+    let wrapped = GrpcResilientFacade::apply_resilience(mock, valid_resilience())
+        .expect("apply_resilience must succeed for a valid config");
+    let result = wrapped.call_unary(req()).await;
+    assert!(result.is_ok(), "must succeed on the retried attempt");
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        2,
+        "expected exactly one retry after the first transient failure"
     );
 }
 
-/// @covers: create_resilient_transport_from_config
-#[tokio::test]
-async fn test_create_resilient_transport_from_config_with_valid_resilience_returns_ok_happy() {
-    ensure_tls_provider();
-    let config = GrpcChannelConfig::new("http://127.0.0.1:50051")
-        .allow_plaintext()
-        .with_resilience(valid_resilience());
-    let transport = GrpcResilientFacade::create_resilient_transport_from_config(&config)
-        .expect("assembly must succeed for a valid resilience config");
-    let health = transport.health_check(HealthCheckRequest).await;
-    assert!(
-        matches!(health, Err(GrpcEgressError::Unavailable(_))),
-        "health_check against an unbound port must report Unavailable, got: {health:?}"
-    );
-}
-
-/// @covers: create_resilient_transport_from_config
+/// @covers: apply_resilience
 #[test]
-fn test_create_resilient_transport_from_config_tls_required_rejects_plaintext_endpoint_error() {
-    ensure_tls_provider();
-    let config = GrpcChannelConfig::new("http://127.0.0.1:50051");
-    assert!(matches!(
-        GrpcResilientFacade::create_resilient_transport_from_config(&config),
-        Err(ResilientTransportError::ChannelConfig(_))
-    ));
-}
-
-/// @covers: create_resilient_transport_from_config
-#[test]
-fn test_create_resilient_transport_from_config_invalid_resilience_returns_error_edge() {
-    ensure_tls_provider();
+fn test_apply_resilience_invalid_resilience_returns_error_edge() {
+    let hits = Arc::new(AtomicUsize::new(0));
+    let mock = CountingMock::with_responses(hits, vec![ok_response()]);
     let mut r = valid_resilience();
     r.max_attempts = 0;
-    let config = GrpcChannelConfig::new("http://127.0.0.1:50051")
-        .allow_plaintext()
-        .with_resilience(r);
     assert!(matches!(
-        GrpcResilientFacade::create_resilient_transport_from_config(&config),
+        GrpcResilientFacade::apply_resilience(mock, r),
         Err(ResilientTransportError::InvalidResilience(_))
     ));
 }

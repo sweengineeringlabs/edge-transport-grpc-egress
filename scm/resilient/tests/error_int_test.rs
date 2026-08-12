@@ -1,40 +1,63 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Integration tests for `ResilientTransportError`.
+//! Integration tests for `ResilientTransportError`, produced by
+//! [`GrpcResilientFacade::apply_resilience`].
 
-use edge_transport_grpc_egress::GrpcChannelConfig;
-use edge_transport_grpc_egress_resilient::{GrpcResilientFacade, ResilientTransportError};
+use std::collections::HashMap;
 
-/// @covers: ResilientTransportError::ChannelConfig
-#[test]
-fn test_error_channel_config_variant_produced_on_plaintext_rejection() {
-    rustls::crypto::aws_lc_rs::default_provider()
-        .install_default()
-        .ok();
-    let config = GrpcChannelConfig::new("http://127.0.0.1:50051");
-    let err = GrpcResilientFacade::create_resilient_transport_from_config(&config)
-        .err()
-        .unwrap();
-    assert!(matches!(err, ResilientTransportError::ChannelConfig(_)));
-    assert!(!err.to_string().is_empty());
+use edge_transport_grpc_egress::{
+    CallStreamRequest, GrpcEgress, GrpcEgressResult, GrpcMessageStreamResponse, GrpcResponse,
+    HealthCheckRequest,
+};
+use edge_transport_grpc_egress_resilient::{GrpcResilientFacade, ResilienceConfig};
+use futures::future::BoxFuture;
+
+struct AlwaysOk;
+impl GrpcEgress for AlwaysOk {
+    fn call_unary(
+        &self,
+        _req: edge_transport_grpc_egress::GrpcRequest,
+    ) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
+        Box::pin(async {
+            Ok(GrpcResponse {
+                body: vec![],
+                metadata: HashMap::new(),
+            })
+        })
+    }
+    fn call_stream(
+        &self,
+        req: CallStreamRequest,
+    ) -> BoxFuture<'_, GrpcEgressResult<GrpcMessageStreamResponse>> {
+        Box::pin(async move { Ok(req.messages) })
+    }
+    fn health_check(&self, _req: HealthCheckRequest) -> BoxFuture<'_, GrpcEgressResult<()>> {
+        Box::pin(async { Ok(()) })
+    }
 }
 
 /// @covers: ResilientTransportError::InvalidResilience
 #[test]
 fn test_error_invalid_resilience_variant_produced_on_bad_config() {
-    use edge_transport_grpc_egress::ResilienceConfigResilienceValidator;
-    rustls::crypto::aws_lc_rs::default_provider()
-        .install_default()
-        .ok();
-    let r = ResilienceConfigResilienceValidator {
+    let cfg = ResilienceConfig {
         max_attempts: 0,
-        ..ResilienceConfigResilienceValidator::default()
+        ..ResilienceConfig::default()
     };
-    let config = GrpcChannelConfig::new("http://127.0.0.1:50051")
-        .allow_plaintext()
-        .with_resilience(r);
-    let err = GrpcResilientFacade::create_resilient_transport_from_config(&config)
+    let err = GrpcResilientFacade::apply_resilience(AlwaysOk, cfg)
         .err()
         .unwrap();
-    assert!(matches!(err, ResilientTransportError::InvalidResilience(_)));
+    assert!(matches!(
+        err,
+        edge_transport_grpc_egress_resilient::ResilientTransportError::InvalidResilience(_)
+    ));
     assert!(err.to_string().contains("invalid resilience config"));
+}
+
+/// @covers: apply_resilience — a valid config wraps the inner client without error
+#[test]
+fn test_apply_resilience_valid_config_returns_ok() {
+    let result = GrpcResilientFacade::apply_resilience(AlwaysOk, ResilienceConfig::default());
+    assert!(
+        result.is_ok(),
+        "a genuinely valid config must wrap successfully"
+    );
 }

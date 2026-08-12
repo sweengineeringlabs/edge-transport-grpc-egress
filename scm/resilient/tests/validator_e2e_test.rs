@@ -1,7 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! End-to-end tests for [`Validator`] via a test-double implementation.
 
-use edge_transport_grpc_egress::ResilienceConfigResilienceValidator as ForeignResilienceConfig;
 use edge_transport_grpc_egress_resilient::{
     ConfigValidationRequest, ResilienceConfig, ResilientTransportError, Validator,
 };
@@ -10,7 +9,7 @@ struct MockValidator;
 
 impl Validator for MockValidator {
     fn validate(&self, req: ConfigValidationRequest) -> Result<(), ResilientTransportError> {
-        if req.config.0.max_attempts == 0 {
+        if req.config.max_attempts == 0 {
             return Err(ResilientTransportError::InvalidResilience(
                 "max_attempts must be non-zero".into(),
             ));
@@ -19,8 +18,8 @@ impl Validator for MockValidator {
     }
 }
 
-fn valid() -> ForeignResilienceConfig {
-    ForeignResilienceConfig {
+fn valid() -> ResilienceConfig {
+    ResilienceConfig {
         max_attempts: 3,
         initial_backoff_ms: 10,
         backoff_multiplier: 2.0,
@@ -39,17 +38,13 @@ fn valid() -> ForeignResilienceConfig {
 #[test]
 fn test_validate_valid_config_happy() {
     let validator = MockValidator;
-    let result = validator.validate(ConfigValidationRequest {
-        config: ResilienceConfig(valid()),
-    });
+    let result = validator.validate(ConfigValidationRequest { config: valid() });
     assert!(result.is_ok(), "a genuinely valid config must be accepted");
     // Negative counterpart in the same test: proves this isn't a stub that
     // always returns Ok regardless of input.
     let mut invalid = valid();
     invalid.max_attempts = 0;
-    let rejected = validator.validate(ConfigValidationRequest {
-        config: ResilienceConfig(invalid),
-    });
+    let rejected = validator.validate(ConfigValidationRequest { config: invalid });
     assert!(
         rejected.is_err(),
         "an invalid config must still be rejected"
@@ -63,9 +58,7 @@ fn test_validate_zero_max_attempts_error() {
     let mut cfg = valid();
     cfg.max_attempts = 0;
     let err = validator
-        .validate(ConfigValidationRequest {
-            config: ResilienceConfig(cfg),
-        })
+        .validate(ConfigValidationRequest { config: cfg })
         .expect_err("zero max_attempts must be rejected");
     assert!(err.to_string().contains("max_attempts"));
 }
@@ -76,9 +69,7 @@ fn test_validate_minimum_valid_max_attempts_edge() {
     let validator = MockValidator;
     let mut cfg = valid();
     cfg.max_attempts = 1;
-    let result = validator.validate(ConfigValidationRequest {
-        config: ResilienceConfig(cfg),
-    });
+    let result = validator.validate(ConfigValidationRequest { config: cfg });
     assert!(
         result.is_ok(),
         "max_attempts of exactly 1 is the smallest valid value"
@@ -88,7 +79,7 @@ fn test_validate_minimum_valid_max_attempts_edge() {
     let mut rejected_cfg = valid();
     rejected_cfg.max_attempts = 0;
     let rejected = validator.validate(ConfigValidationRequest {
-        config: ResilienceConfig(rejected_cfg),
+        config: rejected_cfg,
     });
     assert!(rejected.is_err(), "one below the minimum must be rejected");
 }

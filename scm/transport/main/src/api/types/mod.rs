@@ -20,11 +20,6 @@ pub use keep_alive_config::KeepAliveConfig;
 pub mod mtls_config;
 pub use mtls_config::MtlsConfig;
 
-pub mod resilience_config_builder;
-pub mod resilience_config_resilience_validator;
-pub use resilience_config_builder::ResilienceConfigBuilder;
-pub use resilience_config_resilience_validator::ResilienceConfigResilienceValidator;
-
 pub mod conversions;
 pub use conversions::Conversions;
 
@@ -61,18 +56,12 @@ pub use grpc_egress_interceptor_chain::GrpcEgressInterceptorChain;
 pub use trace_context_grpc_egress_interceptor::TraceContextGrpcEgressInterceptor;
 pub use trace_context_source::TraceContextSource;
 
-pub mod validation_request;
-pub use validation_request::ValidationRequest;
-
 pub mod describe_request;
 pub mod describe_response;
 pub mod processing_request;
 pub use describe_request::DescribeRequest;
 pub use describe_response::DescribeResponse;
 pub use processing_request::ProcessingRequest;
-
-pub mod config_validation_request;
-pub use config_validation_request::ConfigValidationRequest;
 
 pub mod circuit_state_request;
 pub mod circuit_state_response;
