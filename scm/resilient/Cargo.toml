@@ -27,13 +27,13 @@ edge-transport-grpc-egress-retry   = { workspace = true }
 edge-transport-grpc-egress-breaker = { workspace = true }
 thiserror              = { workspace = true }
 serde                  = { workspace = true }
+toml                   = { workspace = true }
 swe-edge-configbuilder = { workspace = true }
 
 [dev-dependencies]
 tokio   = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 futures = { workspace = true }
 serde   = { workspace = true }
-toml    = { workspace = true }
 
 
 [lints.rust]

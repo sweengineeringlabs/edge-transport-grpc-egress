@@ -40,7 +40,6 @@ fn transport_struct_channel_config_from_config_rejects_plaintext_int_test() {
                 "endpoint in error: {endpoint}"
             );
         }
-        Err(GrpcChannelConfigError::Config(msg)) => panic!("unexpected Config error: {msg}"),
         Ok(_) => panic!("must reject plaintext when tls_required=true"),
     }
 }

@@ -42,9 +42,9 @@ fn test_error_invalid_resilience_variant_produced_on_bad_config() {
         max_attempts: 0,
         ..ResilienceConfig::default()
     };
-    let err = GrpcResilientFacade::apply_resilience(AlwaysOk, cfg)
-        .err()
-        .unwrap();
+    let Err(err) = GrpcResilientFacade::apply_resilience(AlwaysOk, cfg) else {
+        panic!("expected apply_resilience to reject max_attempts = 0");
+    };
     assert!(matches!(
         err,
         edge_transport_grpc_egress_resilient::ResilientTransportError::InvalidResilience(_)

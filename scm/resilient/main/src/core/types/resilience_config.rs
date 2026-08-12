@@ -34,6 +34,20 @@ impl swe_edge_configbuilder::ConfigSection for ResilienceConfig {
 }
 
 impl ResilienceConfig {
+    /// Parse a `[grpc_resilience]`-shaped config from TOML text, then
+    /// validate it.
+    ///
+    /// Returns [`ResilientTransportError::InvalidResilience`] when the text
+    /// isn't valid TOML, a required key is missing, or a value is out of
+    /// range.
+    pub fn from_config(toml_text: &str) -> Result<Self, ResilientTransportError> {
+        let cfg: Self = toml::from_str(toml_text).map_err(|e| {
+            ResilientTransportError::InvalidResilience(format!("parse failed: {e}"))
+        })?;
+        cfg.validate()?;
+        Ok(cfg)
+    }
+
     /// Validate that all numeric fields are within their valid ranges.
     pub(crate) fn validate(&self) -> Result<(), ResilientTransportError> {
         if self.max_attempts == 0 {
@@ -183,5 +197,69 @@ mod tests {
         let breaker = r.to_breaker_config();
         assert_eq!(breaker.failure_threshold, r.failure_threshold);
         assert_eq!(breaker.cool_down_seconds, r.cool_down_seconds);
+    }
+
+    /// @covers: from_config
+    ///
+    /// Proves the full connected chain this crate is the sole owner of.
+    /// Real TOML text (the `[grpc_resilience]` shape documented on the
+    /// type) is parsed and validated into a `ResilienceConfig`, which must
+    /// then produce correct `GrpcRetryConfig` and `GrpcBreakerConfig`
+    /// values. Every asserted field differs from the profile default, so a
+    /// field-mapping bug (e.g. swapping `max_attempts` for
+    /// `rate_limit_max_attempts`) would fail this test.
+    #[test]
+    fn test_from_config_parses_toml_and_produces_correct_retry_and_breaker_values_happy() {
+        let toml_text = r#"
+            max_attempts                  = 7
+            initial_backoff_ms            = 250
+            backoff_multiplier            = 3.0
+            jitter_factor                 = 0.2
+            max_backoff_ms                = 4000
+            rate_limit_max_attempts       = 4
+            rate_limit_initial_backoff_ms = 2000
+            rate_limit_max_backoff_ms     = 20000
+            failure_threshold             = 9
+            cool_down_seconds             = 45
+            half_open_probe_count         = 3
+        "#;
+        let cfg = ResilienceConfig::from_config(toml_text).expect("valid TOML must parse");
+
+        let retry = cfg.to_retry_config();
+        assert_eq!(retry.max_attempts, 7);
+        assert_eq!(retry.rate_limit_max_attempts, 4);
+        assert_eq!(retry.rate_limit_initial_backoff_ms, 2000);
+
+        let breaker = cfg.to_breaker_config();
+        assert_eq!(breaker.failure_threshold, 9);
+        assert_eq!(breaker.cool_down_seconds, 45);
+        assert_eq!(breaker.half_open_probe_count, 3);
+    }
+
+    /// @covers: from_config
+    #[test]
+    fn test_from_config_rejects_invalid_toml_error() {
+        assert!(ResilienceConfig::from_config("not valid toml [[[").is_err());
+    }
+
+    /// @covers: from_config
+    #[test]
+    fn test_from_config_rejects_out_of_range_value_error() {
+        let toml_text = r#"
+            max_attempts                  = 0
+            initial_backoff_ms            = 100
+            backoff_multiplier            = 2.0
+            jitter_factor                 = 0.1
+            max_backoff_ms                = 5000
+            rate_limit_max_attempts       = 2
+            rate_limit_initial_backoff_ms = 1000
+            rate_limit_max_backoff_ms     = 10000
+            failure_threshold             = 5
+            cool_down_seconds             = 30
+            half_open_probe_count         = 1
+        "#;
+        let err = ResilienceConfig::from_config(toml_text)
+            .expect_err("max_attempts = 0 must be rejected");
+        assert!(matches!(err, ResilientTransportError::InvalidResilience(_)));
     }
 }
