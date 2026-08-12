@@ -360,11 +360,11 @@ dependencies = [
  "edge-transport-grpc-egress-retry",
  "edge-transport-grpc-egress-transport",
  "futures",
- "rustls",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
  "thiserror 2.0.19",
  "tokio",
+ "toml",
 ]
 
 [[package]]

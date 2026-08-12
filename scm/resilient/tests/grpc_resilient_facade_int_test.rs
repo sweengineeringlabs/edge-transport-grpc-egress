@@ -70,13 +70,14 @@ fn test_default_facade_is_deterministic_edge() {
 }
 
 /// @covers: create_config_builder
-/// @covers: create_resilient_transport_from_config
+/// @covers: apply_resilience
 #[test]
 fn test_facade_exposes_both_composition_methods() {
     // Both real production entry points are exercised elsewhere
-    // (application_config_builder_int_test.rs, resilient_stack_int_test.rs);
-    // this test just confirms they're reachable through the facade type
-    // this file covers, checking a real payload field, not just is_ok().
+    // (application_config_builder_int_test.rs, resilient_stack_int_test.rs,
+    // error_int_test.rs); this test just confirms create_config_builder is
+    // reachable through the facade type this file covers, checking a real
+    // payload field, not just is_ok().
     let builder =
         GrpcResilientFacade::create_config_builder().expect("create_config_builder must succeed");
     let loader = builder

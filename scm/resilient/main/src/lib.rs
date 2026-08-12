@@ -1,16 +1,17 @@
-//! `edge_transport_grpc_egress_resilient` — assembled resilient gRPC transport.
+//! `edge_transport_grpc_egress_resilient` — resilience decorator for gRPC egress.
 //!
-//! Use [`GrpcResilientFacade::create_resilient_transport_from_config`] to build a
-//! [`edge_transport_grpc_egress::TonicGrpcClient`] and, when
-//! [`edge_transport_grpc_egress::GrpcChannelConfig::resilience`] is `Some`,
-//! wraps it in a [`edge_transport_grpc_egress_retry::GrpcRetryClient`] then a
+//! This crate is a **decorator only** — it never builds a base transport
+//! client. A composition root builds the bare client (e.g. via
+//! `edge_transport_grpc_egress::TransportConstruction::create_tonic_client_from_config`)
+//! and calls [`GrpcResilientFacade::apply_resilience`] to wrap it in a
+//! [`edge_transport_grpc_egress_retry::GrpcRetryClient`] then a
 //! [`edge_transport_grpc_egress_breaker::GrpcBreakerClient`].
 //!
-//! Call-stack with resilience active:
+//! Call-stack once wrapped:
 //! ```text
 //! GrpcBreakerClient   ← fast-fail when circuit is open
 //!   └─ GrpcRetryClient ← exponential-backoff retry
-//!        └─ TonicGrpcClient ← hyper HTTP/2 transport
+//!        └─ (caller-supplied bare client) ← hyper HTTP/2 transport
 //! ```
 
 #![warn(missing_docs)]

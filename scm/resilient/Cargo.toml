@@ -6,7 +6,7 @@ license.workspace      = true
 rust-version.workspace = true
 authors.workspace      = true
 repository.workspace   = true
-description  = "edge — assembled resilient gRPC transport: TonicGrpcClient + retry + circuit breaker"
+description  = "edge — resilience decorator for gRPC egress: wraps a bare GrpcEgress in retry + circuit breaker"
 keywords     = ["grpc", "resilience", "retry", "circuit-breaker", "swe"]
 categories   = ["network-programming"]
 
@@ -26,12 +26,13 @@ edge-transport-grpc-egress         = { workspace = true }
 edge-transport-grpc-egress-retry   = { workspace = true }
 edge-transport-grpc-egress-breaker = { workspace = true }
 thiserror              = { workspace = true }
+serde                  = { workspace = true }
+toml                   = { workspace = true }
 swe-edge-configbuilder = { workspace = true }
 
 [dev-dependencies]
 tokio   = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 futures = { workspace = true }
-rustls  = { version = "0.23", features = ["aws-lc-rs"] }
 serde   = { workspace = true }
 
 

@@ -3,7 +3,6 @@
 
 use edge_transport_grpc_egress_transport::{
     CompressionMode, GrpcChannelConfigBuilder, KeepAliveConfig, MtlsConfig,
-    ResilienceConfigResilienceValidator,
 };
 use std::time::Duration;
 
@@ -82,28 +81,4 @@ fn transport_struct_grpc_channel_config_builder_compression_sets_mode_int_test()
         .build()
         .expect("build must succeed");
     assert_eq!(cfg.compression, CompressionMode::Gzip);
-}
-
-/// @covers: GrpcChannelConfigBuilder::resilience — stores policy
-#[test]
-fn transport_struct_grpc_channel_config_builder_resilience_stores_policy_int_test() {
-    let r = ResilienceConfigResilienceValidator {
-        max_attempts: 3,
-        initial_backoff_ms: 100,
-        backoff_multiplier: 2.0,
-        jitter_factor: 0.1,
-        max_backoff_ms: 2_000,
-        rate_limit_max_attempts: 2,
-        rate_limit_initial_backoff_ms: 1_000,
-        rate_limit_max_backoff_ms: 10_000,
-        failure_threshold: 5,
-        cool_down_seconds: 10,
-        half_open_probe_count: 1,
-    };
-    let cfg = GrpcChannelConfigBuilder::new()
-        .endpoint("https://example.com:443")
-        .resilience(r)
-        .build()
-        .expect("build must succeed");
-    assert!(cfg.resilience.is_some());
 }

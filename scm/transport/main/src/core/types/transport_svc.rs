@@ -9,10 +9,7 @@
 //! All methods here are `pub` with no private helper of their own, so their
 //! tests live externally in `tests/` per `unit_tests_colocated`.
 
-use crate::api::{
-    ApplicationConfigBuilder, GrpcChannelConfigError, ResilienceConfigResilienceValidator,
-    TransportSvc, ValidationRequest, Validator,
-};
+use crate::api::{ApplicationConfigBuilder, TransportSvc};
 
 impl TransportSvc {
     /// Create a config builder pre-populated with this crate's name and version.
@@ -21,13 +18,6 @@ impl TransportSvc {
         b = b.with_name(env!("CARGO_PKG_NAME"));
         b = b.with_version(env!("CARGO_PKG_VERSION"));
         ApplicationConfigBuilder(b)
-    }
-
-    /// Validate a [`ResilienceConfigResilienceValidator`], returning the first constraint violation as `Err`.
-    pub fn validate_resilience_config(
-        config: &ResilienceConfigResilienceValidator,
-    ) -> Result<(), GrpcChannelConfigError> {
-        config.validate(ValidationRequest)
     }
 }
 
