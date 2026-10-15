@@ -1,6 +1,6 @@
 # grpc-resilient
 
-Assembled resilient gRPC transport: `TonicGrpcClient` wrapped with retry and circuit-breaker layers.
+Resilience decorator for gRPC egress: wraps an already-built `GrpcEgress` client in the retry and circuit-breaker decorators (`GrpcResilientFacade::apply_resilience`). It does not build the client.
 
 ## Build
 

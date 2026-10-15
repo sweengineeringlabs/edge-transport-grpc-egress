@@ -1,7 +1,7 @@
 # grpc-breaker
 
 gRPC-aware circuit breaker decorator wrapping any
-[`GrpcOutbound`](https://docs.rs/edge-transport-grpc-egress) implementor.
+`GrpcEgress` implementor (the trait of `edge-transport-grpc-egress-transport`).
 
 ## Build
 

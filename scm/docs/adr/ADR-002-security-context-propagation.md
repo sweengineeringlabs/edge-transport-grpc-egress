@@ -4,6 +4,7 @@
 **Date:** 2026-06-12  
 **Governing ADR:** [ADR-017](https://github.com/sweengineeringlabs/edge/blob/main/docs/3-architecture/adr/ADR-017-security-context-propagation.md) — Security Context Propagation Pipeline  
 **See also:** [ADR-001](ADR-001-egress-grpc-security-specialisations.md) — egress gRPC security specialisations
+**Note (2026-10-15):** names in this record changed after it was written: `GrpcOutbound` is `GrpcEgress`, and `call_with_context` is `call_unary_with_context`.
 
 ---
 

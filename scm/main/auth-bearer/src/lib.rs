@@ -11,8 +11,6 @@
 //!
 //! Constant-time comparisons (`subtle`) are used for any symmetric
 //! shared-secret material in the configuration loaders.
-//!
-//! See `docs/threat_model.md` for the STRIDE breakdown.
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]

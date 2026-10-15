@@ -1,83 +1,42 @@
 # edge-transport-grpc-egress-auth-bearer
 
-Symmetric JWT bearer interceptors for the gRPC stack.
+JWT bearer interceptor for the gRPC egress stack.
 
-Two implementors ship together so a typical service-to-service hop
-can wire the same crate on both ends:
+`BearerEgressInterceptor` implements `edge_transport_grpc_egress_transport::GrpcEgressInterceptor`: it
+signs a JWT from the configured claims and adds `authorization: Bearer <jwt>` to every outbound
+request. Validating the token on the receiving side is not part of this crate; that is the ingress
+side's job (`edge-transport-grpc-ingress-auth-bearer`).
 
-- `BearerOutboundInterceptor` (implements
-  `edge_transport_grpc_egress::GrpcOutboundInterceptor`) — mints a JWT
-  from configured claims and attaches `authorization: Bearer <jwt>`
-  to every outbound request.
-- `BearerInboundInterceptor` (implements
-  `edge_transport_grpc_ingress::GrpcInboundInterceptor`) — validates the
-  bearer token, then republishes the verified `sub` claim under
-  the internal metadata key `x-edge-extracted-bearer-subject` for
-  downstream authz policies.
-
-Algorithms: HS256 (raw bytes) and RS256 (PEM keys).
-
-## Wire-shape contract
-
-| Direction | Header           | Format                    |
-|-----------|------------------|---------------------------|
-| Outbound  | `authorization` | `Bearer <jwt>`            |
-| Inbound   | `authorization` | `Bearer <jwt>` (read)     |
-| Inbound   | `x-edge-extracted-bearer-subject` | written after success — never trusted from the wire |
-
-The inbound interceptor ALWAYS strips any incoming
-`x-edge-extracted-bearer-subject` value before validating, so
-downstream code can treat the post-interceptor key as authoritative.
-
-## Constant-time secret comparison
-
-`BearerSecret::ct_eq_hs256` uses `subtle::ConstantTimeEq` for raw
-secret material.  Token *content* comparisons are delegated to
-`jsonwebtoken`, which uses constant-time MAC verification internally.
+Algorithms: HS256 (raw secret bytes) and RS256 (PEM private key).
 
 ## Quick start
 
-### Outbound (client)
-
 ```rust,ignore
-use std::sync::Arc;
-use edge_transport_grpc_egress::{GrpcOutboundInterceptorChain, TonicGrpcClient};
 use edge_transport_grpc_egress_auth_bearer::{
-    BearerOutboundConfig, BearerOutboundInterceptor, BearerSecret,
+    BearerEgressConfigBuilder, BearerEgressInterceptor, BearerSecret,
 };
 
-let cfg = BearerOutboundConfig {
-    secret: BearerSecret::Hs256 { secret: secret_bytes },
-    issuer: "svc-a".into(),
-    audience: "svc-b".into(),
-    subject: "svc-a-client".into(),
-    lifetime_seconds: 60,
-};
-let chain = GrpcOutboundInterceptorChain::new()
-    .push(Arc::new(BearerOutboundInterceptor::from_config(cfg)));
-let client = TonicGrpcClient::new(endpoint).with_interceptors(chain);
+let config = BearerEgressConfigBuilder::new()
+    .secret(BearerSecret::Hs256 { secret: secret_bytes })
+    .issuer("svc-a")
+    .audience("svc-b")
+    .subject("svc-a-client")
+    .lifetime_seconds(60)
+    .build()?;
+let interceptor = BearerEgressInterceptor::from_config(config);
 ```
 
-### Inbound (server)
+The interceptor is then pushed into a `GrpcEgressInterceptorChain`. Attaching a chain to a client is
+not possible through the public API of the transport crate yet; the builder of issue 16 adds
+`with_interceptor`.
 
-```rust,ignore
-use std::sync::Arc;
-use edge_transport_grpc_ingress::{GrpcInboundInterceptorChain, TonicGrpcServer};
-use edge_transport_grpc_egress_auth_bearer::{
-    BearerInboundConfig, BearerInboundInterceptor, BearerSecret,
-};
+## Wire shape
 
-let cfg = BearerInboundConfig {
-    secret: BearerSecret::Hs256 { secret: secret_bytes },
-    expected_issuer: "svc-a".into(),
-    expected_audience: "svc-b".into(),
-    leeway_seconds: 5,
-};
-let chain = GrpcInboundInterceptorChain::new()
-    .push(Arc::new(BearerInboundInterceptor::from_config(cfg)));
-let server = TonicGrpcServer::new(bind, handler).with_interceptors(chain);
-```
+| Header | Format |
+|--------|--------|
+| `authorization` | `Bearer <jwt>` |
 
-## Threat model
+## Constant-time secret comparison
 
-See `docs/threat_model.md`.
+`BearerSecret::ct_eq_hs256` uses `subtle::ConstantTimeEq` for raw secret material. Token content
+comparisons are delegated to `jsonwebtoken`, which verifies the MAC in constant time.
