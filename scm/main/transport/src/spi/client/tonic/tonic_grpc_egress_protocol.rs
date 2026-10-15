@@ -324,7 +324,8 @@ impl GrpcEgress for TonicGrpcEgress {
         let method = request.method.trim_start_matches('/');
         let uri_str = format!("{}/{}", self.base_uri.trim_end_matches('/'), method);
         let body_bytes = TonicGrpcEgressProtocol::encode_grpc_frame(&request.body);
-        let deadline = request.deadline;
+        // The client's request timeout is a backstop: a call never outlasts it, whatever deadline it carries.
+        let deadline = request.deadline.min(self.timeout);
         let cancel = request.cancellation.clone();
         let max_bytes = self.max_message_bytes;
         let interceptors = self.interceptors.clone();
