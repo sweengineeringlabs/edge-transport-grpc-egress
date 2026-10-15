@@ -21,7 +21,7 @@ pub use api::{
     GrpcMessageStreamResponse, GrpcRequest, GrpcRequestBuilder, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest, KeepAliveConfig, LastErrorRequest, LastErrorResponse, MtlsConfig,
     ProcessingRequest, Processor, ResilientGrpcClientPort, TraceContextGrpcEgressInterceptor,
-    TraceContextSource, TransportSvc, DEFAULT_MAX_MESSAGE_BYTES,
+    TraceContextSource, TransportSvc, DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 pub use edge_security_runtime::SecurityContext;
 pub use saf::{
