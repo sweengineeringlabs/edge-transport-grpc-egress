@@ -99,20 +99,17 @@ async fn test_call_slower_than_the_deadline_returns_timeout_at_the_deadline(
     Ok(())
 }
 
-/// KNOWN DEFECT, pinned: `with_request_timeout` is documented as a backstop applied to every
-/// request, but `call_unary` races only the per-call deadline and never reads it. Issue 16
-/// acceptance criterion 4 (no option accepted and ignored) replaces this test when the option is
-/// applied or removed.
+/// The client's request timeout is a backstop: a call whose own deadline is longer is cut at the timeout.
 ///
 /// @covers: GrpcChannelConfig::with_request_timeout
 #[tokio::test]
-async fn test_call_unary_request_timeout_shorter_than_the_peer_delay_does_not_cut_the_call_today(
+async fn test_call_unary_request_timeout_shorter_than_the_deadline_returns_timeout_error(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
-    let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_millis(1500))).await?;
+    let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_millis(3000))).await?;
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
-        .with_request_timeout(Duration::from_secs(1));
+        .with_request_timeout(Duration::from_millis(300));
     let client = TransportConstruction::create_transport_from_config(&config)?;
 
     let started = Instant::now();
@@ -126,12 +123,46 @@ async fn test_call_unary_request_timeout_shorter_than_the_peer_delay_does_not_cu
     let elapsed = started.elapsed();
 
     assert!(
-        result.is_ok(),
-        "today the 1 s request timeout is not applied to a unary call, got {result:?}"
+        matches!(result, Err(GrpcEgressError::Timeout(_))),
+        "the 300 ms request timeout must cut the call, got {result:?}"
     );
     assert!(
-        elapsed >= Duration::from_millis(1500),
-        "the call lasted the peer's whole delay, took {elapsed:?}"
+        elapsed < Duration::from_secs(2),
+        "the call must end long before the 3 s delay, took {elapsed:?}"
+    );
+    Ok(())
+}
+
+/// A request timeout longer than the call's own deadline does not extend the deadline.
+///
+/// @covers: GrpcChannelConfig::with_request_timeout
+#[tokio::test]
+async fn test_call_unary_request_timeout_longer_than_the_deadline_keeps_the_deadline_edge(
+) -> Result<(), Box<dyn Error>> {
+    Fixture::ensure_tls_provider();
+    let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_millis(3000))).await?;
+    let config = GrpcChannelConfig::new(peer.get_endpoint())
+        .allow_plaintext()
+        .with_request_timeout(Duration::from_secs(30));
+    let client = TransportConstruction::create_transport_from_config(&config)?;
+
+    let started = Instant::now();
+    let result = client
+        .call_unary(GrpcRequest::new(
+            "pkg.Service/Method",
+            b"ping".to_vec(),
+            Duration::from_millis(300),
+        ))
+        .await;
+    let elapsed = started.elapsed();
+
+    assert!(
+        matches!(result, Err(GrpcEgressError::Timeout(_))),
+        "the 300 ms deadline must cut the call, got {result:?}"
+    );
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "the call must end long before the 3 s delay, took {elapsed:?}"
     );
     Ok(())
 }
