@@ -18,9 +18,8 @@ use tokio_util::sync::CancellationToken;
 use super::tonic_grpc_egress::TonicGrpcEgress;
 use crate::api::Conversions as StatusConversions;
 use crate::api::{
-    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressError,
-    GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
-    GrpcResponse, GrpcStatusCode, DEFAULT_MAX_MESSAGE_BYTES,
+    CompressionMode, GrpcEgress, GrpcEgressError, GrpcEgressInterceptorChain, GrpcEgressResult,
+    GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode,
 };
 
 const SANITIZED_INTERNAL_MSG: &str = "internal client error";
@@ -208,93 +207,25 @@ impl TonicGrpcEgressProtocol {
 // ── constructor helpers ───────────────────────────────────────────────────────
 
 impl TonicGrpcEgress {
-    /// Create a client with an explicit fallback timeout.
-    pub(crate) fn with_timeout(base_uri: impl Into<String>, timeout: Duration) -> Self {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-        let connector = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_webpki_roots()
-            .https_or_http()
-            .enable_http2()
-            .build();
-        let client =
-            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
-                .http2_only(true)
-                .build(connector);
-        Self {
-            base_uri: base_uri.into(),
-            client,
-            timeout,
-            interceptors: GrpcEgressInterceptorChain::new(),
-            max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
-            compression: CompressionMode::None,
-        }
-    }
-
-    /// Construct a client from a [`GrpcChannelConfig`].
-    ///
-    /// **Fail-closed**: if `config.tls_required` is `true` and the
-    /// endpoint URL has an `http://` scheme, returns
-    /// [`GrpcChannelConfigError::PlaintextRejected`] before any
-    /// transport setup.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "used in tests; superseded by TransportSvc factory"
-        )
-    )]
-    fn from_config(config: &GrpcChannelConfig) -> Result<Self, GrpcChannelConfigError> {
-        use crate::api::DEFAULT_REQUEST_TIMEOUT_SECS;
-        if config.tls_required && TonicGrpcEgressProtocol::is_plaintext_endpoint(&config.endpoint) {
-            return Err(GrpcChannelConfigError::PlaintextRejected(
-                config.endpoint.clone(),
-            ));
-        }
-        let timeout = Duration::from_secs(
-            config
-                .request_timeout_secs
-                .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS),
-        );
-        let mut client = Self::with_timeout(&config.endpoint, timeout);
-        client.max_message_bytes = config.max_message_bytes;
-        client.compression = config.compression;
-        Ok(client)
+    /// Set the client-side timeout that a call may not outlast, whatever its own deadline says.
+    pub(crate) fn with_request_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
     }
 
     /// Attach an interceptor chain to the client.  Replaces any previous chain.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "only called by TonicGrpcEgressBuilder, which is itself production-wiring-pending"
-        )
-    )]
     pub(crate) fn with_interceptors(mut self, chain: GrpcEgressInterceptorChain) -> Self {
         self.interceptors = chain;
         self
     }
 
     /// Override the max-message-bytes cap.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "only called by TonicGrpcEgressBuilder, which is itself production-wiring-pending"
-        )
-    )]
     pub(crate) fn with_max_message_bytes(mut self, bytes: usize) -> Self {
         self.max_message_bytes = bytes;
         self
     }
 
     /// Override the compression mode.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "only called by TonicGrpcEgressBuilder, which is itself production-wiring-pending"
-        )
-    )]
     pub(crate) fn with_compression(mut self, mode: CompressionMode) -> Self {
         self.compression = mode;
         self
@@ -792,7 +723,7 @@ mod tests {
             .install_default()
             .ok();
         let d = Duration::from_secs(5);
-        let client = TonicGrpcEgress::with_timeout("http://localhost:50051", d);
+        let client = TonicGrpcEgress::new("http://localhost:50051").with_request_timeout(d);
         assert_eq!(client.timeout, d);
     }
 
@@ -887,38 +818,6 @@ mod tests {
         let r = TonicGrpcEgressProtocol::_grpc_request_new_requires_deadline_compile_check();
         assert_eq!(r.method, "svc/Method");
         assert_eq!(r.deadline, Duration::from_secs(1));
-    }
-
-    #[test]
-    fn test_from_config_builds_client_from_channel_config() {
-        rustls::crypto::aws_lc_rs::default_provider()
-            .install_default()
-            .ok();
-        let cfg = crate::api::GrpcChannelConfig::new("http://localhost:50051").allow_plaintext();
-        let client = TonicGrpcEgress::from_config(&cfg).expect("valid plaintext config");
-        assert_eq!(client.base_uri, "http://localhost:50051");
-    }
-
-    #[test]
-    fn test_from_config_honors_request_timeout_secs() {
-        rustls::crypto::aws_lc_rs::default_provider()
-            .install_default()
-            .ok();
-        let cfg = crate::api::GrpcChannelConfig::new("http://localhost:50051")
-            .allow_plaintext()
-            .with_request_timeout(Duration::from_secs(120));
-        let client = TonicGrpcEgress::from_config(&cfg).unwrap();
-        assert_eq!(client.timeout, Duration::from_secs(120));
-    }
-
-    #[test]
-    fn test_from_config_defaults_to_30s_when_timeout_not_set() {
-        rustls::crypto::aws_lc_rs::default_provider()
-            .install_default()
-            .ok();
-        let cfg = crate::api::GrpcChannelConfig::new("http://localhost:50051").allow_plaintext();
-        let client = TonicGrpcEgress::from_config(&cfg).unwrap();
-        assert_eq!(client.timeout, Duration::from_secs(30));
     }
 
     #[test]
