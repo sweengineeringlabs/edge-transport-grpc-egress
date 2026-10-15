@@ -6,7 +6,7 @@ use crate::api::ProcessorRequest;
 
 /// Processes a retry decision given a gRPC result.
 ///
-/// Implemented by [`DefaultProcessor`](crate::core::traits::default_processor::DefaultProcessor)
+/// Implemented by `DefaultProcessor`
 /// in `core/`.
 pub trait Processor {
     /// Validate the retry configuration.

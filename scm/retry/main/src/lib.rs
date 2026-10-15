@@ -25,7 +25,7 @@
 //!
 //! ## Composition
 //!
-//! Wrap any [`GrpcEgress`] implementor via
+//! Wrap any [`GrpcEgress`](edge_transport_grpc_egress::GrpcEgress) implementor via
 //! [`GrpcRetryFacade::create_retry_client`] or
 //! [`GrpcRetryFacade::wrap_retry`].
 

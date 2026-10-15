@@ -8,7 +8,7 @@ use crate::api::RetryInspectResponse;
 
 /// Interface for inspecting the retry loop's decision types.
 ///
-/// Implemented by [`DefaultRetryInspector`](crate::core::retry::default_retry_inspector::DefaultRetryInspector)
+/// Implemented by `DefaultRetryInspector`
 /// in `core/`.
 pub trait RetryInspector: Send + Sync {
     /// Identify this inspector for logging and metrics.

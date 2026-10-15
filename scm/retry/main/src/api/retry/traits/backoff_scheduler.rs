@@ -9,7 +9,7 @@ use crate::api::ScheduleResponse;
 
 /// Interface for computing a retry backoff schedule.
 ///
-/// Implemented by [`DefaultBackoffScheduler`](crate::core::retry::backoff::default_backoff_scheduler::DefaultBackoffScheduler)
+/// Implemented by `DefaultBackoffScheduler`
 /// in `core/`.
 pub trait BackoffScheduler: Send + Sync {
     /// Compute the schedule for one retry attempt on the requested track.

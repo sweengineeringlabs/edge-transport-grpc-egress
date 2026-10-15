@@ -5,7 +5,7 @@ use crate::api::ValidationRequest;
 
 /// Validates a [`crate::api::GrpcRetryConfig`] for correctness.
 ///
-/// Implemented by [`DefaultProcessor`](crate::core::traits::default_processor::DefaultProcessor)
+/// Implemented by `DefaultProcessor`
 /// in `core/`.
 pub trait Validator {
     /// Check that all numeric fields are within their valid ranges.

@@ -12,7 +12,7 @@ use super::super::types::{
 pub trait Config: Send + Sync {
     /// Get the application config builder.
     ///
-    /// Ensures [`ApplicationConfigBuilder`] appears in the trait signature.
+    /// Ensures `ApplicationConfigBuilder` appears in the trait signature.
     fn app_config_builder(&self) -> Option<&ApplicationConfigBuilder>;
 
     /// Get the bearer config builder.

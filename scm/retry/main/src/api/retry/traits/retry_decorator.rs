@@ -9,7 +9,7 @@ use crate::api::GrpcRetryConfigBuilder;
 
 /// Interface for producing a [`GrpcRetryClient`] decorator around an inner egress.
 ///
-/// Implemented by [`DefaultRetryDecorator`](crate::core::retry::grpc::default_retry_decorator::DefaultRetryDecorator)
+/// Implemented by `DefaultRetryDecorator`
 /// in `core/`.
 pub trait RetryDecorator: Send + Sync {
     /// Summarize the configured retry policy for logging/observability.

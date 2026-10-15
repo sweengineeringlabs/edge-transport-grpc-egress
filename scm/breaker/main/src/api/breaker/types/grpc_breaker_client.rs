@@ -11,10 +11,10 @@ use tokio::sync::Mutex;
 use crate::api::BreakerNode;
 use crate::api::GrpcBreakerConfig;
 
-/// Decorator that wraps an inner [`GrpcEgress`] with a
+/// Decorator that wraps an inner [`GrpcEgress`](edge_transport_grpc_egress::GrpcEgress) with a
 /// three-state circuit breaker.
 ///
-/// Construct via [`create_breaker_client`](crate::saf::create_breaker_client)
+/// Construct via [`create_breaker_client`](crate::GrpcBreakerFacade::create_breaker_client)
 /// (loads SWE baseline) or [`GrpcBreakerClient::new`] (caller-supplied config).
 pub struct GrpcBreakerClient<T> {
     pub(crate) inner: T,
