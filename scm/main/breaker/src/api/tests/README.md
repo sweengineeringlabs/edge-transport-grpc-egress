@@ -1,7 +1,7 @@
 # api/tests/
 
 This directory exists to satisfy the `api_impl_public_tests_external` arch
-audit check, which requires `main/src/api/tests/` to be present. It holds
+audit check, which requires `src/api/tests/` to be present. It holds
 no Rust source — this crate has no standalone `pub fn` in `api/` (only
 trait declarations and constants), so there is nothing to test here.
 

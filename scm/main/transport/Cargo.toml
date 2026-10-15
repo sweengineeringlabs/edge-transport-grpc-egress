@@ -18,9 +18,6 @@ service_type     = "processor"
 application_type = "lib"
 service_type     = "processor"
 
-[lib]
-path = "main/src/lib.rs"
-
 [features]
 default = []
 # Opt-in prost codec ergonomics (ADR-026). Default off — the byte core stays
