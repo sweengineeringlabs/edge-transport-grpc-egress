@@ -5,6 +5,7 @@ use std::error::Error;
 use std::io::ErrorKind;
 
 use grpc_egress_test_support::Fixture;
+use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::{TcpListener, TcpStream};
 
 /// @covers: Fixture::reserve_closed_port
@@ -75,12 +76,40 @@ async fn test_get_endpoint_is_an_http_url_of_the_reserved_port() -> Result<(), B
 
 /// @covers: Fixture::ensure_tls_provider
 #[test]
-fn test_ensure_tls_provider_called_twice_does_not_panic() {
+fn test_ensure_tls_provider_called_twice_installs_the_aws_lc_rs_provider() {
     Fixture::ensure_tls_provider();
     Fixture::ensure_tls_provider();
 
+    let installed = rustls::crypto::CryptoProvider::get_default();
+
+    let expected = rustls::crypto::aws_lc_rs::default_provider();
+    let installed = installed.map(|provider| provider.cipher_suites.len());
+    assert_eq!(installed, Some(expected.cipher_suites.len()));
+}
+
+/// A socket that explicitly sets `SO_REUSEADDR` cannot take the held port either: Windows refuses
+/// it with `PermissionDenied` (WSAEACCES), other platforms with `AddrInUse`.
+///
+/// @covers: Fixture::reserve_closed_port
+#[tokio::test]
+async fn test_reserve_closed_port_held_cannot_be_taken_even_by_a_socket_that_reuses_addresses(
+) -> Result<(), Box<dyn Error>> {
+    let closed = Fixture::reserve_closed_port()?;
+    let other = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+    other.set_reuse_address(true)?;
+    let held: std::net::SocketAddr = ([127, 0, 0, 1], closed.get_port()).into();
+
+    let attempt = other.bind(&held.into());
+
+    let error = attempt
+        .err()
+        .ok_or("a socket with address reuse took the held port")?;
     assert!(
-        rustls::crypto::CryptoProvider::get_default().is_some(),
-        "a default provider must be installed"
+        matches!(
+            error.kind(),
+            ErrorKind::AddrInUse | ErrorKind::PermissionDenied
+        ),
+        "expected the port to be refused, got {error:?}"
     );
+    Ok(())
 }

@@ -1,5 +1,6 @@
 //! gRPC egress API — ports, interceptors, and value objects.
 
+mod client;
 mod config;
 mod error;
 mod traits;
@@ -13,6 +14,7 @@ mod types;
 // re-export a subset of these further as the crate's public surface --
 // the submodules themselves stay fully private, which is what satisfies
 // the "layer mod paths must be private" half of the rule.
+pub use client::{BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory};
 pub use error::{GrpcChannelConfigError, GrpcEgressError};
 pub use traits::grpc_egress_interceptor::GrpcEgressInterceptor;
 pub use traits::resilient_grpc_client_port::ResilientGrpcClientPort;
@@ -24,9 +26,9 @@ pub use types::{
     AfterCallRequest, CallStreamRequest, CallUnaryWithContextRequest, CircuitStateRequest,
     CircuitStateResponse, CompressionMode, ConsecutiveFailuresRequest, ConsecutiveFailuresResponse,
     Conversions, DescribeRequest, DescribeResponse, GrpcChannelConfig, GrpcChannelConfigBuilder,
-    GrpcClientBuilder, GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse,
-    GrpcRequest, GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
-    KeepAliveConfig, LastErrorRequest, LastErrorResponse, MtlsConfig, ProcessingRequest,
+    GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
+    GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest, KeepAliveConfig,
+    LastErrorRequest, LastErrorResponse, MtlsConfig, ProcessingRequest,
     TraceContextGrpcEgressInterceptor, TraceContextSource, TransportSvc, DEFAULT_MAX_MESSAGE_BYTES,
     DEFAULT_REQUEST_TIMEOUT_SECS,
 };

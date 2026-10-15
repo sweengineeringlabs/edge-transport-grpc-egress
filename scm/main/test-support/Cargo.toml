@@ -8,9 +8,12 @@ authors.workspace      = true
 repository.workspace   = true
 description            = "Shared test fixtures of the gRPC egress crates: a closed port and an in-process gRPC peer."
 publish                = false
+keywords               = ["grpc", "test", "fixtures"]
+categories             = ["development-tools::testing"]
 
 [package.metadata.arch]
 application_type = "lib"
+service_type     = "tester"
 
 [dependencies]
 bytes          = "1"
@@ -23,6 +26,7 @@ socket2        = "0.6"
 tokio          = { version = "1", features = ["rt", "net", "time", "sync"] }
 
 [dev-dependencies]
+hyper = { version = "1", features = ["client", "http2"] }
 tokio = { version = "1", features = ["macros", "rt", "net", "time"] }
 
 [lints.rust]

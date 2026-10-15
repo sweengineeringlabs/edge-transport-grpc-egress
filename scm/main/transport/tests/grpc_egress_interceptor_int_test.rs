@@ -2,8 +2,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use edge_transport_grpc_egress_transport::{
-    AfterCallRequest, GrpcClientBuilder, GrpcEgressError, GrpcEgressInterceptor,
-    GrpcEgressInterceptorChain, GrpcRequest, GrpcResponse, TraceContextSource,
+    AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor, GrpcEgressInterceptorChain,
+    GrpcRequest, GrpcResponse, TraceContextSource,
 };
 
 #[test]
@@ -161,37 +161,6 @@ fn test_describe_trace_source_static_with_tracestate_is_static_edge() {
                 tracestate: Some("vendor=value".to_string()),
             }
         )
-    );
-}
-
-// ── default_client_builder ────────────────────────────────────────────────────
-
-/// @covers: default_client_builder
-#[test]
-fn test_default_client_builder_returns_zero_sized_marker_happy() {
-    let builder: GrpcClientBuilder =
-        <StubInterceptor as GrpcEgressInterceptor>::default_client_builder();
-    assert_eq!(std::mem::size_of_val(&builder), 0);
-}
-
-/// @covers: default_client_builder
-#[test]
-fn test_default_client_builder_repeated_calls_are_independent_edge() {
-    let a = <StubInterceptor as GrpcEgressInterceptor>::default_client_builder();
-    let b = <StubInterceptor as GrpcEgressInterceptor>::default_client_builder();
-    assert_eq!(std::mem::size_of_val(&a), std::mem::size_of_val(&b));
-}
-
-/// @covers: default_client_builder
-#[test]
-fn test_default_client_builder_is_the_real_marker_type_error() {
-    fn assert_type(builder: GrpcClientBuilder) -> usize {
-        std::mem::size_of_val(&builder)
-    }
-    let size = assert_type(<StubInterceptor as GrpcEgressInterceptor>::default_client_builder());
-    assert_eq!(
-        size, 0,
-        "the returned value must unify with the genuine zero-sized GrpcClientBuilder, not a look-alike"
     );
 }
 

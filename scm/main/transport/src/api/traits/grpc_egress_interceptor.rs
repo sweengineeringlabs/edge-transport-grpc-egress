@@ -3,8 +3,7 @@
 use crate::api::error::GrpcEgressError;
 use crate::api::types::GrpcRequest;
 use crate::api::{
-    AfterCallRequest, GrpcClientBuilder, GrpcEgressInterceptorChain, GrpcRequestBuilder,
-    TraceContextSource,
+    AfterCallRequest, GrpcEgressInterceptorChain, GrpcRequestBuilder, TraceContextSource,
 };
 
 /// An interceptor for outbound gRPC calls.
@@ -48,16 +47,5 @@ pub trait GrpcEgressInterceptor: Send + Sync {
         Self: Sized,
     {
         matches!(source, TraceContextSource::Static { .. })
-    }
-
-    /// Construct the gRPC client builder marker — gives
-    /// [`GrpcClientBuilder`] a genuine role in this trait's signature set,
-    /// not just an impl-site helper. `Self: Sized` keeps this trait
-    /// dyn-compatible for `Box<dyn Trait>`.
-    fn default_client_builder() -> GrpcClientBuilder
-    where
-        Self: Sized,
-    {
-        GrpcClientBuilder
     }
 }

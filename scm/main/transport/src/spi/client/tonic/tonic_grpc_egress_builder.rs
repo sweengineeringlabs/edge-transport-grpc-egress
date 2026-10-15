@@ -1,145 +1,138 @@
-//! `TonicGrpcEgressBuilder` — internal builder for [`super::tonic_grpc_egress::TonicGrpcEgress`].
+//! `TonicGrpcEgressBuilder` -- the builder of [`TonicGrpcEgress`], the `hyper`-backed client.
 //!
-//! Not part of the crate's public surface — external consumers construct a
-//! `GrpcEgress` via `TransportSvc`/`GrpcEgressFactory` from a
-//! [`crate::api::types::GrpcChannelConfig`] instead (see SEA rule
-//! `pub_types_in_api_only`).
+//! Not part of the crate's public surface: a caller gets a builder from
+//! [`crate::saf::TonicGrpcEgressBuilderSpiFactory`] and uses it through the
+//! [`GrpcEgressBuilder`] trait.
 
+use std::sync::Arc;
 use std::time::Duration;
 
-use crate::api::{CompressionMode, GrpcEgressInterceptorChain, DEFAULT_MAX_MESSAGE_BYTES};
+use crate::api::{
+    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
+    GrpcEgressInterceptor, GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor,
+    TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
+};
 
-/// Builder for [`super::tonic_grpc_egress::TonicGrpcEgress`].
+use super::tonic_grpc_egress::TonicGrpcEgress;
+use super::tonic_grpc_egress_protocol::TonicGrpcEgressProtocol;
+
+/// Holds the options of one client and builds it.
 ///
-/// Each setter is a fluent method that returns `Self`; call [`Self::build`]
-/// when all settings are configured.
+/// Defaults: TLS required, a 30 s request timeout, a 4 MiB message cap, no compression, no
+/// interceptor.
 pub(crate) struct TonicGrpcEgressBuilder {
-    base_uri: String,
-    timeout: Duration,
-    interceptors: GrpcEgressInterceptorChain,
+    endpoint: String,
+    plaintext_allowed: bool,
+    request_timeout: Duration,
     max_message_bytes: usize,
     compression: CompressionMode,
+    interceptors: GrpcEgressInterceptorChain,
+    /// Options of an applied [`GrpcChannelConfig`] that this client cannot apply yet. `build`
+    /// refuses them, so that none is accepted and silently ignored.
+    unapplied: Vec<&'static str>,
 }
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "only exercised in this crate's own tests; production wiring pending"
-    )
-)]
 impl TonicGrpcEgressBuilder {
-    /// Create a builder targeting `base_uri`.
-    ///
-    /// Defaults: 30 s timeout, no interceptors, 4 MiB max message, no compression.
-    pub(crate) fn new(base_uri: impl Into<String>) -> Self {
+    /// A builder for `endpoint` with every option at its default.
+    pub(crate) fn new(endpoint: impl Into<String>) -> Self {
         Self {
-            base_uri: base_uri.into(),
-            timeout: Duration::from_secs(30),
-            interceptors: GrpcEgressInterceptorChain::new(),
+            endpoint: endpoint.into(),
+            plaintext_allowed: false,
+            request_timeout: Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS),
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
             compression: CompressionMode::None,
+            interceptors: GrpcEgressInterceptorChain::new(),
+            unapplied: Vec::new(),
+        }
+    }
+}
+
+impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
+    fn with_endpoint(self, endpoint: impl Into<String>) -> Self {
+        Self {
+            endpoint: endpoint.into(),
+            ..self
         }
     }
 
-    /// Override the per-request deadline.
-    pub(crate) fn timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = timeout;
-        self
+    fn with_plaintext_allowed(self) -> Self {
+        Self {
+            plaintext_allowed: true,
+            ..self
+        }
     }
 
-    /// Attach an interceptor chain (replaces any previous chain).
-    pub(crate) fn interceptors(mut self, chain: GrpcEgressInterceptorChain) -> Self {
-        self.interceptors = chain;
-        self
+    fn with_request_timeout(self, timeout: Duration) -> Self {
+        Self {
+            request_timeout: timeout,
+            ..self
+        }
     }
 
-    /// Override the maximum response message size in bytes.
-    pub(crate) fn max_message_bytes(mut self, bytes: usize) -> Self {
-        self.max_message_bytes = bytes;
-        self
+    fn with_max_message_bytes(self, bytes: usize) -> Self {
+        Self {
+            max_message_bytes: bytes,
+            ..self
+        }
     }
 
-    /// Override the compression mode.
-    pub(crate) fn compression(mut self, mode: CompressionMode) -> Self {
-        self.compression = mode;
-        self
+    fn with_compression(self, mode: CompressionMode) -> Self {
+        Self {
+            compression: mode,
+            ..self
+        }
     }
 
-    /// Consume the builder and return a configured [`super::tonic_grpc_egress::TonicGrpcEgress`].
-    pub(crate) fn build(self) -> super::tonic_grpc_egress::TonicGrpcEgress {
-        super::tonic_grpc_egress::TonicGrpcEgress::new(self.base_uri)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::api::{GrpcEgress, GrpcEgressError, GrpcEgressInterceptorChain, HealthCheckRequest};
-    use grpc_egress_test_support::Fixture;
-
-    /// The endpoint is a closed port taken from the operating system, so a real
-    /// health_check() call must genuinely fail — proves the built client is a
-    /// real, connectable GrpcEgress wired to the given base_uri, not a stub.
-    async fn assert_genuinely_connectable(client: impl GrpcEgress) {
-        let health = client.health_check(HealthCheckRequest).await;
-        assert!(
-            matches!(health, Err(GrpcEgressError::Unavailable(_))),
-            "health_check against an unbound port must report Unavailable, got: {health:?}"
-        );
+    fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self {
+        Self {
+            interceptors: self.interceptors.push(interceptor),
+            ..self
+        }
     }
 
-    /// @covers: TonicGrpcEgressBuilder::new, build — builder produces a client without panic
-    #[tokio::test]
-    async fn test_build_produces_client() {
-        Fixture::ensure_tls_provider();
-        let closed = Fixture::reserve_closed_port().expect("a closed port");
-        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint()).build();
-        assert_genuinely_connectable(client).await;
+    fn with_trace_context(self, source: TraceContextSource) -> Self {
+        let interceptor = match source {
+            TraceContextSource::PassThrough => TraceContextGrpcEgressInterceptor::pass_through(),
+            TraceContextSource::Static {
+                traceparent,
+                tracestate,
+            } => TraceContextGrpcEgressInterceptor::with_static(traceparent, tracestate),
+        };
+        self.with_interceptor(Arc::new(interceptor))
     }
 
-    /// @covers: TonicGrpcEgressBuilder::timeout — fluent setter returns Self
-    #[tokio::test]
-    async fn test_timeout_setter_is_fluent() {
-        Fixture::ensure_tls_provider();
-        let closed = Fixture::reserve_closed_port().expect("a closed port");
-        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
-            .timeout(Duration::from_secs(5))
-            .build();
-        assert_genuinely_connectable(client).await;
+    fn with_channel_config(mut self, config: &GrpcChannelConfig) -> Self {
+        if config.mtls.is_some() {
+            self.unapplied.push("mtls");
+        }
+        if config.keep_alive.is_some() {
+            self.unapplied.push("keep_alive");
+        }
+        let request_timeout = config
+            .request_timeout_secs
+            .map_or(self.request_timeout, Duration::from_secs);
+        Self {
+            endpoint: config.endpoint.clone(),
+            plaintext_allowed: !config.tls_required,
+            request_timeout,
+            max_message_bytes: config.max_message_bytes,
+            compression: config.compression,
+            ..self
+        }
     }
 
-    /// @covers: TonicGrpcEgressBuilder::max_message_bytes — fluent setter returns Self
-    #[tokio::test]
-    async fn test_max_message_bytes_setter_is_fluent() {
-        Fixture::ensure_tls_provider();
-        let closed = Fixture::reserve_closed_port().expect("a closed port");
-        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
-            .max_message_bytes(8 * 1024 * 1024)
-            .build();
-        assert_genuinely_connectable(client).await;
-    }
-
-    /// @covers: TonicGrpcEgressBuilder::compression — fluent setter returns Self
-    #[tokio::test]
-    async fn test_compression_setter_is_fluent() {
-        Fixture::ensure_tls_provider();
-        let closed = Fixture::reserve_closed_port().expect("a closed port");
-        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
-            .compression(CompressionMode::Gzip)
-            .build();
-        assert_genuinely_connectable(client).await;
-    }
-
-    /// @covers: TonicGrpcEgressBuilder::interceptors — fluent setter returns Self
-    #[tokio::test]
-    async fn test_interceptors_setter_is_fluent() {
-        Fixture::ensure_tls_provider();
-        let chain = GrpcEgressInterceptorChain::new();
-        let closed = Fixture::reserve_closed_port().expect("a closed port");
-        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
-            .interceptors(chain)
-            .build();
-        assert_genuinely_connectable(client).await;
+    fn build(self) -> Result<impl GrpcEgress + use<>, GrpcChannelConfigError> {
+        if let Some(option) = self.unapplied.first() {
+            return Err(GrpcChannelConfigError::OptionNotApplied(option));
+        }
+        if !self.plaintext_allowed && TonicGrpcEgressProtocol::is_plaintext_endpoint(&self.endpoint)
+        {
+            return Err(GrpcChannelConfigError::PlaintextRejected(self.endpoint));
+        }
+        Ok(TonicGrpcEgress::new(self.endpoint)
+            .with_request_timeout(self.request_timeout)
+            .with_max_message_bytes(self.max_message_bytes)
+            .with_compression(self.compression)
+            .with_interceptors(self.interceptors))
     }
 }
