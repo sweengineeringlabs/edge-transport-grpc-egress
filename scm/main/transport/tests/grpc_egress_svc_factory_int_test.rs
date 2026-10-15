@@ -5,6 +5,7 @@ use edge_transport_grpc_egress_transport::{
     GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressError, GrpcEgressFactory,
     HealthCheckRequest,
 };
+use grpc_egress_test_support::Fixture;
 
 fn ensure_rustls_provider() {
     use std::sync::Once;
@@ -17,11 +18,12 @@ fn ensure_rustls_provider() {
 /// @covers: create
 #[tokio::test]
 async fn test_create_valid_config_returns_connectable_transport_happy() {
-    ensure_rustls_provider();
-    let cfg = GrpcChannelConfig::new("http://127.0.0.1:50051").allow_plaintext();
+    Fixture::ensure_tls_provider();
+    let closed = Fixture::reserve_closed_port().expect("a closed port");
+    let cfg = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
     let transport = GrpcEgressFactory::create(&cfg)
         .expect("assembly must succeed for a valid plaintext config");
-    // Nothing listens on 127.0.0.1:50051 in the test environment, so a real
+    // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
     let health = transport.health_check(HealthCheckRequest).await;
     assert!(

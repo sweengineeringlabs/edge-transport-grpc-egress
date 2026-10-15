@@ -6,6 +6,7 @@ use edge_transport_grpc_egress_transport::{
     GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressError, HealthCheckRequest,
     TransportConstruction, TransportSvc,
 };
+use grpc_egress_test_support::Fixture;
 
 /// @covers: TransportSvc struct is publicly accessible and is a zero-sized namespace marker
 #[test]
@@ -28,11 +29,12 @@ fn ensure_rustls_provider() {
 /// @covers: create_transport_from_config — bare transport without resilience.
 #[tokio::test]
 async fn transport_struct_transport_create_without_resilience_returns_ok_int_test() {
-    ensure_rustls_provider();
-    let cfg = GrpcChannelConfig::new("http://127.0.0.1:50051").allow_plaintext();
+    Fixture::ensure_tls_provider();
+    let closed = Fixture::reserve_closed_port().expect("a closed port");
+    let cfg = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
     let transport = TransportConstruction::create_transport_from_config(&cfg)
         .expect("assembly must succeed for a valid plaintext config");
-    // Nothing listens on 127.0.0.1:50051 in the test environment, so a real
+    // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
     let health = transport.health_check(HealthCheckRequest).await;
     assert!(

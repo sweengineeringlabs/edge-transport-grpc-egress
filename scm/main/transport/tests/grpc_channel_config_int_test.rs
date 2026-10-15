@@ -4,6 +4,7 @@
 //! Verifies the **fail-closed TLS-by-default invariant** at the
 //! public-facade boundary via the `create_transport_from_config` factory.
 
+use grpc_egress_test_support::Fixture;
 use std::sync::Arc;
 
 use edge_transport_grpc_egress_transport::{
@@ -47,11 +48,12 @@ fn transport_struct_channel_config_from_config_rejects_plaintext_int_test() {
 /// @covers: create_transport_from_config — plaintext accepted with allow_plaintext().
 #[tokio::test]
 async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_in_int_test() {
-    ensure_rustls_provider();
-    let cfg = GrpcChannelConfig::new("http://127.0.0.1:50051").allow_plaintext();
+    Fixture::ensure_tls_provider();
+    let closed = Fixture::reserve_closed_port().expect("a closed port");
+    let cfg = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
     let transport = TransportConstruction::create_transport_from_config(&cfg)
         .expect("plaintext accepted with allow_plaintext()");
-    // Nothing listens on 127.0.0.1:50051 in the test environment, so a real
+    // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
     let health = transport
         .health_check(edge_transport_grpc_egress_transport::HealthCheckRequest)
