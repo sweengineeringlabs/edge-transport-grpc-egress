@@ -1,8 +1,9 @@
-# ADR-001: Use `aws_lc_rs` as the rustls Cryptography Provider
+# ADR-005: Use `aws_lc_rs` as the rustls Cryptography Provider
 
 **Status:** Accepted
 **Date:** 2026-06-05
 **Deciders:** phdsystems
+**Note (2026-10-15):** renumbered from ADR-001: two records carried that number (this one and the security specialisations record). The client this record calls `TonicGrpcClient` is `TonicGrpcEgress` today, a private type built through `TransportConstruction`.
 
 ---
 
