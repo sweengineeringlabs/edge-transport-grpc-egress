@@ -76,16 +76,9 @@ impl TonicGrpcEgressBuilder {
 mod tests {
     use super::*;
     use crate::api::{GrpcEgress, GrpcEgressError, GrpcEgressInterceptorChain, HealthCheckRequest};
+    use grpc_egress_test_support::Fixture;
 
-    fn ensure_rustls_provider() {
-        use std::sync::Once;
-        static ONCE: Once = Once::new();
-        ONCE.call_once(|| {
-            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-        });
-    }
-
-    /// Nothing listens on 127.0.0.1:50051 in the test environment, so a real
+    /// The endpoint is a closed port taken from the operating system, so a real
     /// health_check() call must genuinely fail — proves the built client is a
     /// real, connectable GrpcEgress wired to the given base_uri, not a stub.
     async fn assert_genuinely_connectable(client: impl GrpcEgress) {
@@ -99,16 +92,18 @@ mod tests {
     /// @covers: TonicGrpcEgressBuilder::new, build — builder produces a client without panic
     #[tokio::test]
     async fn test_build_produces_client() {
-        ensure_rustls_provider();
-        let client = TonicGrpcEgressBuilder::new("http://127.0.0.1:50051").build();
+        Fixture::ensure_tls_provider();
+        let closed = Fixture::reserve_closed_port().expect("a closed port");
+        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint()).build();
         assert_genuinely_connectable(client).await;
     }
 
     /// @covers: TonicGrpcEgressBuilder::timeout — fluent setter returns Self
     #[tokio::test]
     async fn test_timeout_setter_is_fluent() {
-        ensure_rustls_provider();
-        let client = TonicGrpcEgressBuilder::new("http://127.0.0.1:50051")
+        Fixture::ensure_tls_provider();
+        let closed = Fixture::reserve_closed_port().expect("a closed port");
+        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
             .timeout(Duration::from_secs(5))
             .build();
         assert_genuinely_connectable(client).await;
@@ -117,8 +112,9 @@ mod tests {
     /// @covers: TonicGrpcEgressBuilder::max_message_bytes — fluent setter returns Self
     #[tokio::test]
     async fn test_max_message_bytes_setter_is_fluent() {
-        ensure_rustls_provider();
-        let client = TonicGrpcEgressBuilder::new("http://127.0.0.1:50051")
+        Fixture::ensure_tls_provider();
+        let closed = Fixture::reserve_closed_port().expect("a closed port");
+        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
             .max_message_bytes(8 * 1024 * 1024)
             .build();
         assert_genuinely_connectable(client).await;
@@ -127,8 +123,9 @@ mod tests {
     /// @covers: TonicGrpcEgressBuilder::compression — fluent setter returns Self
     #[tokio::test]
     async fn test_compression_setter_is_fluent() {
-        ensure_rustls_provider();
-        let client = TonicGrpcEgressBuilder::new("http://127.0.0.1:50051")
+        Fixture::ensure_tls_provider();
+        let closed = Fixture::reserve_closed_port().expect("a closed port");
+        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
             .compression(CompressionMode::Gzip)
             .build();
         assert_genuinely_connectable(client).await;
@@ -137,9 +134,10 @@ mod tests {
     /// @covers: TonicGrpcEgressBuilder::interceptors — fluent setter returns Self
     #[tokio::test]
     async fn test_interceptors_setter_is_fluent() {
-        ensure_rustls_provider();
+        Fixture::ensure_tls_provider();
         let chain = GrpcEgressInterceptorChain::new();
-        let client = TonicGrpcEgressBuilder::new("http://127.0.0.1:50051")
+        let closed = Fixture::reserve_closed_port().expect("a closed port");
+        let client = TonicGrpcEgressBuilder::new(closed.get_endpoint())
             .interceptors(chain)
             .build();
         assert_genuinely_connectable(client).await;

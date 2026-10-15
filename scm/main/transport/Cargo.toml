@@ -49,6 +49,7 @@ edge-security-runtime = { workspace = true }
 tracing          = { workspace = true }
 
 [dev-dependencies]
+grpc-egress-test-support = { path = "../test-support" }
 toml       = "0.8"
 prost      = "0.13"
 tokio      = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
