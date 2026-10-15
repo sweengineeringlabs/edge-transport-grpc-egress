@@ -1,17 +1,9 @@
-# edge-transport-grpc-egress runtime defaults.
+# edge-transport-grpc-egress-transport: no section is shipped as a baseline.
 #
-# ResilienceConfig fields used by create_transport_from_config() when
-# constructing a retry + circuit-breaker stack from GrpcChannelConfig::resilience.
-
-[resilience]
-max_attempts                  = 3
-initial_backoff_ms            = 100
-backoff_multiplier            = 2.0
-jitter_factor                 = 0.1
-max_backoff_ms                = 2000
-rate_limit_max_attempts       = 2
-rate_limit_initial_backoff_ms = 1000
-rate_limit_max_backoff_ms     = 10000
-failure_threshold             = 5
-cool_down_seconds             = 10
-half_open_probe_count         = 1
+# A channel needs an endpoint, so there is no default to ship. The keys of a channel are the
+# fields of `GrpcChannelConfig` (see its documentation): the endpoint, whether TLS is required,
+# the message size cap, the compression mode, the request timeout, and the `mtls` and
+# `keep_alive` tables.
+#
+# Resilience settings are not part of the transport (ADR-004). They live in the
+# `[grpc_resilient]` section of the resilient crate's own config/application.toml.

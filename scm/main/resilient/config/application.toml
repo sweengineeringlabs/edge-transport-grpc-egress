@@ -1,7 +1,7 @@
 # SWE default resilient gRPC transport policy.
 #
-# This crate assembles a TonicGrpcClient wrapped with retry and
-# circuit-breaker layers. The values here are calibrated for typical
+# This crate wraps an already-built gRPC client in the retry and
+# circuit-breaker decorators. The values here are calibrated for typical
 # RPC traffic where transient errors clear within a few hundred
 # milliseconds. The caller's per-call deadline always acts as the
 # total budget — even if max_attempts allows more tries, the retry
