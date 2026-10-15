@@ -15,6 +15,7 @@ use futures::StreamExt as _;
 use http_body_util::{BodyExt as _, Full};
 use tokio_util::sync::CancellationToken;
 
+use super::grpc_message_codec::GrpcMessageCodec;
 use super::tonic_grpc_egress::TonicGrpcEgress;
 use crate::api::Conversions as StatusConversions;
 use crate::api::{
@@ -27,25 +28,44 @@ const SANITIZED_INTERNAL_MSG: &str = "internal client error";
 // ── internal helpers ─────────────────────────────────────────────────────────
 
 impl TonicGrpcEgressProtocol {
-    /// Encode `payload` as a single gRPC data frame:
-    /// `[0x00][len_u32_be][payload]` — not compressed.
-    fn encode_grpc_frame(payload: &[u8]) -> Bytes {
-        let mut buf = BytesMut::with_capacity(5 + payload.len());
-        buf.put_u8(0x00); // compression flag: not compressed
-        buf.put_u32(payload.len() as u32);
-        buf.put_slice(payload);
-        buf.freeze()
+    /// Encode `payload` as a single gRPC data frame: `[flag][len_u32_be][payload]`.
+    ///
+    /// With a compression `mode` the payload is compressed and the flag is `0x01`; without one
+    /// the message is sent as it is and the flag is `0x00`.
+    fn encode_grpc_frame(payload: &[u8], mode: CompressionMode) -> GrpcEgressResult<Bytes> {
+        let compressed = GrpcMessageCodec::compress(mode, payload)?;
+        let (flag, wire) = match &compressed {
+            Some(bytes) => (0x01, bytes.as_slice()),
+            None => (0x00, payload),
+        };
+        let len = u32::try_from(wire.len()).map_err(|_| {
+            GrpcEgressError::Status(
+                GrpcStatusCode::ResourceExhausted,
+                "message exceeds the 4 GiB a gRPC frame can carry".into(),
+            )
+        })?;
+        let mut buf = BytesMut::with_capacity(5 + wire.len());
+        buf.put_u8(flag);
+        buf.put_u32(len);
+        buf.put_slice(wire);
+        Ok(buf.freeze())
     }
 
     /// Decode all complete gRPC frames from `data`.
     ///
-    /// Each frame: `[compression_flag: u8][length: u32_be][payload: length bytes]`.
-    /// Frames with the compression flag set are passed through as-is (no decompression).
-    fn decode_grpc_frames(mut data: Bytes) -> GrpcEgressResult<Vec<Vec<u8>>> {
+    /// Each frame: `[compression_flag: u8][length: u32_be][payload: length bytes]`. A frame
+    /// with the flag set is decompressed with the `grpc-encoding` the peer announced
+    /// (`encoding`), to at most `max_bytes`; a set flag without an announced encoding, a flag
+    /// other than 0 or 1, and bytes left over that do not make a frame are errors.
+    fn decode_grpc_frames(
+        mut data: Bytes,
+        encoding: Option<&str>,
+        max_bytes: usize,
+    ) -> GrpcEgressResult<Vec<Vec<u8>>> {
         const FRAME_HEADER: usize = 5;
         let mut out = Vec::new();
         while data.len() >= FRAME_HEADER {
-            let _flag = data[0];
+            let flag = data[0];
             let len = u32::from_be_bytes([data[1], data[2], data[3], data[4]]) as usize;
             data.advance(FRAME_HEADER);
             if data.len() < len {
@@ -56,10 +76,54 @@ impl TonicGrpcEgressProtocol {
                 );
                 return Err(GrpcEgressError::Internal(SANITIZED_INTERNAL_MSG.into()));
             }
-            out.push(data[..len].to_vec());
+            let message = match (flag, encoding) {
+                (0x00, _) => data[..len].to_vec(),
+                (0x01, Some(name)) => GrpcMessageCodec::decompress(name, &data[..len], max_bytes)?,
+                (0x01, None) => {
+                    tracing::warn!("compressed gRPC frame without a grpc-encoding header");
+                    return Err(GrpcEgressError::Internal(SANITIZED_INTERNAL_MSG.into()));
+                }
+                (other, _) => {
+                    tracing::warn!(flag = other, "gRPC frame with an invalid compressed flag");
+                    return Err(GrpcEgressError::Internal(SANITIZED_INTERNAL_MSG.into()));
+                }
+            };
+            out.push(message);
             data.advance(len);
         }
+        if !data.is_empty() {
+            tracing::warn!(
+                left = data.len(),
+                "bytes after the last gRPC frame do not make a frame"
+            );
+            return Err(GrpcEgressError::Internal(SANITIZED_INTERNAL_MSG.into()));
+        }
         Ok(out)
+    }
+
+    /// The one message of a unary response body; none is an empty message, more than one an error.
+    fn read_unary_message(
+        data: Bytes,
+        encoding: Option<&str>,
+        max_bytes: usize,
+    ) -> GrpcEgressResult<Vec<u8>> {
+        let mut messages = Self::decode_grpc_frames(data, encoding, max_bytes)?.into_iter();
+        match (messages.next(), messages.next()) {
+            (Some(message), None) => Ok(message),
+            (None, _) => Ok(Vec::new()),
+            (Some(_), Some(_)) => {
+                tracing::warn!("unary gRPC response carried more than one message");
+                Err(GrpcEgressError::Internal(SANITIZED_INTERNAL_MSG.into()))
+            }
+        }
+    }
+
+    /// The `grpc-encoding` a response announced, if any.
+    fn read_grpc_encoding(headers: &http::HeaderMap) -> Option<String> {
+        headers
+            .get("grpc-encoding")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
     }
 
     /// Encode a `Duration` as a `grpc-timeout` header value per the gRPC protocol:
@@ -323,7 +387,11 @@ impl GrpcEgress for TonicGrpcEgress {
         // reject the double-slash form.
         let method = request.method.trim_start_matches('/');
         let uri_str = format!("{}/{}", self.base_uri.trim_end_matches('/'), method);
-        let body_bytes = TonicGrpcEgressProtocol::encode_grpc_frame(&request.body);
+        let body_bytes =
+            match TonicGrpcEgressProtocol::encode_grpc_frame(&request.body, self.compression) {
+                Ok(b) => b,
+                Err(e) => return Box::pin(futures::future::ready(Err(e))),
+            };
         // The client's request timeout is a backstop: a call never outlasts it, whatever deadline it carries.
         let deadline = request.deadline.min(self.timeout);
         let cancel = request.cancellation.clone();
@@ -352,6 +420,7 @@ impl GrpcEgress for TonicGrpcEgress {
             })?;
 
             let response_headers = resp.headers().clone();
+            let response_encoding = TonicGrpcEgressProtocol::read_grpc_encoding(&response_headers);
             TonicGrpcEgressProtocol::check_grpc_status(
                 Some(&response_headers),
                 Some(&response_headers),
@@ -380,12 +449,11 @@ impl GrpcEgress for TonicGrpcEgress {
 
             let trailer_headers = TonicGrpcEgressProtocol::header_map_to_hash(collected.trailers());
             let data = collected.to_bytes();
-
-            let body = if data.len() >= 5 {
-                data[5..].to_vec()
-            } else {
-                data.to_vec()
-            };
+            let body = TonicGrpcEgressProtocol::read_unary_message(
+                data,
+                response_encoding.as_deref(),
+                max_bytes,
+            )?;
 
             let mut response = GrpcResponse {
                 body,
@@ -429,7 +497,7 @@ impl GrpcEgress for TonicGrpcEgress {
             let mut stream = messages.stream;
             while let Some(item) = stream.next().await {
                 let payload = item?;
-                let frame = TonicGrpcEgressProtocol::encode_grpc_frame(&payload);
+                let frame = TonicGrpcEgressProtocol::encode_grpc_frame(&payload, self.compression)?;
                 body_buf.put(frame);
             }
 
@@ -448,6 +516,7 @@ impl GrpcEgress for TonicGrpcEgress {
                     GrpcEgressError::ConnectionFailed("transport error".into())
                 })?;
 
+            let response_encoding = TonicGrpcEgressProtocol::read_grpc_encoding(resp.headers());
             // Check grpc-status in the initial response headers first.
             TonicGrpcEgressProtocol::check_grpc_status(Some(resp.headers()), Some(resp.headers()))?;
 
@@ -460,7 +529,11 @@ impl GrpcEgress for TonicGrpcEgress {
             TonicGrpcEgressProtocol::check_grpc_status(collected.trailers(), None)?;
 
             let data = collected.to_bytes();
-            let frames = TonicGrpcEgressProtocol::decode_grpc_frames(data)?;
+            let frames = TonicGrpcEgressProtocol::decode_grpc_frames(
+                data,
+                response_encoding.as_deref(),
+                self.max_message_bytes,
+            )?;
             let items: Vec<GrpcEgressResult<Vec<u8>>> = frames.into_iter().map(Ok).collect();
             Ok(GrpcMessageStreamResponse {
                 stream: Box::pin(futures::stream::iter(items)),
@@ -478,7 +551,11 @@ impl GrpcEgress for TonicGrpcEgress {
         }
         let method = request.method.trim_start_matches('/');
         let uri_str = format!("{}/{}", self.base_uri.trim_end_matches('/'), method);
-        let body_bytes = TonicGrpcEgressProtocol::encode_grpc_frame(&request.body);
+        let body_bytes =
+            match TonicGrpcEgressProtocol::encode_grpc_frame(&request.body, self.compression) {
+                Ok(b) => b,
+                Err(e) => return Box::pin(futures::future::ready(Err(e))),
+            };
         let deadline = request.deadline;
         let cancel = request.cancellation.clone();
         let max_bytes = self.max_message_bytes;
@@ -505,6 +582,7 @@ impl GrpcEgress for TonicGrpcEgress {
             })?;
 
             let response_headers = resp.headers().clone();
+            let response_encoding = TonicGrpcEgressProtocol::read_grpc_encoding(&response_headers);
             TonicGrpcEgressProtocol::check_grpc_status(
                 Some(&response_headers),
                 Some(&response_headers),
@@ -530,7 +608,11 @@ impl GrpcEgress for TonicGrpcEgress {
             )?;
 
             let data = collected.to_bytes();
-            let frames = TonicGrpcEgressProtocol::decode_grpc_frames(data)?;
+            let frames = TonicGrpcEgressProtocol::decode_grpc_frames(
+                data,
+                response_encoding.as_deref(),
+                self.max_message_bytes,
+            )?;
             let items: Vec<GrpcEgressResult<Vec<u8>>> = frames.into_iter().map(Ok).collect();
             Ok(GrpcMessageStreamResponse {
                 stream: Box::pin(futures::stream::iter(items)),
@@ -560,7 +642,10 @@ impl GrpcEgress for TonicGrpcEgress {
             let mut stream = messages.stream;
             while let Some(item) = stream.next().await {
                 let payload = item?;
-                body_buf.put(TonicGrpcEgressProtocol::encode_grpc_frame(&payload));
+                body_buf.put(TonicGrpcEgressProtocol::encode_grpc_frame(
+                    &payload,
+                    self.compression,
+                )?);
             }
 
             let http_req = TonicGrpcEgressProtocol::build_http_request(
@@ -581,6 +666,7 @@ impl GrpcEgress for TonicGrpcEgress {
                 })?;
 
             let response_headers = resp.headers().clone();
+            let response_encoding = TonicGrpcEgressProtocol::read_grpc_encoding(&response_headers);
             TonicGrpcEgressProtocol::check_grpc_status(
                 Some(&response_headers),
                 Some(&response_headers),
@@ -606,11 +692,11 @@ impl GrpcEgress for TonicGrpcEgress {
 
             let trailer_headers = TonicGrpcEgressProtocol::header_map_to_hash(collected.trailers());
             let data = collected.to_bytes();
-            let body = if data.len() >= 5 {
-                data[5..].to_vec()
-            } else {
-                data.to_vec()
-            };
+            let body = TonicGrpcEgressProtocol::read_unary_message(
+                data,
+                response_encoding.as_deref(),
+                max_bytes,
+            )?;
 
             let mut response = GrpcResponse {
                 body,
@@ -735,7 +821,8 @@ mod tests {
 
     #[test]
     fn test_encode_grpc_frame_produces_5_byte_header() {
-        let frame = TonicGrpcEgressProtocol::encode_grpc_frame(b"hello");
+        let frame = TonicGrpcEgressProtocol::encode_grpc_frame(b"hello", CompressionMode::None)
+            .expect("encode failed");
         assert_eq!(frame.len(), 10); // 5 header + 5 payload
         assert_eq!(frame[0], 0x00); // not compressed
         assert_eq!(
@@ -747,8 +834,10 @@ mod tests {
 
     #[test]
     fn test_decode_grpc_frames_round_trips_single_frame() {
-        let encoded = TonicGrpcEgressProtocol::encode_grpc_frame(b"world");
-        let decoded = TonicGrpcEgressProtocol::decode_grpc_frames(encoded).expect("decode failed");
+        let encoded = TonicGrpcEgressProtocol::encode_grpc_frame(b"world", CompressionMode::None)
+            .expect("encode failed");
+        let decoded = TonicGrpcEgressProtocol::decode_grpc_frames(encoded, None, usize::MAX)
+            .expect("decode failed");
         assert_eq!(decoded.len(), 1);
         assert_eq!(decoded[0], b"world");
     }
@@ -756,11 +845,20 @@ mod tests {
     #[test]
     fn test_decode_grpc_frames_round_trips_multiple_frames() {
         let mut buf = BytesMut::new();
-        buf.put(TonicGrpcEgressProtocol::encode_grpc_frame(b"one"));
-        buf.put(TonicGrpcEgressProtocol::encode_grpc_frame(b"two"));
-        buf.put(TonicGrpcEgressProtocol::encode_grpc_frame(b"three"));
-        let decoded =
-            TonicGrpcEgressProtocol::decode_grpc_frames(buf.freeze()).expect("decode failed");
+        buf.put(
+            TonicGrpcEgressProtocol::encode_grpc_frame(b"one", CompressionMode::None)
+                .expect("encode failed"),
+        );
+        buf.put(
+            TonicGrpcEgressProtocol::encode_grpc_frame(b"two", CompressionMode::None)
+                .expect("encode failed"),
+        );
+        buf.put(
+            TonicGrpcEgressProtocol::encode_grpc_frame(b"three", CompressionMode::None)
+                .expect("encode failed"),
+        );
+        let decoded = TonicGrpcEgressProtocol::decode_grpc_frames(buf.freeze(), None, usize::MAX)
+            .expect("decode failed");
         assert_eq!(decoded.len(), 3);
         assert_eq!(decoded[0], b"one");
         assert_eq!(decoded[1], b"two");
@@ -774,7 +872,7 @@ mod tests {
         buf.put_u8(0x00);
         buf.put_u32(100_u32);
         buf.put_slice(b"abc");
-        let result = TonicGrpcEgressProtocol::decode_grpc_frames(buf.freeze());
+        let result = TonicGrpcEgressProtocol::decode_grpc_frames(buf.freeze(), None, usize::MAX);
         match result {
             Err(GrpcEgressError::Internal(msg)) => {
                 // Must be the sanitized constant — never raw byte counts on the wire.

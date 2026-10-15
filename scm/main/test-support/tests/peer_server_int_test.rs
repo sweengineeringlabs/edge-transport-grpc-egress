@@ -188,3 +188,54 @@ async fn test_drop_peer_stops_accepting_connections_with_connection_refused(
     assert_eq!(error.kind(), ErrorKind::ConnectionRefused);
     Ok(())
 }
+
+/// @covers: PeerServer::start
+#[tokio::test]
+async fn test_start_reply_compressed_marks_the_message_compressed_and_announces_the_encoding(
+) -> Result<(), Box<dyn Error>> {
+    let peer = PeerServer::start(PeerBehaviour::ReplyCompressed {
+        encoding: Some("gzip".to_string()),
+        payload: b"wire bytes".to_vec(),
+    })
+    .await?;
+
+    let (head, reply) = RawGrpcClient::post(
+        peer.get_addr(),
+        "/pkg.Service/Method",
+        &[],
+        GrpcFrame::encode(b"ignored").to_vec().into(),
+    )
+    .await?;
+
+    assert_eq!(
+        head.headers.get("grpc-encoding").map(|v| v.as_bytes()),
+        Some(&b"gzip"[..])
+    );
+    assert_eq!(
+        GrpcFrame::decode_all(&reply),
+        vec![DecodedFrame::create(true, b"wire bytes".to_vec())]
+    );
+    Ok(())
+}
+
+/// @covers: PeerServer::start
+#[tokio::test]
+async fn test_start_reply_compressed_without_encoding_announces_none() -> Result<(), Box<dyn Error>>
+{
+    let peer = PeerServer::start(PeerBehaviour::ReplyCompressed {
+        encoding: None,
+        payload: b"wire bytes".to_vec(),
+    })
+    .await?;
+
+    let (head, _) = RawGrpcClient::post(
+        peer.get_addr(),
+        "/pkg.Service/Method",
+        &[],
+        GrpcFrame::encode(b"x").to_vec().into(),
+    )
+    .await?;
+
+    assert!(head.headers.get("grpc-encoding").is_none());
+    Ok(())
+}
