@@ -8,20 +8,10 @@
 //! A test never names a port: a fixed port is only closed on the machines where nothing happens to
 //! listen on it, and a port that was merely free for an instant can be handed to another listener.
 
-mod closed_port;
-mod decoded_frame;
-mod fixture;
-mod grpc_frame;
-mod peer_behaviour;
-mod peer_server;
-mod recorded_request;
-mod running_peer;
+mod frame;
+mod peer;
+mod setup;
 
-pub use closed_port::ClosedPort;
-pub use decoded_frame::DecodedFrame;
-pub use fixture::Fixture;
-pub use grpc_frame::GrpcFrame;
-pub use peer_behaviour::PeerBehaviour;
-pub use peer_server::PeerServer;
-pub use recorded_request::RecordedRequest;
-pub use running_peer::RunningPeer;
+pub use frame::{DecodedFrame, GrpcFrame};
+pub use peer::{PeerBehaviour, PeerServer, RecordedRequest, RunningPeer};
+pub use setup::{ClosedPort, Fixture};
