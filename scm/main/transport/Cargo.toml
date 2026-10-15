@@ -1,0 +1,69 @@
+[package]
+name         = "edge-transport-grpc-egress-transport"
+version.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+repository.workspace   = true
+description  = "edge — egress gRPC outbound domain: request/response types and outbound trait."
+keywords     = ["gateway", "egress", "grpc", "sea", "swe"]
+categories   = ["network-programming"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type     = "processor"
+
+[package.metadata.arch]
+application_type = "lib"
+service_type     = "processor"
+
+[features]
+default = []
+# Opt-in prost codec ergonomics (ADR-026). Default off — the byte core stays
+# codec-agnostic and the default build gains no `prost` dependency.
+prost = ["dep:prost"]
+
+[[example]]
+name = "basic_transport"
+path = "examples/basic_transport.rs"
+
+[dependencies]
+serde.workspace       = true
+thiserror.workspace   = true
+futures.workspace     = true
+bytes            = "1"
+http             = { workspace = true }
+http-body-util   = "0.1"
+hyper-util       = { version = "0.1", features = ["client-legacy", "tokio", "http2"] }
+hyper-rustls     = { version = "0.27", features = ["http2", "webpki-tokio"] }
+rustls           = { version = "0.23", features = ["aws-lc-rs"] }
+tokio                  = { version = "1", features = ["rt", "net", "time", "macros"] }
+swe-edge-configbuilder = { workspace = true }
+tokio-util       = { version = "0.7", default-features = false }
+tonic            = { version = "0.12", default-features = false, features = ["transport"] }
+prost            = { version = "0.13", optional = true }
+tower            = { version = "0.4", features = ["util"] }
+swe-edge-loadbalancer  = { workspace = true }
+edge-security-runtime = { workspace = true }
+tracing          = { workspace = true }
+
+[dev-dependencies]
+toml       = "0.8"
+prost      = "0.13"
+tokio      = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
+hyper      = { version = "1", features = ["http2", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+bytes      = "1"
+http-body      = "1"
+http-body-util = "0.1"
+futures    = "0.3"
+tonic      = { version = "0.12", default-features = false }
+
+[lints.rust]
+unsafe_code  = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

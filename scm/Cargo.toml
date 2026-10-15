@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members  = ["transport", "auth-bearer", "breaker", "resilient", "retry"]
+members  = ["main/*"]
 
 [workspace.package]
 version      = "0.5.0"
@@ -22,11 +22,11 @@ expect_used = "deny"
 edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
 swe-edge-security      = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22", package = "edge-security-transport-egress-grpc" }
-edge-transport-grpc-egress             = { package = "edge-transport-grpc-egress-transport", path = "transport" }
-edge-transport-grpc-egress-auth-bearer = { path = "auth-bearer" }
-edge-transport-grpc-egress-breaker     = { path = "breaker" }
-edge-transport-grpc-egress-resilient   = { path = "resilient" }
-edge-transport-grpc-egress-retry       = { path = "retry" }
+edge-transport-grpc-egress             = { package = "edge-transport-grpc-egress-transport", path = "main/transport" }
+edge-transport-grpc-egress-auth-bearer = { path = "main/auth-bearer" }
+edge-transport-grpc-egress-breaker     = { path = "main/breaker" }
+edge-transport-grpc-egress-resilient   = { path = "main/resilient" }
+edge-transport-grpc-egress-retry       = { path = "main/retry" }
 edge-transport-breaker-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
 edge-transport-breaker        = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
 edge-transport-retry-policy   = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }

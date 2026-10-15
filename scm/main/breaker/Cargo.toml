@@ -1,0 +1,47 @@
+[package]
+name = "edge-transport-grpc-egress-breaker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Decorator: gRPC-aware circuit breaker around any GrpcEgress"
+keywords = ["grpc", "circuit-breaker", "tonic", "decorator", "swe"]
+categories = ["network-programming"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type = "processor"
+
+[package.metadata.arch]
+application_type = "lib"
+service_type = "processor"
+
+[dependencies]
+edge-transport-grpc-egress = { workspace = true }
+edge-transport-breaker-policy = { workspace = true }
+edge-transport-breaker        = { workspace = true }
+thiserror = { workspace = true }
+futures = { workspace = true }
+# `from_config` loads policy from TOML. `serde` derives the
+# schema; `toml` parses it. Policy values live in
+# `config/application.toml` + consumer overrides — never as
+# hardcoded literals in source.
+serde = { workspace = true }
+toml = { workspace = true }
+swe-edge-configbuilder.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "macros"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "time"] }
+
+
+[lints.rust]
+unsafe_code  = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
