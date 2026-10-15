@@ -390,6 +390,7 @@ dependencies = [
  "bytes",
  "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",
  "futures",
+ "grpc-egress-test-support",
  "http",
  "http-body",
  "http-body-util",
@@ -575,6 +576,20 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
+]
+
+[[package]]
+name = "grpc-egress-test-support"
+version = "0.5.0"
+dependencies = [
+ "bytes",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "socket2 0.6.5",
+ "tokio",
 ]
 
 [[package]]
