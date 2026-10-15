@@ -23,9 +23,6 @@ pub use mtls_config::MtlsConfig;
 pub mod conversions;
 pub use conversions::Conversions;
 
-pub mod grpc_client_builder;
-pub use grpc_client_builder::GrpcClientBuilder;
-
 pub mod call_stream_request;
 pub mod call_unary_with_context_request;
 pub mod grpc_channel_config;

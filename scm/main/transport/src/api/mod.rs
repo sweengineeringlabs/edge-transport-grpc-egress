@@ -26,9 +26,9 @@ pub use types::{
     AfterCallRequest, CallStreamRequest, CallUnaryWithContextRequest, CircuitStateRequest,
     CircuitStateResponse, CompressionMode, ConsecutiveFailuresRequest, ConsecutiveFailuresResponse,
     Conversions, DescribeRequest, DescribeResponse, GrpcChannelConfig, GrpcChannelConfigBuilder,
-    GrpcClientBuilder, GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse,
-    GrpcRequest, GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
-    KeepAliveConfig, LastErrorRequest, LastErrorResponse, MtlsConfig, ProcessingRequest,
+    GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
+    GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest, KeepAliveConfig,
+    LastErrorRequest, LastErrorResponse, MtlsConfig, ProcessingRequest,
     TraceContextGrpcEgressInterceptor, TraceContextSource, TransportSvc, DEFAULT_MAX_MESSAGE_BYTES,
     DEFAULT_REQUEST_TIMEOUT_SECS,
 };

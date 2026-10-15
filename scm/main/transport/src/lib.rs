@@ -17,7 +17,7 @@ pub use api::{
     CallUnaryWithContextRequest, CircuitStateRequest, CircuitStateResponse, CompressionMode,
     ConsecutiveFailuresRequest, ConsecutiveFailuresResponse, Conversions, DescribeRequest,
     DescribeResponse, GrpcChannelConfig, GrpcChannelConfigBuilder, GrpcChannelConfigError,
-    GrpcClientBuilder, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError,
+    GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError,
     GrpcEgressInterceptor, GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
     KeepAliveConfig, LastErrorRequest, LastErrorResponse, MtlsConfig, ProcessingRequest, Processor,
