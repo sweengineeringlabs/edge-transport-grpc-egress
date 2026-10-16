@@ -7,7 +7,7 @@ use crate::Error;
 /// Contract for producing a config builder pre-populated with this crate's
 /// name and version.
 ///
-/// Implemented by [`GrpcRetrySvc`] in `core/`.
+/// Implemented by `GrpcRetrySvc` of `grpc-egress-retry-std`.
 pub trait ConfigBuilderProvider: Send + Sync {
     /// Create a config builder pre-populated with this crate's name and version.
     fn create_config_builder(

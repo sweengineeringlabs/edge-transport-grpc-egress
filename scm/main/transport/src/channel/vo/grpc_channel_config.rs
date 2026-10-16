@@ -16,7 +16,7 @@ pub const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
 ///
 /// **TLS-by-default**.  `tls_required` is `true` in
 /// `Default::default()`.  Plaintext requires explicit
-/// [`GrpcChannelConfig::allow_plaintext`] — fail-closed by design.
+/// `GrpcChannelConfig::allow_plaintext` (`GrpcChannelConfigFactory` of `grpc-egress-transport-std`) — fail-closed by design.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GrpcChannelConfig {
     /// Channel endpoint.

@@ -12,13 +12,13 @@ use tokio_util::sync::CancellationToken;
 /// Every gRPC call MUST carry a per-call deadline.  Production gRPC
 /// without deadlines deadlocks on slow servers or stuck connections —
 /// the deadline is therefore a *required* positional argument of
-/// [`GrpcRequest::new`], not an `Option`.  Construction without a
+/// `GrpcRequest::new` (`GrpcRequestFactory` of `grpc-egress-transport-std`), not an `Option`.  Construction without a
 /// `Duration` is a compile error.
 ///
 /// ## Optional cancellation
 ///
 /// A caller-supplied [`CancellationToken`] can be attached via
-/// [`GrpcRequest::with_cancellation`].  When the token fires, the
+/// `GrpcRequest::with_cancellation`.  When the token fires, the
 /// in-flight request is aborted by the egress transport.  Default:
 /// no token (caller never cancels).
 #[derive(Debug, Clone)]

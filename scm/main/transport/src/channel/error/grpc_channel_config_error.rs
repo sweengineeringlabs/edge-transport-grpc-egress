@@ -1,6 +1,6 @@
 //! Error returned when a channel configuration violates a fail-closed invariant.
 
-/// Error returned by [`crate::saf::TransportConstruction::create_transport_from_config`] when the
+/// Error returned by `TransportConstruction::create_transport_from_config` of `grpc-egress-transport-std` when the
 /// channel configuration violates a fail-closed invariant.
 #[derive(Debug, thiserror::Error)]
 pub enum GrpcChannelConfigError {

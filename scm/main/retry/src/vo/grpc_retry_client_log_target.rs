@@ -4,5 +4,5 @@
 //! trait that gives it signature presence lives in
 //! `api::grpc::traits::retry_decorator`.
 
-/// Label used in `tracing` events emitted by [`crate::GrpcRetryClient`].
+/// Label used in `tracing` events emitted by `GrpcRetryClient`.
 pub const GRPC_RETRY_CLIENT_LOG_TARGET: &str = "grpc_retry::client";

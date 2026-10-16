@@ -16,7 +16,7 @@ The base `transport` crate (`edge-transport-grpc-egress`) must have **zero knowl
 retry/breaker — not even the config *shape*. Remove `resilience: Option<ResilienceConfigResilienceValidator>`
 from `GrpcChannelConfig`/`GrpcChannelConfigBuilder`, and delete
 `ResilienceConfigResilienceValidator`/`ResilienceConfigBuilder` from `transport` entirely. The
-concept moves fully into `edge-transport-grpc-egress-resilient`, which already does the actual
+concept moves fully into `grpc-egress-resilient-std`, which already does the actual
 composition.
 
 ## Why
@@ -32,7 +32,7 @@ resilience config *without* a Cargo dependency on the crates that actually defin
 That's coupling without dependency-graph visibility, which is worse than a direct dependency, not
 better: a real Cargo dependency gets a compiler error the moment `GrpcRetryConfig`'s or
 `GrpcBreakerConfig`'s fields change shape. This mirrored struct gets silent drift instead —
-`edge-transport-grpc-egress-resilient`'s `grpc_resilient_facade.rs` hand-maps all 11 fields
+`grpc-egress-resilient-std`'s `grpc_resilient_facade.rs` hand-maps all 11 fields
 (`core/traits/grpc_resilient_facade.rs::create_resilient_transport_from_config`) with nothing
 enforcing the two shapes stay in sync. Removing the Cargo edge didn't remove the coupling; it just
 hid it from the compiler while leaving `transport`'s own primitive semantically shaped around a
@@ -46,7 +46,7 @@ nothing to do with sending bytes over a gRPC channel.
 - `api/types/grpc_channel_config_builder.rs`: corresponding builder field/method removed.
 - `api/types/resilience_config_resilience_validator.rs`, `resilience_config_builder.rs`: deleted
   from `transport` entirely.
-- `edge-transport-grpc-egress-resilient`: gains its own resilience config type (same field shape,
+- `grpc-egress-resilient-std`: gains its own resilience config type (same field shape,
   now the single source of truth — no mirror to keep in sync) and its own TOML
   `[channel.resilience]` loading, replacing what `transport`'s `GrpcChannelConfig` used to carry.
 - `resilient`'s `grpc_resilient_facade.rs`: `create_resilient_transport_from_config` takes the
@@ -56,7 +56,7 @@ nothing to do with sending bytes over a gRPC channel.
 ## Consequences
 
 - **Breaking change** for any consumer configuring resilience via `GrpcChannelConfig`/
-  `GrpcChannelConfigBuilder` directly — must switch to `edge-transport-grpc-egress-resilient`'s own
+  `GrpcChannelConfigBuilder` directly — must switch to `grpc-egress-resilient-std`'s own
   config entry point.
 - `transport`'s public API surface shrinks by one field and two types; `cargo build`/`test` for
   `transport` alone no longer touches anything resilience-shaped.
@@ -68,7 +68,7 @@ nothing to do with sending bytes over a gRPC channel.
 ## Amendment (2026-08-10): one composer — retire the composing facade, expose a decorator
 
 The original decision above removes the resilience *config* from `transport` but **keeps**
-`edge-transport-grpc-egress-resilient`'s `create_resilient_transport_from_config` — the facade that
+`grpc-egress-resilient-std`'s `create_resilient_transport_from_config` — the facade that
 builds the base gRPC client *and* wraps it (`base → GrpcRetryClient → GrpcBreakerClient`). This
 amendment extends ADR-004: that facade is a **composing library** (a library assembling a finished
 client), which the wider `edge` architecture forbids.
@@ -82,7 +82,7 @@ do the same.
 
 ### Additional changes (supersede "keep the facade")
 
-- `edge-transport-grpc-egress-resilient` exposes a public **decorator**: wrap an already-built
+- `grpc-egress-resilient-std` exposes a public **decorator**: wrap an already-built
   `Arc<dyn GrpcEgress>` in retry + breaker — e.g.
   `apply_resilience(inner: Arc<dyn GrpcEgress>, cfg: ResilienceConfig) -> Arc<dyn GrpcEgress>`.
   `GrpcRetryClient`/`GrpcBreakerClient` (today `pub(crate)`) and their configs become public, with
