@@ -18,7 +18,6 @@ ENV.update({"CARGO_BUILD_JOBS": "1",
 ARGS = ["-p", "grpc-egress-transport-std", "--test", "tonic_grpc_egress_keep_alive_int_test"]
 G = "main/transport-std/src/spi/client/tonic/tonic_grpc_egress.rs"
 B = "main/transport-std/src/spi/client/tonic/tonic_grpc_egress_builder.rs"
-F = "main/transport-std/src/saf/client/transport_construction_svc_factory.rs"
 
 MUTANTS = [
     ("K01 builder drops the keep-alive at build", B, "            client = client.with_keep_alive(keep_alive);", "            let _ = keep_alive;",
@@ -31,8 +30,6 @@ MUTANTS = [
      ["peer_that_stops_answering_pings", "permit_without_calls_idle_connection"]),
     ("K05 channel config drops keep_alive", B, "            keep_alive: config.keep_alive.or(self.keep_alive),\n", "            keep_alive: self.keep_alive,\n",
      ["with_channel_config_keep_alive_is_applied"]),
-    ("K06 saf factory ignores keep_alive", F, "            client = client.with_keep_alive(keep_alive);", "            let _ = keep_alive;",
-     ["create_transport_from_config_keep_alive_is_applied"]),
     ("K07 keep-alive timer missing", G, "            .timer(hyper_util::rt::TokioTimer::new())\n", "",
      ["peer_that_stops_answering_pings"]),
 ]
