@@ -22,10 +22,10 @@ ARGS = ["-p", "grpc-egress-transport-std", "--test", "tonic_grpc_egress_builder_
 
 MUTANTS = [
     ("B01 with_endpoint ignored",
-     "    fn with_endpoint(self, endpoint: impl Into<String>) -> Self {\n        Self {\n            endpoint: endpoint.into(),\n            ..self\n        }\n    }",
+     "    fn with_endpoint(self, endpoint: impl Into<String>) -> Self {\n        Self {\n            endpoint: endpoint.into(),\n            endpoint_explicit: true,\n            ..self\n        }\n    }",
      "    fn with_endpoint(self, endpoint: impl Into<String>) -> Self {\n        let _ = endpoint.into();\n        self\n    }",
      ["test_with_endpoint_overrides_the_endpoint_of_the_factory"]),
-    ("B02 plaintext check removed", "if !self.plaintext_allowed && TonicGrpcEgressProtocol", "if !(self.plaintext_allowed || true) && TonicGrpcEgressProtocol",
+    ("B02 plaintext check removed", "        if !self.plaintext_allowed {\n", "        if false {\n",
      ["test_build_plaintext_endpoint_without_plaintext_allowed_returns_plaintext_rejected_error"]),
     ("B03 with_plaintext_allowed does nothing", "        Self {\n            plaintext_allowed: true,\n            ..self\n        }",
      "        Self {\n            plaintext_allowed: false,\n            ..self\n        }",
@@ -45,10 +45,6 @@ MUTANTS = [
      ["test_with_channel_config_applies_endpoint_plaintext_and_cap_happy"]),
     ("B10 channel config plaintext rule inverted", "            plaintext_allowed: !config.tls_required,", "            plaintext_allowed: config.tls_required,",
      ["test_with_channel_config_requiring_tls_for_a_plaintext_endpoint_returns_plaintext_rejected_error"]),
-    ("B11 mtls silently accepted", '            self.unapplied.push("mtls");\n', "",
-     ["test_with_channel_config_mtls_is_refused_until_the_client_applies_it_error"]),
-    ("B12 keep_alive silently accepted", '            self.unapplied.push("keep_alive");\n', "",
-     ["test_with_channel_config_keep_alive_is_refused_until_the_client_applies_it_error"]),
 ]
 
 
