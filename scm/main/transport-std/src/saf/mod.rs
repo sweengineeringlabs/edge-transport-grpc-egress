@@ -4,4 +4,4 @@ mod client;
 mod interceptor;
 
 pub use client::TonicGrpcEgressBuilderSpiFactory;
-pub use interceptor::GrpcEgressInterceptorFactory;
+pub use interceptor::StdGrpcEgressInterceptorFactory;

@@ -177,6 +177,7 @@ impl TonicGrpcEgressProtocol {
         body_bytes: Bytes,
         metadata: &std::collections::HashMap<String, String>,
         deadline: Option<Duration>,
+        content_type: &str,
     ) -> GrpcEgressResult<http::Request<Full<Bytes>>> {
         let uri: http::Uri = uri_str.parse().map_err(|e| {
             tracing::warn!(error = %e, uri = %uri_str, "invalid gRPC URI supplied by caller");
@@ -186,7 +187,7 @@ impl TonicGrpcEgressProtocol {
         let mut builder = http::Request::builder()
             .method(http::Method::POST)
             .uri(uri)
-            .header(http::header::CONTENT_TYPE, "application/grpc")
+            .header(http::header::CONTENT_TYPE, content_type)
             .header("te", "trailers");
 
         if let Some(d) = deadline {
@@ -387,6 +388,7 @@ impl GrpcEgress for TonicGrpcEgress {
             body_bytes,
             &request.metadata,
             Some(deadline),
+            self.content_type,
         ) {
             Ok(r) => r,
             Err(e) => return Box::pin(futures::future::ready(Err(e))),
@@ -491,6 +493,7 @@ impl GrpcEgress for TonicGrpcEgress {
                 body_buf.freeze(),
                 &metadata,
                 Some(self.timeout),
+                self.content_type,
             )?;
 
             let resp = tokio::time::timeout(self.timeout, self.client.request(http_req))
@@ -549,6 +552,7 @@ impl GrpcEgress for TonicGrpcEgress {
             body_bytes,
             &request.metadata,
             Some(deadline),
+            self.content_type,
         ) {
             Ok(r) => r,
             Err(e) => return Box::pin(futures::future::ready(Err(e))),
@@ -638,6 +642,7 @@ impl GrpcEgress for TonicGrpcEgress {
                 body_buf.freeze(),
                 &metadata,
                 Some(deadline),
+                self.content_type,
             )?;
 
             let resp = tokio::time::timeout(deadline, self.client.request(http_req))
@@ -920,6 +925,7 @@ mod tests {
             Bytes::from_static(b"payload"),
             &std::collections::HashMap::new(),
             None,
+            "application/grpc",
         )
         .expect("valid uri must build");
         assert_eq!(
@@ -936,6 +942,7 @@ mod tests {
             Bytes::new(),
             &std::collections::HashMap::new(),
             None,
+            "application/grpc",
         );
         assert!(matches!(result, Err(GrpcEgressError::Internal(_))));
     }
@@ -947,6 +954,7 @@ mod tests {
             Bytes::new(),
             &std::collections::HashMap::new(),
             Some(Duration::from_secs(5)),
+            "application/grpc",
         )
         .expect("valid uri must build");
         assert!(req.headers().contains_key("grpc-timeout"));

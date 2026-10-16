@@ -24,5 +24,8 @@ pub use client::{
 #[cfg(feature = "prost")]
 pub use codec::GrpcEgressProstCodec;
 pub use edge_security_runtime::SecurityContext;
-pub use interceptor::{AfterCallRequest, GrpcEgressInterceptor, TraceContextSource};
+pub use interceptor::{
+    AfterCallRequest, BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor,
+    GrpcEgressInterceptorFactory, TraceContextSource,
+};
 pub use loadbalancer::{BackendTarget, BalancingStrategy, LoadbalancerSettings};

@@ -38,6 +38,7 @@ pub(crate) struct TonicGrpcEgressBuilder {
     keep_alive: Option<KeepAliveConfig>,
     root_ca: Option<String>,
     loadbalancer: Option<LoadbalancerSettings>,
+    prost_codec: bool,
 }
 
 impl TonicGrpcEgressBuilder {
@@ -55,6 +56,7 @@ impl TonicGrpcEgressBuilder {
             keep_alive: None,
             root_ca: None,
             loadbalancer: None,
+            prost_codec: false,
         }
     }
 }
@@ -124,6 +126,13 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         }
     }
 
+    fn with_prost_codec(self) -> Self {
+        Self {
+            prost_codec: true,
+            ..self
+        }
+    }
+
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self {
         Self {
             interceptors: self.interceptors.push(interceptor),
@@ -160,6 +169,7 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
     }
 
     fn build(self) -> Result<impl GrpcEgress + use<>, GrpcChannelConfigError> {
+        self.check_features()?;
         self.check_values()?;
         let targets = self.list_targets()?;
         if !self.plaintext_allowed {
@@ -190,6 +200,11 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         if let Some(keep_alive) = self.keep_alive {
             client = client.with_keep_alive(keep_alive);
         }
+        let client = if self.prost_codec {
+            client.with_prost_codec()
+        } else {
+            client
+        };
         let client = client
             .with_request_timeout(self.request_timeout)
             .with_max_message_bytes(self.max_message_bytes)
@@ -205,6 +220,19 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
 }
 
 impl TonicGrpcEgressBuilder {
+    /// Refuse every option whose Cargo feature is off in this build, all at once.
+    fn check_features(&self) -> Result<(), GrpcChannelConfigError> {
+        let mut disabled: Vec<(&'static str, &'static str)> = Vec::new();
+        if self.prost_codec && !cfg!(feature = "prost") {
+            disabled.push(("prost_codec", "prost"));
+        }
+        if disabled.is_empty() {
+            Ok(())
+        } else {
+            Err(GrpcChannelConfigError::DisabledFeatureOptions { options: disabled })
+        }
+    }
+
     /// Refuse a zero cap or timeout, and options that exclude each other.
     fn check_values(&self) -> Result<(), GrpcChannelConfigError> {
         if self.max_message_bytes == 0 {

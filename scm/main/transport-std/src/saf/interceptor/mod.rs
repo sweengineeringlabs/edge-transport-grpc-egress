@@ -1,5 +1,5 @@
 //! `interceptor` theme factories.
 
-mod grpc_egress_interceptor_svc_factory;
+mod std_grpc_egress_interceptor_factory;
 
-pub use grpc_egress_interceptor_svc_factory::GrpcEgressInterceptorFactory;
+pub use std_grpc_egress_interceptor_factory::StdGrpcEgressInterceptorFactory;

@@ -14,4 +14,4 @@ pub use crate::std::{
     GrpcEgressInterceptorChain, GrpcRequestBuilder, GrpcRequestFactory, MtlsConfigFactory,
     TraceContextGrpcEgressInterceptor,
 };
-pub use saf::{GrpcEgressInterceptorFactory, TonicGrpcEgressBuilderSpiFactory};
+pub use saf::{StdGrpcEgressInterceptorFactory, TonicGrpcEgressBuilderSpiFactory};
