@@ -17,8 +17,9 @@ use edge_transport_grpc_egress_breaker::{BreakerState, GrpcBreakerClient, GrpcBr
 use edge_transport_grpc_egress_resilient::{
     GrpcResilientFacade, ResilienceConfig, ResilientTransportError,
 };
-use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig};
 use futures::future::BoxFuture;
+use grpc_egress_retry::GrpcRetryConfig;
+use grpc_egress_retry_std::GrpcRetryClient;
 use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest,

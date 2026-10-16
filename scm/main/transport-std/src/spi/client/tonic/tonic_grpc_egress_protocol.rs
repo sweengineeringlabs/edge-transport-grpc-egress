@@ -225,7 +225,7 @@ impl TonicGrpcEgressProtocol {
     ///
     /// When the status is `RESOURCE_EXHAUSTED` and the response headers carry a
     /// `retry-after` value (seconds), the value is embedded into the error message
-    /// as `[retry-after=Ns]`. `edge-transport-grpc-egress-retry`'s retry decorator
+    /// as `[retry-after=Ns]`. `grpc-egress-retry-std`'s retry decorator
     /// parses this hint to honour the upstream reset window rather than guessing.
     ///
     /// `grpc-message` is a *server-supplied* sanitized message that the gRPC spec

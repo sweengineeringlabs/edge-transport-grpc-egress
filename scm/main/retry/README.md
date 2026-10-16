@@ -1,24 +1,7 @@
-# grpc-retry
+# grpc-egress-retry
 
-gRPC-aware retry decorator wrapping any
-`GrpcEgress` implementor (the trait of `grpc-egress-transport`).
+The retry domain of the gRPC egress: the contracts (`BackoffScheduler`, `RetryDecorator`,
+`RetryInspector`, ...), their requests and responses, the errors and the retry policy value
+(`GrpcRetryConfig`). No implementation.
 
-## Build
-
-```bash
-cargo build
-```
-
-## Test
-
-```bash
-cargo test
-```
-
-## Project Structure
-
-- `src/api/` - Public types and traits (L2)
-- `src/core/` - Implementation layer (L3)
-- `src/saf/` - Public facade (L4)
-- `src/gateway/` - Public entry boundary
-- `config/application.toml` - Default retry policy
+The decorator that wraps a `GrpcEgress` with retry is in `grpc-egress-retry-std`.

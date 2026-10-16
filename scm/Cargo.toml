@@ -27,7 +27,8 @@ grpc-egress-transport-std              = { path = "main/transport-std" }
 edge-transport-grpc-egress-auth-bearer = { path = "main/auth-bearer" }
 edge-transport-grpc-egress-breaker     = { path = "main/breaker" }
 edge-transport-grpc-egress-resilient   = { path = "main/resilient" }
-edge-transport-grpc-egress-retry       = { path = "main/retry" }
+grpc-egress-retry                      = { path = "main/retry" }
+grpc-egress-retry-std                  = { path = "main/retry-std" }
 edge-transport-breaker-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
 edge-transport-breaker        = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
 edge-transport-retry-policy   = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }

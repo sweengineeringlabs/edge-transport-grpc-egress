@@ -20,7 +20,8 @@ service_type     = "processor"
 
 [dependencies]
 grpc-egress-transport         = { workspace = true }
-edge-transport-grpc-egress-retry   = { workspace = true }
+grpc-egress-retry = { workspace = true }
+grpc-egress-retry-std   = { workspace = true }
 edge-transport-grpc-egress-breaker = { workspace = true }
 thiserror              = { workspace = true }
 serde                  = { workspace = true }

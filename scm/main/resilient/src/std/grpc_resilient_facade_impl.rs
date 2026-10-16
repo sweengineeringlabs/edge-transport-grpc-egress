@@ -7,7 +7,7 @@ use crate::std::{ApplicationConfigBuilder, GrpcResilientFacade, GrpcResilientSvc
 use std::sync::Arc;
 
 use edge_transport_grpc_egress_breaker::GrpcBreakerFacade;
-use edge_transport_grpc_egress_retry::GrpcRetryFacade;
+use grpc_egress_retry_std::GrpcRetryFacade;
 use grpc_egress_transport::GrpcEgress;
 
 use crate::api::{
