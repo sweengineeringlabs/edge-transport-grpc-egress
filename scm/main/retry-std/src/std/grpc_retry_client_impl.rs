@@ -31,15 +31,10 @@ impl<T> std::fmt::Debug for GrpcRetryClient<T> {
 
 impl<T> GrpcRetryClient<T> {
     /// Construct a new retry decorator around `inner`.
-    pub fn new(inner: T, config: GrpcRetryConfig) -> Self {
+    pub(crate) fn new(inner: T, config: GrpcRetryConfig) -> Self {
         Self {
             inner,
             config: std::sync::Arc::new(config),
         }
-    }
-
-    /// Borrow the active retry policy.
-    pub fn config(&self) -> &GrpcRetryConfig {
-        &self.config
     }
 }

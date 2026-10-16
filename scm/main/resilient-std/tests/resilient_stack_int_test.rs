@@ -19,7 +19,8 @@ use grpc_egress_breaker_std::GrpcBreakerClient;
 use grpc_egress_resilient::{ResilienceConfig, ResilientTransportError};
 use grpc_egress_resilient_std::GrpcResilientFacade;
 use grpc_egress_retry::GrpcRetryConfig;
-use grpc_egress_retry_std::GrpcRetryClient;
+use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest,
@@ -215,7 +216,10 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times() 
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(3)), breaker_cfg);
+    let client = GrpcBreakerClient::new(
+        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     for _ in 0..10_usize {
         let _ = client.call_unary(req()).await;
@@ -246,7 +250,10 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(3)), breaker_cfg);
+    let client = GrpcBreakerClient::new(
+        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     let result = client.call_unary(req()).await;
     assert!(
@@ -276,7 +283,10 @@ async fn test_hard_quota_resource_exhausted_is_not_retried() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(3)), breaker_cfg);
+    let client = GrpcBreakerClient::new(
+        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     let result = client.call_unary(req()).await;
     assert!(result.is_err(), "expected quota error");
@@ -321,7 +331,10 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, retry_cfg), breaker_cfg);
+    let client = GrpcBreakerClient::new(
+        StdGrpcRetryFactory::new(retry_cfg).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     let result = client.call_unary(req()).await;
     assert!(result.is_err());
@@ -350,7 +363,10 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(1)), breaker_cfg);
+    let client = GrpcBreakerClient::new(
+        StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     for _ in 0..3 {
         let _ = client.call_unary(req()).await;
@@ -403,7 +419,10 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open() {
         cool_down_seconds: 1,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(1)), breaker_cfg);
+    let client = GrpcBreakerClient::new(
+        StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     // Trip the breaker.
     for _ in 0..3 {

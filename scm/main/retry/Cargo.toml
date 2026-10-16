@@ -19,6 +19,7 @@ application_type = "port"
 service_type = "processor"
 
 [dependencies]
+grpc-egress-transport = { workspace = true }
 edge-transport-retry-policy = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }

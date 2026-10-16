@@ -25,9 +25,8 @@
 //!
 //! ## Composition
 //!
-//! Wrap any [`GrpcEgress`](grpc_egress_transport::GrpcEgress) implementor via
-//! [`GrpcRetryFacade::create_retry_client`] or
-//! [`GrpcRetryFacade::wrap_retry`].
+//! Wrap any [`GrpcEgress`](grpc_egress_transport::GrpcEgress) implementor with
+//! [`StdGrpcRetryFactory`]: `StdGrpcRetryFactory::new(config).build(BuildGrpcRetryRequest { inner })`.
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
@@ -38,8 +37,6 @@ mod saf;
 mod std;
 
 pub use crate::std::{
-    ApplicationConfigBuilderProvider, BackoffSchedule, GrpcRetryClient, GrpcRetryConfigBuilder,
-    GrpcRetryConfigProvider, GrpcRetryFacade, GrpcRetrySvc, ResourceExhaustedContext,
-    RetryDecision,
+    GrpcRetryConfigBuilder, GrpcRetryConfigProvider, ResourceExhaustedContext, RetryDecision,
 };
-pub use saf::*;
+pub use saf::StdGrpcRetryFactory;

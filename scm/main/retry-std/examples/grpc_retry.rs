@@ -1,11 +1,11 @@
-//! Reusable example: drive a real call through [`GrpcRetryClient`] so the
+//! Reusable example: drive a real call through [`StdGrpcRetryFactory`] so the
 //! backoff/attempt loop (delegating to the shared `edge-transport-retry`
 //! crate's `BackoffScheduler`) actually executes — not just constructs.
 //!
 //! A `GrpcEgress` test double is enough to prove this; no real gRPC server
-//! is needed since `GrpcRetryClient` decorates any `GrpcEgress` implementor.
+//! is needed since `StdGrpcRetryFactory` decorates any `GrpcEgress` implementor.
 //!
-//! [`GrpcRetryClient`]: grpc_egress_retry_std::GrpcRetryClient
+//! [`StdGrpcRetryFactory`]: grpc_egress_retry_std::StdGrpcRetryFactory
 
 use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
@@ -15,7 +15,8 @@ use std::time::Duration;
 
 use futures::future::BoxFuture;
 use grpc_egress_retry::GrpcRetryConfig;
-use grpc_egress_retry_std::GrpcRetryFacade;
+use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcResponse, HealthCheckRequest,
@@ -67,17 +68,15 @@ async fn main() {
         fail_until: 2,
     };
 
-    let client = GrpcRetryFacade::wrap_retry(
-        upstream,
-        GrpcRetryConfig {
-            max_attempts: 3,
-            initial_backoff_ms: 50,
-            backoff_multiplier: 2.0,
-            jitter_factor: 0.0,
-            max_backoff_ms: 200,
-            ..GrpcRetryConfig::default()
-        },
-    );
+    let client = StdGrpcRetryFactory::new(GrpcRetryConfig {
+        max_attempts: 3,
+        initial_backoff_ms: 50,
+        backoff_multiplier: 2.0,
+        jitter_factor: 0.0,
+        max_backoff_ms: 200,
+        ..GrpcRetryConfig::default()
+    })
+    .build(BuildGrpcRetryRequest { inner: upstream });
 
     // A single logical call. The retry layer's internal attempt loop must
     // re-invoke the upstream after a real backoff sleep on each retriable

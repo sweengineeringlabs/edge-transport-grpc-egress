@@ -4,7 +4,7 @@
 //! client. A composition root builds the bare client (e.g. via
 //! `grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory`)
 //! and calls [`GrpcResilientFacade::apply_resilience`] to wrap it in a
-//! [`grpc_egress_retry_std::GrpcRetryClient`] then a
+//! the client of [`grpc_egress_retry_std::StdGrpcRetryFactory`] then a
 //! [`grpc_egress_breaker_std::GrpcBreakerClient`].
 //!
 //! Call-stack once wrapped:

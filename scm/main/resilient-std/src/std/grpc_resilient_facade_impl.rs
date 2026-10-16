@@ -9,7 +9,8 @@ use grpc_egress_resilient::ApplicationConfigBuilder;
 use std::sync::Arc;
 
 use grpc_egress_breaker_std::GrpcBreakerFacade;
-use grpc_egress_retry_std::GrpcRetryFacade;
+use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_transport::GrpcEgress;
 
 use crate::std::default_validator::DefaultValidator;
@@ -41,7 +42,8 @@ impl GrpcResilientFacade {
             config: config.clone(),
         })?;
 
-        let with_retry = GrpcRetryFacade::wrap_retry(inner, config.to_retry_config());
+        let with_retry = StdGrpcRetryFactory::new(config.to_retry_config())
+            .build(BuildGrpcRetryRequest { inner });
         let with_breaker = GrpcBreakerFacade::wrap_breaker(with_retry, config.to_breaker_config())?;
         Ok(with_breaker)
     }
