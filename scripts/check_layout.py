@@ -103,6 +103,7 @@ class LayoutChecker:
         self.check_theme_mirroring(crates)
         self.check_adapter_names(crates)
         self.check_no_workspace_dependencies(crates)
+        self.check_workspace_members(crates)
         for crate_dir in crates:
             self.check_no_attributes(crate_dir)
         return self.failures
@@ -237,6 +238,19 @@ class LayoutChecker:
             for number, line in enumerate(self.read_text(manifest).splitlines(), start=1):
                 if INHERITED_DEPENDENCY.match(line) and not line.strip().startswith(PACKAGE_KEYS):
                     self.fail(manifest, "no_workspace_dependencies", "line %d inherits a dependency from the workspace: %s" % (number, line.strip()[:60]))
+
+    def check_workspace_members(self, crates):
+        root = os.path.join(self.root, "scm", "Cargo.toml")
+        if not os.path.isfile(root):
+            return
+        text = self.read_text(root)
+        m = re.search(r"members\s*=\s*\[(.*?)\]", text, re.S)
+        listed = re.findall(r'"([^"]+)"', m.group(1)) if m else []
+        scm = os.path.join(self.root, "scm")
+        for crate_dir in crates:
+            rel = os.path.relpath(crate_dir, scm).replace("\\", "/")
+            if rel not in listed:
+                self.fail(crate_dir, "workspace_members", "'%s' is not a member of the workspace in scm/Cargo.toml" % rel)
 
     def check_no_attributes(self, crate_dir):
         for path in self.list_rust_files(crate_dir):

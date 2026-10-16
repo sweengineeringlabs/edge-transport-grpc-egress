@@ -27,7 +27,7 @@ sequenceDiagram
     GrpcEgress-->>Caller: Result of GrpcResponse or GrpcEgressError
 ```
 
-`TonicGrpcEgress` is a private type of the crate; callers hold the client as `Arc<dyn GrpcEgress>`.
+`TonicGrpcEgress` is a private type of the crate; the builder's `build()` returns it as `impl GrpcEgress`, and a caller that needs a trait object wraps it itself.
 
 ## Data Flow
 

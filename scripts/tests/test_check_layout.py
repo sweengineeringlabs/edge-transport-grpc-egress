@@ -212,6 +212,16 @@ class LayoutCheckerTest(unittest.TestCase):
         )
         self.assertEqual(self.rules(files), set())
 
+    def test_check_all_crate_missing_from_the_workspace_members_fails(self):
+        files = dict(GOOD)
+        files["scm/Cargo.toml"] = '[workspace]\nmembers = ["main/foo"]\n'
+        self.assertIn("workspace_members", self.rules(files))
+
+    def test_check_all_crate_listed_in_the_workspace_members_passes(self):
+        files = dict(GOOD)
+        files["scm/Cargo.toml"] = '[workspace]\nmembers = [\n  "main/foo",\n  "main/foo-std",\n]\n'
+        self.assertEqual(self.rules(files), set())
+
     def test_check_all_every_failure_line_names_the_path_and_the_rule(self):
         files = dict(GOOD)
         files["scm/main/foo/src/client/types/mod.rs"] = ""
