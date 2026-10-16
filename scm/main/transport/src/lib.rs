@@ -1,35 +1,29 @@
-//! `edge_transport_grpc_egress` — gRPC outbound domain.
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+//! `grpc_egress_transport` -- the gRPC egress domain: the `GrpcEgress` trait, the requests and
+//! responses it carries, its errors and the options of a client. Plain data and traits only; the
+//! implementations are in `grpc-egress-transport-std`.
+//!
+//! One folder per theme, each with the folders its kinds need (`dto/`, `vo/`, `error/`, `traits/`):
+//! `client`, `channel`, `interceptor`, `loadbalancer` and, behind the Cargo feature `prost`, `codec`.
 
-mod api;
-mod saf;
-mod spi;
-mod std;
+mod channel;
+mod client;
+#[cfg(feature = "prost")]
+mod codec;
+mod interceptor;
+mod loadbalancer;
 
-// Re-export the crate's public contracts and value objects via api/'s own
-// flat re-export surface (crate::api::TypeName) -- saf/ carries only
-// trait re-exports and genuinely saf-declared composition helpers, never
-// a pass-through of types declared elsewhere.
-pub use crate::std::{
-    ApplicationConfigBuilder, Conversions, GrpcChannelConfigBuilder, GrpcEgressInterceptorChain,
-    GrpcRequestBuilder, TraceContextGrpcEgressInterceptor, TransportSvc,
+pub use channel::{
+    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, KeepAliveConfig, MtlsConfig,
+    DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
+};
+pub use client::{
+    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest, DescribeRequest,
+    DescribeResponse, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError,
+    GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    HealthCheckRequest, ProcessingRequest, Processor,
 };
 #[cfg(feature = "prost")]
-pub use api::GrpcEgressProstCodec;
-pub use api::{
-    AfterCallRequest, BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest,
-    CallStreamRequest, CallUnaryWithContextRequest, CompressionMode, DescribeRequest,
-    DescribeResponse, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcEgressError, GrpcEgressInterceptor, GrpcEgressResult,
-    GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
-    KeepAliveConfig, LoadbalancerSettings, MtlsConfig, ProcessingRequest, Processor,
-    TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
-};
+pub use codec::GrpcEgressProstCodec;
 pub use edge_security_runtime::SecurityContext;
-pub use saf::{
-    GrpcEgressFactory, GrpcEgressInterceptorFactory, ProcessorFactory,
-    TonicGrpcEgressBuilderSpiFactory, TransportConstruction,
-};
-
-#[cfg(feature = "prost")]
-pub use saf::GrpcEgressProstCodecFactory;
+pub use interceptor::{AfterCallRequest, GrpcEgressInterceptor, TraceContextSource};
+pub use loadbalancer::{BackendTarget, BalancingStrategy, LoadbalancerSettings};

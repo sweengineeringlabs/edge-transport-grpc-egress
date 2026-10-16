@@ -12,7 +12,7 @@ What it changes, in tracked files of the repository only:
     every Cargo.toml that names it (including `[workspace.dependencies]`);
   * the library identifier of OLD (`-` as `_`) in .rs files, and both spellings in docs, scripts and
     metadata;
-  * Cargo.lock, by asking cargo to refresh it offline (skip with --no-lock).
+  * Cargo.lock, by asking cargo to refresh it (offline when possible; skip with --no-lock).
 It fails, after the run, when OLD still appears in a tracked file other than a CHANGELOG, which is
 the one place that records a rename.
 """
@@ -32,6 +32,9 @@ TABLE = {
     "edge-transport-grpc-egress-resilient": "grpc-egress-resilient-std",
     "edge-transport-grpc-egress-auth-bearer": "grpc-egress-auth-bearer-std",
 }
+
+# The script and its tests name the crates on purpose (the table, the fixtures); they are never rewritten.
+SELF_FILES = ("scripts/rename_crate.py", "scripts/tests/test_rename_crate.py")
 
 TEXT_SUFFIXES = (".rs", ".toml", ".md", ".py", ".sh", ".ps1", ".yml", ".yaml", ".json", ".txt")
 
@@ -59,7 +62,8 @@ class CrateRenamer:
 
     def list_tracked_files(self):
         out = subprocess.run(["git", "-C", self.root, "ls-files"], check=True, capture_output=True, text=True)
-        return [p for p in out.stdout.splitlines() if p.endswith(TEXT_SUFFIXES) or os.path.basename(p) == "Cargo.lock"]
+        return [p for p in out.stdout.splitlines()
+                if p not in SELF_FILES and (p.endswith(TEXT_SUFFIXES) or os.path.basename(p) == "Cargo.lock")]
 
     def plan_changes(self):
         """Return {path: (original text, new text, [changed line numbers])} for every file that changes."""
@@ -108,8 +112,10 @@ class CrateRenamer:
     def refresh_cargo_lock(self):
         for manifest in ("scm/Cargo.toml", "Cargo.toml"):
             if os.path.isfile(os.path.join(self.root, manifest)):
-                subprocess.run(["cargo", "metadata", "--format-version", "1", "--offline", "--manifest-path", manifest],
-                               cwd=self.root, check=True, capture_output=True)
+                base = ["cargo", "metadata", "--format-version", "1", "--manifest-path", manifest]
+                # Offline first; metadata also wants crates of other platforms, so fall back to online.
+                if subprocess.run(base + ["--offline"], cwd=self.root, capture_output=True).returncode != 0:
+                    subprocess.run(base, cwd=self.root, check=True, capture_output=True)
                 return
 
     def run(self):

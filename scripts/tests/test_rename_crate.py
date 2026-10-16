@@ -26,6 +26,7 @@ class RenameFixture:
         "scm/main/retry/CHANGELOG.md": "## Unreleased\n- the crate was called edge-transport-grpc-egress-retry\n",
         "scm/main/retry/src/lib.rs": "pub struct GrpcRetryFacade;\n",
         "scm/main/policy/Cargo.toml": '[dependencies]\nedge-transport-grpc-egress-retry-policy = "1"\n',
+        "scripts/rename_crate.py": 'TABLE = {"edge-transport-grpc-egress-retry": "grpc-egress-retry-std"}\n',
     }
 
     def __init__(self):
@@ -90,6 +91,11 @@ class CrateRenamerTest(unittest.TestCase):
     def test_run_pair_that_is_not_the_table_pair_is_refused(self):
         with self.assertRaises(SystemExit):
             self.renamer(new="grpc-egress-other").run()
+
+    def test_run_the_script_itself_is_never_rewritten(self):
+        self.renamer().run()
+
+        self.assertIn('"edge-transport-grpc-egress-retry"', self.repo.read("scripts/rename_crate.py"))
 
     def test_run_second_time_changes_nothing(self):
         self.renamer().run()

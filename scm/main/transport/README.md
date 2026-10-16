@@ -1,17 +1,10 @@
-# edge-transport-grpc-egress-transport
+# grpc-egress-transport
 
-gRPC outbound transport crate for the swe-edge egress layer.
+The gRPC egress domain: the `GrpcEgress` trait, the requests and responses it carries, its errors
+and the options of a client. Plain data and traits; no implementation and no heavy dependency (no
+`tonic`, `hyper`, `rustls`, `tower`, load balancer).
 
-Provides `GrpcEgress` — the outbound port trait for gRPC calls — and the
-a concrete client backed by `tonic` over HTTP/2 (a private type, built through `TransportConstruction`).
+The implementation is `grpc-egress-transport-std`: a client built through
+`TonicGrpcEgressBuilderSpiFactory`, with the builders and constructors for these types.
 
-## Usage
-
-```rust
-use edge_transport_grpc_egress_transport::{GrpcChannelConfig, TransportConstruction};
-
-let cfg = GrpcChannelConfig::new("https://service:443");
-let client = TransportConstruction::create_transport_from_config(&cfg)?;
-```
-
-See `examples/` for runnable usage examples.
+Themes: `client`, `channel`, `interceptor`, `loadbalancer` and `codec` (Cargo feature `prost`).

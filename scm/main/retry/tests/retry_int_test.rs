@@ -5,17 +5,18 @@
 //! [`GrpcEgress`] is wrapped with [`GrpcRetryClient`] and the
 //! retry loop is observed via call counters and elapsed time.
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use edge_transport_grpc_egress::{
+use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig, GrpcRetryFacade};
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest,
 };
-use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig, GrpcRetryFacade};
-use futures::future::BoxFuture;
 
 /// Stub `GrpcEgress` that returns a scripted sequence of
 /// outcomes and counts how many times `call_unary` was invoked.

@@ -4,18 +4,18 @@
 
 use std::collections::HashMap;
 
-use edge_transport_grpc_egress::{
+use edge_transport_grpc_egress_resilient::{GrpcResilientFacade, ResilienceConfig};
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressResult, GrpcMessageStreamResponse, GrpcResponse,
     HealthCheckRequest,
 };
-use edge_transport_grpc_egress_resilient::{GrpcResilientFacade, ResilienceConfig};
-use futures::future::BoxFuture;
 
 struct AlwaysOk;
 impl GrpcEgress for AlwaysOk {
     fn call_unary(
         &self,
-        _req: edge_transport_grpc_egress::GrpcRequest,
+        _req: grpc_egress_transport::GrpcRequest,
     ) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
         Box::pin(async {
             Ok(GrpcResponse {

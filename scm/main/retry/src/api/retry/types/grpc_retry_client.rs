@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::api::retry::types::grpc_retry_config::GrpcRetryConfig;
 
-/// Decorator that wraps an inner [`GrpcEgress`](edge_transport_grpc_egress::GrpcEgress) with the
+/// Decorator that wraps an inner [`GrpcEgress`](grpc_egress_transport::GrpcEgress) with the
 /// retry semantics described at the crate root.
 ///
 /// `T` is the inner type; the wrapper is `T + 'static + Send + Sync`

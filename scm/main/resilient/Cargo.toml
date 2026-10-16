@@ -19,7 +19,7 @@ application_type = "lib"
 service_type     = "processor"
 
 [dependencies]
-edge-transport-grpc-egress         = { workspace = true }
+grpc-egress-transport         = { workspace = true }
 edge-transport-grpc-egress-retry   = { workspace = true }
 edge-transport-grpc-egress-breaker = { workspace = true }
 thiserror              = { workspace = true }
@@ -28,6 +28,7 @@ toml                   = { workspace = true }
 swe-edge-configbuilder = { workspace = true }
 
 [dev-dependencies]
+grpc-egress-transport-std = { workspace = true }
 tokio   = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 futures = { workspace = true }
 serde   = { workspace = true }

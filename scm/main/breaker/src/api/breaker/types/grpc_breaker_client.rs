@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use crate::api::BreakerNode;
 use crate::api::GrpcBreakerConfig;
 
-/// Decorator that wraps an inner [`GrpcEgress`](edge_transport_grpc_egress::GrpcEgress) with a
+/// Decorator that wraps an inner [`GrpcEgress`](grpc_egress_transport::GrpcEgress) with a
 /// three-state circuit breaker.
 ///
 /// Construct via [`create_breaker_client`](crate::GrpcBreakerFacade::create_breaker_client)

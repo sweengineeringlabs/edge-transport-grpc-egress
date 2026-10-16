@@ -1,12 +1,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for [`BearerEgressInterceptor`].
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::time::Duration;
 
-use edge_transport_grpc_egress::GrpcRequest;
 use edge_transport_grpc_egress_auth_bearer::{
     BearerEgressConfig, BearerEgressInterceptor, BearerSecret, AUTHORIZATION_HEADER,
 };
+use grpc_egress_transport::GrpcRequest;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
 fn hs256_config(secret: &[u8]) -> BearerEgressConfig {
@@ -30,7 +31,7 @@ fn test_from_config_constructs_interceptor() {
 /// @covers: BearerEgressInterceptor::before_call
 #[test]
 fn test_before_call_injects_bearer_authorization_header() {
-    use edge_transport_grpc_egress::GrpcEgressInterceptor;
+    use grpc_egress_transport::GrpcEgressInterceptor;
 
     let interceptor = BearerEgressInterceptor::from_config(hs256_config(b"sec"));
     let mut req = GrpcRequest::new("/svc/M", vec![], Duration::from_secs(1));
@@ -55,7 +56,7 @@ fn test_before_call_injects_bearer_authorization_header() {
 /// @covers: BearerEgressInterceptor::sign_token (via before_call round-trip with swe-edge-configbuilder and jsonwebtoken)
 #[test]
 fn test_sign_token_round_trips_through_jsonwebtoken_verifier() {
-    use edge_transport_grpc_egress::GrpcEgressInterceptor;
+    use grpc_egress_transport::GrpcEgressInterceptor;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]

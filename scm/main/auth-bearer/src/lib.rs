@@ -1,5 +1,5 @@
 //! `edge-transport-grpc-egress-auth-bearer` — JWT bearer
-//! [`GrpcEgressInterceptor`](edge_transport_grpc_egress::GrpcEgressInterceptor)
+//! [`GrpcEgressInterceptor`](grpc_egress_transport::GrpcEgressInterceptor)
 //! for the gRPC egress stack.
 //!
 //! [`BearerEgressInterceptor`] signs a JWT from configured claims

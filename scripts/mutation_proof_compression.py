@@ -15,9 +15,9 @@ OUT = os.environ.get("MUTATION_LOG", os.path.join(os.environ.get("TMPDIR", os.en
 ENV = dict(os.environ)
 ENV.update({"CARGO_BUILD_JOBS": "1",
             "CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_PROFILE_TEST_DEBUG": "0", "CARGO_INCREMENTAL": "0"})
-ARGS = ["-p", "edge-transport-grpc-egress-transport", "--test", "tonic_grpc_egress_compression_int_test"]
-C = "main/transport/src/spi/client/tonic/grpc_message_codec.rs"
-P = "main/transport/src/spi/client/tonic/tonic_grpc_egress_protocol.rs"
+ARGS = ["-p", "grpc-egress-transport-std", "--test", "tonic_grpc_egress_compression_int_test"]
+C = "main/transport-std/src/spi/client/tonic/grpc_message_codec.rs"
+P = "main/transport-std/src/spi/client/tonic/tonic_grpc_egress_protocol.rs"
 
 MUTANTS = [
     ("C01 request frame never flagged compressed", P, "Some(bytes) => (0x01, bytes.as_slice()),", "Some(bytes) => (0x00, bytes.as_slice()),",

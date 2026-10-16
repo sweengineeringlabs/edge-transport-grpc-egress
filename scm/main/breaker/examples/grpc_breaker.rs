@@ -9,17 +9,19 @@
     reason = "example code, not production library code"
 )]
 
+use grpc_egress_transport_std::GrpcRequestFactory;
+
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use edge_transport_grpc_egress::{
+use edge_transport_grpc_egress_breaker::{GrpcBreakerConfig, GrpcBreakerFacade};
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcResponse, HealthCheckRequest,
 };
-use edge_transport_grpc_egress_breaker::{GrpcBreakerConfig, GrpcBreakerFacade};
-use futures::future::BoxFuture;
 
 /// An upstream whose success/failure and call count are controllable from
 /// outside — lets this example prove the breaker really rejects calls

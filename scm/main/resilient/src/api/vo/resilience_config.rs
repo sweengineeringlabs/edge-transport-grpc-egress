@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 /// Used by [`crate::std::GrpcResilientFacade::apply_resilience`] to compose
 /// an [`edge_transport_grpc_egress_retry::GrpcRetryClient`] and
 /// [`edge_transport_grpc_egress_breaker::GrpcBreakerClient`] around an
-/// already-built bare [`GrpcEgress`](edge_transport_grpc_egress::GrpcEgress)
+/// already-built bare [`GrpcEgress`](grpc_egress_transport::GrpcEgress)
 /// transport client.
 ///
 /// ## Retry tracks

@@ -2,14 +2,15 @@
 //! Integration tests for the `GrpcEgress` impl on [`GrpcRetryClient`]
 //! in `src/core/retry_egress.rs`.
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 
-use edge_transport_grpc_egress::{
+use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig};
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse,
     HealthCheckRequest,
 };
-use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig};
-use futures::future::BoxFuture;
 
 struct AlwaysFail;
 impl GrpcEgress for AlwaysFail {
@@ -19,8 +20,7 @@ impl GrpcEgress for AlwaysFail {
     fn call_stream(
         &self,
         req: CallStreamRequest,
-    ) -> BoxFuture<'_, GrpcEgressResult<edge_transport_grpc_egress::GrpcMessageStreamResponse>>
-    {
+    ) -> BoxFuture<'_, GrpcEgressResult<grpc_egress_transport::GrpcMessageStreamResponse>> {
         Box::pin(async move { Ok(req.messages) })
     }
     fn health_check(&self, _req: HealthCheckRequest) -> BoxFuture<'_, GrpcEgressResult<()>> {
@@ -36,8 +36,7 @@ impl GrpcEgress for UnhealthyInner {
     fn call_stream(
         &self,
         req: CallStreamRequest,
-    ) -> BoxFuture<'_, GrpcEgressResult<edge_transport_grpc_egress::GrpcMessageStreamResponse>>
-    {
+    ) -> BoxFuture<'_, GrpcEgressResult<grpc_egress_transport::GrpcMessageStreamResponse>> {
         Box::pin(async move { Ok(req.messages) })
     }
     fn health_check(&self, _req: HealthCheckRequest) -> BoxFuture<'_, GrpcEgressResult<()>> {
@@ -91,7 +90,7 @@ async fn test_health_check_delegates_to_inner_error() {
 #[tokio::test]
 async fn test_call_stream_delegates_to_inner_edge() {
     let client = GrpcRetryClient::new(AlwaysFail, no_retry_config());
-    let messages = edge_transport_grpc_egress::GrpcMessageStreamResponse {
+    let messages = grpc_egress_transport::GrpcMessageStreamResponse {
         stream: Box::pin(futures::stream::empty::<GrpcEgressResult<Vec<u8>>>()),
     };
     let result = client

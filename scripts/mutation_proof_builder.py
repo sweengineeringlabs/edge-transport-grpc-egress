@@ -17,8 +17,8 @@ ENV = dict(os.environ)
 ENV.update({"CARGO_BUILD_JOBS": "1",
             "CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_PROFILE_TEST_DEBUG": "0", "CARGO_INCREMENTAL": "0"})
 
-B = "main/transport/src/spi/client/tonic/tonic_grpc_egress_builder.rs"
-ARGS = ["-p", "edge-transport-grpc-egress-transport", "--test", "tonic_grpc_egress_builder_int_test"]
+B = "main/transport-std/src/spi/client/tonic/tonic_grpc_egress_builder.rs"
+ARGS = ["-p", "grpc-egress-transport-std", "--test", "tonic_grpc_egress_builder_int_test"]
 
 MUTANTS = [
     ("B01 with_endpoint ignored",

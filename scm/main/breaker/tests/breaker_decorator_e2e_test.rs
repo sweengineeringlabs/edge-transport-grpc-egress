@@ -2,19 +2,20 @@
 //! End-to-end tests for [`BreakerDecorator`] via a test-double
 //! implementation.
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use edge_transport_grpc_egress::{
-    CallStreamRequest, GrpcEgress, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
-    GrpcResponse, HealthCheckRequest,
-};
 use edge_transport_grpc_egress_breaker::{
     BreakerDecorator, Error, GrpcBreakerConfig, GrpcBreakerFacade, WrapBreakerRequest,
     WrapBreakerResponse,
 };
 use futures::future::BoxFuture;
+use grpc_egress_transport::{
+    CallStreamRequest, GrpcEgress, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
+    GrpcResponse, HealthCheckRequest,
+};
 
 struct StubEgress;
 impl GrpcEgress for StubEgress {

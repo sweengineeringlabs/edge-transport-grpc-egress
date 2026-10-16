@@ -7,17 +7,18 @@
 //!
 //! [`GrpcRetryClient`]: edge_transport_grpc_egress_retry::GrpcRetryClient
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use edge_transport_grpc_egress::{
+use edge_transport_grpc_egress_retry::{GrpcRetryConfig, GrpcRetryFacade};
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcResponse, HealthCheckRequest,
 };
-use edge_transport_grpc_egress_retry::{GrpcRetryConfig, GrpcRetryFacade};
-use futures::future::BoxFuture;
 
 /// An upstream that fails the first `fail_until` calls, then succeeds —
 /// lets this example prove the retry loop really re-invokes the upstream

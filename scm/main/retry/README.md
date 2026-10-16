@@ -1,7 +1,7 @@
 # grpc-retry
 
 gRPC-aware retry decorator wrapping any
-`GrpcEgress` implementor (the trait of `edge-transport-grpc-egress-transport`).
+`GrpcEgress` implementor (the trait of `grpc-egress-transport`).
 
 ## Build
 

@@ -2,6 +2,7 @@
 //! Integration tests covering jwt_claims and edge-transport-grpc-egress dependency.
 
 use edge_transport_grpc_egress_auth_bearer::BearerAuthError;
+use grpc_egress_transport_std::GrpcRequestFactory;
 
 /// @covers: BearerAuthError::InvalidSystemTime
 #[test]
@@ -14,11 +15,11 @@ fn test_bearer_auth_error_implements_std_error() {
 /// @covers: GrpcEgressInterceptor (edge-transport-grpc-egress dependency coverage)
 #[test]
 fn test_edge_transport_grpc_egress_interceptor_trait_is_reachable() {
-    use edge_transport_grpc_egress::GrpcEgressInterceptor;
-    use edge_transport_grpc_egress::GrpcRequest;
     use edge_transport_grpc_egress_auth_bearer::{
         BearerEgressConfig, BearerEgressInterceptor, BearerSecret,
     };
+    use grpc_egress_transport::GrpcEgressInterceptor;
+    use grpc_egress_transport::GrpcRequest;
     use std::time::Duration;
 
     let config = BearerEgressConfig {

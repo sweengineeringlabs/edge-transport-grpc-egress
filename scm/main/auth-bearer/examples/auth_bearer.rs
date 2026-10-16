@@ -5,15 +5,17 @@
 //! before the wire call. No server is needed.
 //!
 //! [`BearerEgressConfig`]: edge_transport_grpc_egress_auth_bearer::BearerEgressConfig
-//! [`GrpcEgressInterceptorChain`]: edge_transport_grpc_egress::GrpcEgressInterceptorChain
+//! [`GrpcEgressInterceptorChain`]: grpc_egress_transport_std::GrpcEgressInterceptorChain
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::sync::Arc;
 use std::time::Duration;
 
-use edge_transport_grpc_egress::{GrpcEgressInterceptorChain, GrpcRequest};
 use edge_transport_grpc_egress_auth_bearer::{
     BearerEgressConfigBuilder, BearerEgressInterceptor, BearerSecret, AUTHORIZATION_HEADER,
 };
+use grpc_egress_transport::GrpcRequest;
+use grpc_egress_transport_std::GrpcEgressInterceptorChain;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = BearerEgressConfigBuilder::new()

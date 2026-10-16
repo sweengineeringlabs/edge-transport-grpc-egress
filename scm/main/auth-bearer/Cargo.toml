@@ -23,7 +23,7 @@ name = "auth_bearer"
 path = "examples/auth_bearer.rs"
 
 [dependencies]
-edge-transport-grpc-egress = { workspace = true }
+grpc-egress-transport = { workspace = true }
 swe-edge-security = { workspace = true }
 thiserror    = { workspace = true }
 serde         = { workspace = true }
@@ -36,6 +36,7 @@ jsonwebtoken  = "9"
 subtle        = "2"
 
 [dev-dependencies]
+grpc-egress-transport-std = { workspace = true }
 tokio  = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 subtle = "2"
 

@@ -2,11 +2,11 @@
 
 use std::time::Instant;
 
-use edge_transport_grpc_egress::{
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcResponse, HealthCheckRequest,
 };
-use futures::future::BoxFuture;
 use tracing::{debug, trace, warn};
 
 use edge_transport_retry::{BackoffScheduler, DefaultJitterRng};
@@ -177,6 +177,7 @@ impl<T: GrpcEgress + Send + Sync + 'static> GrpcRetryClient<T> {
 mod tests {
     use super::*;
     use crate::api::GrpcRetryConfig;
+    use grpc_egress_transport_std::GrpcRequestFactory;
 
     struct RetryEgressAlwaysUnavailable;
     impl GrpcEgress for RetryEgressAlwaysUnavailable {

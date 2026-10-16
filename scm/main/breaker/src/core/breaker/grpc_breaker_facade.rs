@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use edge_transport_grpc_egress::GrpcEgress;
+use grpc_egress_transport::GrpcEgress;
 
 use crate::api::{
     ApplicationConfigBuilder, BreakerDecorator, BreakerDomainError, ConfigBuilderProvider,
