@@ -1,7 +1,7 @@
 # ADR-008: The contract and the engine are external (`proto-pattern`, `proto-svc`)
 
-**Status:** Proposed, not implemented. Issue 18 task 2, 3 and 4 are the owner's to rule on; this record states the facts found while preparing the mapping (task 1), a recommendation for each ruling, and one finding that the issue does not name and that decides how much of the move is possible.
-**Date:** 2026-10-16
+**Status:** Proposed, not implemented. The owner's criteria (production grade, zero-cost abstraction, no feature sacrificed, the `api/std/spi/saf` rules) are applied to rulings 1 to 3 below; acceptance of the rulings is requested before the code moves. The finding that the path is a constant of the type is resolved: `proto-pattern` 0.9 and `proto-svc` 0.3 provide `RawTransport`.
+**Date:** 2026-10-16 (revised after `proto-pattern` 0.9.1 and `proto-svc` 0.3.0)
 **Tracking:** [#18](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/18) tasks 1 to 4
 **See also:** [ADR-006](ADR-006-domain-first.md), [ADR-007](ADR-007-decorators-wrap-a-built-client.md)
 
@@ -11,11 +11,9 @@
 
 `proto-pattern` (v0.8.2) is the contract of one typed call over a `Method`, with unary and the three streaming shapes. `proto-svc` (v0.2.0) is its `tonic` implementation. This repository is the same kind of thing with its own contract (`GrpcEgress`, raw bytes). Issue 18 asks that the transport concern live in one place and the contract in another.
 
-## Finding that the issue does not name: the path is a constant of the type
+## Finding that the issue did not name: the path is a constant of the type (resolved)
 
-`Method::PATH` is an associated constant: `transport.call::<Greet>(request)`. `GrpcRequest::method` is a **string chosen at run time**: every call site in this repository and its tests passes one. Over the contract such a call has no expression without one `Method` type per path, which code that holds only a string cannot create. Whether a real consumer needs the path dynamic (a router, a generic client) is to be confirmed in task 15; `edge-bootstrap` builds `GrpcRequest`s from a `method` variable in its ingress adapters, but those may be the ingress crates' types. So the byte-oriented, dynamic-path surface of `GrpcEgress` is **not** a wrapper over `Transport`; it is a different capability.
-
-This changes the three rulings below from a choice among wrappers into a choice about what survives.
+`Method::PATH` is an associated constant: `transport.call::<Greet>(request)`. `GrpcRequest::method` is a **string chosen at run time**. Over the contract of 0.8 such a call had no expression, so the byte-oriented, dynamic-path surface of `GrpcEgress` was not a wrapper over `Transport`. This was raised as [proto-pattern#19](https://github.com/sweengineeringlabs/proto-pattern/issues/19), which added `RawTransport` (a `MethodPath` value and byte messages, the four call shapes) in 0.9.0 and `RawTransportFactory` in 0.9.1 (ADR-008 there), and `proto-svc#4`, which implements both over one engine in 0.3.0. So the dynamic surface **is** a wrapper over a contract trait: `RawTransport`. The rulings below follow from that.
 
 ## Mapping (task 1), final for the public items of today's crates
 
@@ -39,21 +37,24 @@ This changes the three rulings below from a choice among wrappers into a choice 
 | `TonicGrpcEgressBuilderSpiFactory` (the hand-written `hyper` client) | replaced by `proto-svc`'s `TonicTransportSpiFactory` behind the same builder | task 9 |
 | retry, breaker, resilient, auth-bearer factories | kept; they wrap `GrpcEgress` today and take a `Transport` once it is generic (task 13) | |
 
-## Rulings and recommendations
+## Rulings (applying the owner's criteria)
 
-**Ruling 1, the `dyn` question (task 2).** `Transport` is not object-safe. Options: (a) consumers use generic bounds; (b) this crate keeps one object-safe trait in front of the contract.
-*Recommendation:* (b) for the dynamic-path surface, which is object-safe by nature (a string path and bytes) and is what `edge-bootstrap` holds as `Arc<dyn GrpcEgress>` (its runtime builder, registry and port crates; this repository has `dyn GrpcEgress` in 15 non-test source files, per the issue); (a) for every typed use. The finding above is the reason: the dynamic surface cannot be a generic over `Method`.
+The criteria: production grade; zero-cost abstraction; no feature sacrificed; the `api/`, `std/`, `spi/` and `saf/` rules.
 
-**Ruling 2, cancellation (task 3).** The contract has no token. Options: dropping the call's future cancels it (documented and tested), or a wrapper keeps `CancellationToken`.
-*Recommendation:* the wrapper keeps the token on the dynamic surface (it already races the call against it, and tests prove `Cancelled`), and typed callers rely on dropping the future. Removing the token from `GrpcRequest` would remove a capability the owner's rule forbids degrading.
+**Ruling 1, the `dyn` question (task 2): generic bounds, no `dyn`.** Every consumer is generic over `Transport` or `RawTransport` (or holds the concrete type a factory returned). A `dyn GrpcEgress` costs a vtable call and, today, a boxed future per call (`BoxFuture`); a generic bound costs neither. Nothing is lost: `RawTransport` has the dynamic path, so the one capability an object-safe trait protected (call by a run-time string) is a generic method now. An object-safe wrapper would add back the cost the criteria forbid and is not kept. The consequence is that `edge-bootstrap`'s `RuntimeBuilder` and the registries that hold `Arc<dyn GrpcEgress>` become generic over the transport; task 15 lists the change per consumer. *This reverses the earlier recommendation (b), which existed only because `RawTransport` did not.*
 
-**Ruling 3, security context (task 4).** `call_unary_with_context` has no equivalent. Options: an interceptor that derives metadata from the context and wraps `Transport`, or removal.
-*Recommendation:* the interceptor, so the capability stays and the engine stays unaware of it.
+**Ruling 2, cancellation (task 3): dropping the call's future cancels it, and the token stays as a wrapper.** The engine's calls are futures; dropping one cancels the call (to be documented and proved against a real server). The `CancellationToken` of `GrpcRequest` is a capability and is kept: a wrapper over `RawTransport`/`Transport` races the call against the token and reports `Cancelled`, and a transport used without it pays nothing (the wrapper is a type the caller chooses to build; no field is added to the contract). Removing the token would remove a feature.
 
-## Proposed way out
+**Ruling 3, security context (task 4): an interceptor wrapper.** An interceptor derives metadata from the `SecurityContext` and wraps the transport, so the capability stays, the engine and the contract stay unaware of it, and a transport used without it pays nothing.
 
-A proposal for `proto-pattern`, filed as [proto-pattern#19](https://github.com/sweengineeringlabs/proto-pattern/issues/19), adds a path-addressed byte call (`RawTransport`, `MethodPath`) beside `Transport`, additive, implemented by `proto-svc` over the same engine.
+## Layering
+
+The contract types are named in `api/` through the ports of this crate (the contract is a dependency, not copied). Wrappers (interceptor, retry, breaker, load balancer, cancellation, security context) are `std/` types built by one `saf/` factory per theme, as in ADR-006 and ADR-007. The engine (`proto-svc`) is reached only from the `-std` crate's `spi/`.
+
+## How the obstacle was removed
+
+`proto-pattern#19` (`RawTransport`, `MethodPath`, `RawTransportFactory`; released 0.9.0 and 0.9.1) and `proto-svc#4` (implementation; 0.3.0).
 
 ## What is not decided here
 
-Whether the dynamic-path surface should itself move into `proto-pattern` (a `Method` with a run-time path) is a question for the owner of that crate; this record only shows that without it the contract cannot replace `GrpcEgress`. No code changes until the rulings are given.
+Whether the bearer-auth crate stays (#6, #7, #8). Whether any consumer depends on `call_stream`, `Conversions` or `ProstUnaryCaller` (task 15). The moves are staged: tasks 5 to 8 (value types), then 9 (the engine), then the wrappers.
