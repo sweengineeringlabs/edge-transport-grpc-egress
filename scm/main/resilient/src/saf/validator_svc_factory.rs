@@ -1,7 +1,7 @@
 //! Composition site for [`Validator`] — one file per trait keeps wiring focused.
 
 use crate::api::Validator;
-use crate::core::traits::default_validator::DefaultValidator;
+use crate::std::default_validator::DefaultValidator;
 
 /// Factory for the default [`Validator`].
 pub struct ValidatorFactory;

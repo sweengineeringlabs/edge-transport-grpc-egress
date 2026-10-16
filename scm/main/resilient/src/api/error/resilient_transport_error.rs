@@ -2,7 +2,7 @@
 
 use edge_transport_grpc_egress_breaker::Error as BreakerDomainError;
 
-/// Error produced by [`crate::api::GrpcResilientFacade::apply_resilience`].
+/// Error produced by [`crate::std::GrpcResilientFacade::apply_resilience`].
 #[derive(Debug, thiserror::Error)]
 pub enum ResilientTransportError {
     /// The resilience policy contains an invalid field combination.

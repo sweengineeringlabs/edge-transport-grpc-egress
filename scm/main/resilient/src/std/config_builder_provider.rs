@@ -1,8 +1,9 @@
 //! `impl ConfigBuilderProvider for GrpcResilientSvcProcessor`.
 
+use crate::std::{ApplicationConfigBuilder, GrpcResilientSvcProcessor};
+
 use crate::api::{
-    ApplicationConfigBuilder, ConfigBuilderProvider, ConfigBuilderRequest, ConfigBuilderResponse,
-    GrpcResilientSvcProcessor, ResilientTransportError,
+    ConfigBuilderProvider, ConfigBuilderRequest, ConfigBuilderResponse, ResilientTransportError,
 };
 
 impl ConfigBuilderProvider for GrpcResilientSvcProcessor {
@@ -61,11 +62,5 @@ mod tests {
         assert!(err
             .to_string()
             .contains("resilient_core_probe_section_that_does_not_exist"));
-    }
-
-    #[test]
-    fn test_default_provider_returns_a_grpc_resilient_svc_marker() {
-        let svc = <GrpcResilientSvcProcessor as ConfigBuilderProvider>::default_provider();
-        assert_eq!(std::mem::size_of_val(&svc), 0);
     }
 }

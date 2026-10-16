@@ -19,13 +19,14 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod api;
-mod core;
 mod saf;
+mod std;
 
 // Public contracts and value objects — all flow directly from api/.
 pub use crate::api::{
-    ApplicationConfigBuilder, ConfigBuilderProvider, ConfigBuilderRequest, ConfigBuilderResponse,
-    ConfigValidationRequest, DescribeRequest, DescribeResponse, GrpcResilientFacade,
-    GrpcResilientSvcProcessor, Processor, ResilienceConfig, ResilientTransportError, Validator,
+    ConfigBuilderProvider, ConfigBuilderRequest, ConfigBuilderResponse, ConfigValidationRequest,
+    DescribeRequest, DescribeResponse, Processor, ResilienceConfig, ResilientTransportError,
+    Validator,
 };
+pub use crate::std::{ApplicationConfigBuilder, GrpcResilientFacade, GrpcResilientSvcProcessor};
 pub use saf::*;

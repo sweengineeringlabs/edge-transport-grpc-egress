@@ -2,6 +2,8 @@
 //! implementations directly (no saf/ dependency, keeping core/ → saf/
 //! import-free per the SEA dependency direction).
 
+use crate::std::{ApplicationConfigBuilder, GrpcResilientFacade, GrpcResilientSvcProcessor};
+
 use std::sync::Arc;
 
 use edge_transport_grpc_egress::GrpcEgress;
@@ -9,11 +11,10 @@ use edge_transport_grpc_egress_breaker::GrpcBreakerFacade;
 use edge_transport_grpc_egress_retry::GrpcRetryFacade;
 
 use crate::api::{
-    ApplicationConfigBuilder, ConfigBuilderProvider, ConfigBuilderRequest, ConfigValidationRequest,
-    GrpcResilientFacade, GrpcResilientSvcProcessor, ResilienceConfig, ResilientTransportError,
-    Validator,
+    ConfigBuilderProvider, ConfigBuilderRequest, ConfigValidationRequest, ResilienceConfig,
+    ResilientTransportError, Validator,
 };
-use crate::core::traits::default_validator::DefaultValidator;
+use crate::std::default_validator::DefaultValidator;
 
 impl GrpcResilientFacade {
     /// Return a config builder pre-seeded with this crate's name and version.
