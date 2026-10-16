@@ -9,8 +9,9 @@ use std::time::Duration;
 
 use crate::api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressInterceptor, GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor,
-    TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
+    GrpcEgressInterceptor, GrpcEgressInterceptorChain, MtlsConfig,
+    TraceContextGrpcEgressInterceptor, TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES,
+    DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 
 use super::tonic_grpc_egress::TonicGrpcEgress;
@@ -27,6 +28,8 @@ pub(crate) struct TonicGrpcEgressBuilder {
     max_message_bytes: usize,
     compression: CompressionMode,
     interceptors: GrpcEgressInterceptorChain,
+    mtls: Option<MtlsConfig>,
+    pinned_ca: Option<String>,
     /// Options of an applied [`GrpcChannelConfig`] that this client cannot apply yet. `build`
     /// refuses them, so that none is accepted and silently ignored.
     unapplied: Vec<&'static str>,
@@ -42,6 +45,8 @@ impl TonicGrpcEgressBuilder {
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
             compression: CompressionMode::None,
             interceptors: GrpcEgressInterceptorChain::new(),
+            mtls: None,
+            pinned_ca: None,
             unapplied: Vec::new(),
         }
     }
@@ -83,6 +88,20 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         }
     }
 
+    fn with_mtls(self, mtls: MtlsConfig) -> Self {
+        Self {
+            mtls: Some(mtls),
+            ..self
+        }
+    }
+
+    fn with_pinned_ca(self, ca_pem_path: impl Into<String>) -> Self {
+        Self {
+            pinned_ca: Some(ca_pem_path.into()),
+            ..self
+        }
+    }
+
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self {
         Self {
             interceptors: self.interceptors.push(interceptor),
@@ -102,9 +121,6 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
     }
 
     fn with_channel_config(mut self, config: &GrpcChannelConfig) -> Self {
-        if config.mtls.is_some() {
-            self.unapplied.push("mtls");
-        }
         if config.keep_alive.is_some() {
             self.unapplied.push("keep_alive");
         }
@@ -117,6 +133,7 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
             request_timeout,
             max_message_bytes: config.max_message_bytes,
             compression: config.compression,
+            mtls: config.mtls.clone().or(self.mtls),
             ..self
         }
     }
@@ -129,7 +146,12 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         {
             return Err(GrpcChannelConfigError::PlaintextRejected(self.endpoint));
         }
+        let pinned_ca = self
+            .pinned_ca
+            .as_deref()
+            .or_else(|| self.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref()));
         Ok(TonicGrpcEgress::new(self.endpoint)
+            .with_tls(self.mtls.as_ref(), pinned_ca)?
             .with_request_timeout(self.request_timeout)
             .with_max_message_bytes(self.max_message_bytes)
             .with_compression(self.compression)

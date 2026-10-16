@@ -9,7 +9,7 @@ use edge_transport_grpc_egress_transport::{
     AfterCallRequest, BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfig,
     GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory,
     GrpcEgressError, GrpcEgressInterceptor, GrpcRequest, GrpcStatusCode, KeepAliveConfig,
-    MtlsConfig, TonicGrpcEgressBuilderSpiFactory, TraceContextSource,
+    TonicGrpcEgressBuilderSpiFactory, TraceContextSource,
 };
 use grpc_egress_test_support::{Fixture, PeerBehaviour, PeerServer};
 
@@ -400,28 +400,6 @@ async fn test_with_channel_config_then_a_single_option_the_later_call_wins_edge(
     let response = client.call_unary(new_request()).await?;
 
     assert_eq!(response.body.len(), 1025);
-    Ok(())
-}
-
-/// @covers: GrpcEgressBuilder::with_channel_config
-#[tokio::test]
-async fn test_with_channel_config_mtls_is_refused_until_the_client_applies_it_error(
-) -> Result<(), Box<dyn Error>> {
-    let config = GrpcChannelConfig::new("https://service.example:443")
-        .with_mtls(MtlsConfig::new("client.pem", "client-key.pem"));
-
-    let result = TonicGrpcEgressBuilderSpiFactory::new("https://service.example:443")
-        .build(BuildGrpcEgressBuilderRequest)
-        .with_channel_config(&config)
-        .build();
-
-    assert!(
-        matches!(
-            result,
-            Err(GrpcChannelConfigError::OptionNotApplied("mtls"))
-        ),
-        "an option the client cannot apply must be refused, not ignored"
-    );
     Ok(())
 }
 

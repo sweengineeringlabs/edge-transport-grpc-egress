@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressInterceptor,
-    TraceContextSource,
+    MtlsConfig, TraceContextSource,
 };
 
 /// Collects the options of a client and builds it.
@@ -36,6 +36,16 @@ pub trait GrpcEgressBuilder: Sized {
     /// Compress outgoing messages with `mode`.
     fn with_compression(self, mode: CompressionMode) -> Self;
 
+    /// Present the client certificate of `mtls` to the server (mutual TLS) and, when it names a CA
+    /// bundle, verify the server against that bundle alone. `build` reads the files and fails when
+    /// one is unusable; the endpoint must be `https://`.
+    fn with_mtls(self, mtls: MtlsConfig) -> Self;
+
+    /// Verify the server against the CA bundle in the PEM file `ca_pem_path` alone, instead of the
+    /// web PKI roots. Overrides the bundle of [`GrpcEgressBuilder::with_mtls`]. `build` reads the
+    /// file and fails when it is unusable; the endpoint must be `https://`.
+    fn with_pinned_ca(self, ca_pem_path: impl Into<String>) -> Self;
+
     /// Run `interceptor` before and after every call. Interceptors run in the order they were added.
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self;
 
@@ -51,6 +61,7 @@ pub trait GrpcEgressBuilder: Sized {
     /// # Errors
     ///
     /// A [`GrpcChannelConfigError`] naming what is wrong: a plaintext endpoint without
-    /// [`GrpcEgressBuilder::with_plaintext_allowed`], or an option the client cannot apply.
+    /// [`GrpcEgressBuilder::with_plaintext_allowed`], a TLS option on a plaintext endpoint, a TLS
+    /// file that cannot be used, or an option the client cannot apply.
     fn build(self) -> Result<impl GrpcEgress + use<Self>, GrpcChannelConfigError>;
 }

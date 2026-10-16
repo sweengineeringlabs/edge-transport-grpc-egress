@@ -38,6 +38,11 @@ impl RunningPeer {
         format!("http://{}", self.addr)
     }
 
+    /// The `https://` endpoint of the peer (for a peer started with TLS).
+    pub fn get_https_endpoint(&self) -> String {
+        format!("https://{}", self.addr)
+    }
+
     /// Every request received so far, in arrival order.
     pub fn get_recorded_requests(&self) -> Vec<RecordedRequest> {
         self.requests

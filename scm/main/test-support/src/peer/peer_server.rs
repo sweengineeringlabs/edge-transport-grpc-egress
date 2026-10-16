@@ -11,8 +11,11 @@ use hyper::body::Incoming;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use tokio::net::TcpListener;
+use tokio_rustls::TlsAcceptor;
 
-use crate::{GrpcFrame, PeerBehaviour, RecordedRequest, RunningPeer};
+use crate::{
+    Fixture, GrpcFrame, PeerBehaviour, RecordedRequest, RunningPeer, TestPki, TlsServerMode,
+};
 
 /// Starts in-process peers that answer unary gRPC calls and record what they received.
 pub struct PeerServer;
@@ -24,6 +27,51 @@ impl PeerServer {
     ///
     /// The error of binding the listener or reading its address.
     pub async fn start(behaviour: PeerBehaviour) -> io::Result<RunningPeer> {
+        Self::serve(behaviour, None).await
+    }
+
+    /// Start a peer that speaks TLS with the server certificate of `pki`, demanding what `mode`
+    /// says of the client. A connection whose handshake fails is dropped.
+    ///
+    /// # Errors
+    ///
+    /// The error of building the TLS configuration, binding the listener or reading its address.
+    pub async fn start_tls(
+        behaviour: PeerBehaviour,
+        pki: &TestPki,
+        mode: TlsServerMode,
+    ) -> io::Result<RunningPeer> {
+        // With two crypto backends in one build (a workspace), rustls cannot pick one by itself.
+        Fixture::ensure_tls_provider();
+        let builder = rustls::ServerConfig::builder();
+        let builder = match mode {
+            TlsServerMode::ServerAuthOnly => builder.with_no_client_auth(),
+            TlsServerMode::ClientAuthRequired => {
+                let mut roots = rustls::RootCertStore::empty();
+                for root in pki.get_client_roots() {
+                    roots.add(root).map_err(io::Error::other)?;
+                }
+                let verifier = rustls::server::WebPkiClientVerifier::builder(roots.into())
+                    .build()
+                    .map_err(io::Error::other)?;
+                builder.with_client_cert_verifier(verifier)
+            }
+        };
+        let mut config = builder
+            .with_single_cert(pki.get_server_chain(), pki.get_server_key())
+            .map_err(io::Error::other)?;
+        config.alpn_protocols = vec![b"h2".to_vec()];
+        Self::serve(
+            behaviour,
+            Some(TlsAcceptor::from(std::sync::Arc::new(config))),
+        )
+        .await
+    }
+
+    async fn serve(
+        behaviour: PeerBehaviour,
+        acceptor: Option<TlsAcceptor>,
+    ) -> io::Result<RunningPeer> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let addr = listener.local_addr()?;
         let requests: Arc<Mutex<Vec<RecordedRequest>>> = Arc::new(Mutex::new(Vec::new()));
@@ -33,14 +81,23 @@ impl PeerServer {
             while let Ok((stream, _)) = listener.accept().await {
                 let behaviour = behaviour.clone();
                 let record = record.clone();
+                let acceptor = acceptor.clone();
                 tokio::spawn(async move {
                     let service = service_fn(move |request: http::Request<Incoming>| {
                         Self::answer(request, behaviour.clone(), record.clone())
                     });
+                    let server = hyper::server::conn::http2::Builder::new(TokioExecutor::new());
                     // A connection that ends with an error is the client's concern in a test.
-                    let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
-                        .serve_connection(TokioIo::new(stream), service)
-                        .await;
+                    match acceptor {
+                        None => {
+                            let _ = server.serve_connection(TokioIo::new(stream), service).await;
+                        }
+                        Some(acceptor) => {
+                            if let Ok(tls) = acceptor.accept(stream).await {
+                                let _ = server.serve_connection(TokioIo::new(tls), service).await;
+                            }
+                        }
+                    }
                 });
             }
         });
