@@ -7,6 +7,8 @@
 /// `GrpcEgress`/`Processor` impls for that type.
 pub(crate) struct TonicGrpcEgressProtocol;
 
+use crate::std::Conversions as StatusConversions;
+use crate::std::GrpcEgressInterceptorChain;
 use std::time::Duration;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -17,10 +19,10 @@ use tokio_util::sync::CancellationToken;
 
 use super::grpc_message_codec::GrpcMessageCodec;
 use super::tonic_grpc_egress::TonicGrpcEgress;
-use crate::api::Conversions as StatusConversions;
+
 use crate::api::{
-    CompressionMode, GrpcEgress, GrpcEgressError, GrpcEgressInterceptorChain, GrpcEgressResult,
-    GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    CompressionMode, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
+    GrpcRequest, GrpcResponse, GrpcStatusCode,
 };
 
 const SANITIZED_INTERNAL_MSG: &str = "internal client error";

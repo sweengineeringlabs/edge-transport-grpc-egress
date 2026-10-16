@@ -1,13 +1,15 @@
-//! API layer -- the `client` theme: building a gRPC egress client.
-//!
-//! The builder trait and its factory trait are here, with the request envelope of the factory.
-//! The client itself (`GrpcEgress`) and its request and response types move into this theme with
-//! the split of the flat `traits/` and `types/` folders (issue 17).
+//! API of the `client` theme: making a gRPC call and building the client that makes it.
 
 pub mod dto;
+pub mod error;
 pub mod traits;
 pub mod vo;
 
-pub use dto::BuildGrpcEgressBuilderRequest;
-pub use traits::{GrpcEgressBuilder, GrpcEgressBuilderFactory};
-pub use vo::{BackendTarget, BalancingStrategy, LoadbalancerSettings};
+pub use dto::{
+    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest, DescribeRequest,
+    DescribeResponse, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, HealthCheckRequest,
+    ProcessingRequest,
+};
+pub use error::{GrpcEgressError, GrpcEgressResult};
+pub use traits::{GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, Processor};
+pub use vo::GrpcStatusCode;

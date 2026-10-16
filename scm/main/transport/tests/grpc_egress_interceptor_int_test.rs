@@ -2,8 +2,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use edge_transport_grpc_egress_transport::{
-    AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor, GrpcEgressInterceptorChain,
-    GrpcRequest, GrpcResponse, TraceContextSource,
+    AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor, GrpcRequest, GrpcResponse,
 };
 
 #[test]
@@ -13,9 +12,8 @@ fn transport_trait_grpc_egress_interceptor_is_object_safe_int_test() {
 
 /// Test-double satisfying the two abstract methods. `before_call` injects a
 /// metadata header (or fails, if `fail_before`); `after_call` injects a
-/// response header (or fails, if `fail_after`) — used both to exercise the
-/// trait's default (`Self: Sized`) methods and `before_call`/`after_call`
-/// themselves from outside the crate.
+/// response header (or fails, if `fail_after`) — used to exercise the trait's methods
+/// `before_call`/`after_call` themselves from outside the crate.
 // @allow: no_mocks_in_integration — hand-rolled test double, not a mock library.
 #[derive(Default)]
 struct StubInterceptor {
@@ -46,122 +44,6 @@ impl GrpcEgressInterceptor for StubInterceptor {
             .insert("x-stub-observed".to_string(), "1".to_string());
         Ok(())
     }
-}
-
-// ── default_request_builder ──────────────────────────────────────────────────
-
-/// @covers: default_request_builder
-#[test]
-fn test_default_request_builder_missing_method_is_error() {
-    let err = <StubInterceptor as GrpcEgressInterceptor>::default_request_builder()
-        .build()
-        .expect_err("a builder with no method set must fail to build");
-    assert!(!err.is_empty(), "error message must be non-empty");
-}
-
-/// @covers: default_request_builder
-#[test]
-fn test_default_request_builder_with_method_and_deadline_builds_valid_request_happy() {
-    let req = <StubInterceptor as GrpcEgressInterceptor>::default_request_builder()
-        .method("/pkg.Svc/Method")
-        .deadline(std::time::Duration::from_secs(5))
-        .build()
-        .expect("a builder with method and deadline set must build");
-    assert_eq!(req.method, "/pkg.Svc/Method");
-}
-
-/// @covers: default_request_builder
-#[test]
-fn test_default_request_builder_repeated_calls_are_independent_edge() {
-    let a = <StubInterceptor as GrpcEgressInterceptor>::default_request_builder()
-        .method("/pkg.Svc/A")
-        .deadline(std::time::Duration::from_secs(1))
-        .build()
-        .expect("first builder");
-    let b = <StubInterceptor as GrpcEgressInterceptor>::default_request_builder()
-        .method("/pkg.Svc/B")
-        .deadline(std::time::Duration::from_secs(1))
-        .build()
-        .expect("second builder");
-    assert_ne!(
-        a.method, b.method,
-        "each builder must be independently configured"
-    );
-}
-
-// ── describe_chain_len ────────────────────────────────────────────────────────
-
-/// @covers: describe_chain_len
-#[test]
-fn test_describe_chain_len_empty_chain_is_zero_happy() {
-    let chain = GrpcEgressInterceptorChain::new();
-    assert_eq!(
-        <StubInterceptor as GrpcEgressInterceptor>::describe_chain_len(&chain),
-        0
-    );
-}
-
-/// @covers: describe_chain_len
-#[test]
-fn test_describe_chain_len_registered_interceptor_counts_one_error() {
-    use std::sync::Arc;
-    let chain = GrpcEgressInterceptorChain::new().push(Arc::new(StubInterceptor::default()));
-    assert_eq!(
-        <StubInterceptor as GrpcEgressInterceptor>::describe_chain_len(&chain),
-        1
-    );
-}
-
-/// @covers: describe_chain_len
-#[test]
-fn test_describe_chain_len_multiple_interceptors_edge() {
-    use std::sync::Arc;
-    let chain = GrpcEgressInterceptorChain::new()
-        .push(Arc::new(StubInterceptor::default()))
-        .push(Arc::new(StubInterceptor::default()))
-        .push(Arc::new(StubInterceptor::default()));
-    assert_eq!(
-        <StubInterceptor as GrpcEgressInterceptor>::describe_chain_len(&chain),
-        3
-    );
-}
-
-// ── describe_trace_source ────────────────────────────────────────────────────
-
-/// @covers: describe_trace_source
-#[test]
-fn test_describe_trace_source_pass_through_is_not_static_happy() {
-    assert!(
-        !<StubInterceptor as GrpcEgressInterceptor>::describe_trace_source(
-            TraceContextSource::PassThrough
-        )
-    );
-}
-
-/// @covers: describe_trace_source
-#[test]
-fn test_describe_trace_source_static_without_tracestate_is_static_error() {
-    assert!(
-        <StubInterceptor as GrpcEgressInterceptor>::describe_trace_source(
-            TraceContextSource::Static {
-                traceparent: "00-0-0-00".to_string(),
-                tracestate: None,
-            }
-        )
-    );
-}
-
-/// @covers: describe_trace_source
-#[test]
-fn test_describe_trace_source_static_with_tracestate_is_static_edge() {
-    assert!(
-        <StubInterceptor as GrpcEgressInterceptor>::describe_trace_source(
-            TraceContextSource::Static {
-                traceparent: "00-0-0-00".to_string(),
-                tracestate: Some("vendor=value".to_string()),
-            }
-        )
-    );
 }
 
 // ── before_call ───────────────────────────────────────────────────────────────
