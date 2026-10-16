@@ -50,6 +50,10 @@ This changes the three rulings below from a choice among wrappers into a choice 
 **Ruling 3, security context (task 4).** `call_unary_with_context` has no equivalent. Options: an interceptor that derives metadata from the context and wraps `Transport`, or removal.
 *Recommendation:* the interceptor, so the capability stays and the engine stays unaware of it.
 
+## Proposed way out
+
+A draft change for `proto-pattern`, not yet sent to its owner: [`../proposals/proto-pattern-raw-transport.md`](../proposals/proto-pattern-raw-transport.md) adds a path-addressed byte call (`RawTransport`, `MethodPath`) beside `Transport`, additive, implemented by `proto-svc` over the same engine.
+
 ## What is not decided here
 
 Whether the dynamic-path surface should itself move into `proto-pattern` (a `Method` with a run-time path) is a question for the owner of that crate; this record only shows that without it the contract cannot replace `GrpcEgress`. No code changes until the rulings are given.
