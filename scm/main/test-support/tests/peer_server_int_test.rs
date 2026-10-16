@@ -23,6 +23,17 @@ impl RawGrpcClient {
         headers: &[(&str, &str)],
         body: Bytes,
     ) -> Result<(http::response::Parts, Bytes), Box<dyn Error>> {
+        let (parts, body, _trailers) = Self::post_with_trailers(addr, path, headers, body).await?;
+        Ok((parts, body))
+    }
+
+    /// Like `post`, and returns the trailers that follow the body.
+    async fn post_with_trailers(
+        addr: SocketAddr,
+        path: &str,
+        headers: &[(&str, &str)],
+        body: Bytes,
+    ) -> Result<(http::response::Parts, Bytes, http::HeaderMap), Box<dyn Error>> {
         let stream = TcpStream::connect(addr).await?;
         let (mut sender, connection) =
             handshake(TokioExecutor::new(), TokioIo::new(stream)).await?;
@@ -38,7 +49,9 @@ impl RawGrpcClient {
         }
         let response = sender.send_request(builder.body(Full::new(body))?).await?;
         let (parts, incoming) = response.into_parts();
-        Ok((parts, incoming.collect().await?.to_bytes()))
+        let collected = incoming.collect().await?;
+        let trailers = collected.trailers().cloned().unwrap_or_default();
+        Ok((parts, collected.to_bytes(), trailers))
     }
 }
 
@@ -50,14 +63,17 @@ async fn test_start_echo_returns_the_messages_of_the_request_with_status_zero(
     let mut body = GrpcFrame::encode(b"one").to_vec();
     body.extend_from_slice(&GrpcFrame::encode(b"two"));
 
-    let (head, reply) =
-        RawGrpcClient::post(peer.get_addr(), "/pkg.Service/Method", &[], body.into()).await?;
+    let (head, reply, trailers) =
+        RawGrpcClient::post_with_trailers(peer.get_addr(), "/pkg.Service/Method", &[], body.into())
+            .await?;
 
     assert_eq!(head.status, 200);
+    // The status of a call that carried a message is in the trailers, after the message.
     assert_eq!(
-        head.headers.get("grpc-status").map(|v| v.as_bytes()),
+        trailers.get("grpc-status").map(|v| v.as_bytes()),
         Some(&b"0"[..])
     );
+    assert!(head.headers.get("grpc-status").is_none());
     assert_eq!(
         head.headers.get("content-type").map(|v| v.as_bytes()),
         Some(&b"application/grpc"[..])

@@ -60,10 +60,26 @@ async fn call_peer_replying(
     max_message_bytes: usize,
 ) -> Result<Result<Vec<u8>, GrpcEgressError>, Box<dyn Error>> {
     Fixture::ensure_tls_provider();
+    let behaviour_encoding = match &behaviour {
+        PeerBehaviour::ReplyCompressed {
+            encoding: Some(name),
+            ..
+        } => Some(name.clone()),
+        _ => None,
+    };
+    let behaviour_encoding = behaviour_encoding.as_deref();
     let peer = PeerServer::start(behaviour).await?;
+    // The client accepts only the encodings it advertises (`grpc-accept-encoding`), as the protocol says a
+    // server may use no other, so the one the peer answers with is the one switched on.
+    let mode = match &behaviour_encoding {
+        Some("gzip") => CompressionMode::Gzip,
+        Some("zstd") => CompressionMode::Zstd,
+        _ => CompressionMode::None,
+    };
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
+        .with_compression(mode)
         .with_max_message_bytes(max_message_bytes)
         .build()?;
     Ok(client
@@ -163,7 +179,7 @@ async fn test_call_unary_zstd_answer_is_decompressed_happy() -> Result<(), Box<d
 
 /// @covers: GrpcEgress::call_unary
 #[tokio::test]
-async fn test_call_unary_compressed_answer_without_an_announced_encoding_returns_internal_error(
+async fn test_call_unary_compressed_answer_without_an_announced_encoding_returns_internal_status_error(
 ) -> Result<(), Box<dyn Error>> {
     let reply = call_peer_replying(
         PeerBehaviour::ReplyCompressed {
@@ -175,7 +191,10 @@ async fn test_call_unary_compressed_answer_without_an_announced_encoding_returns
     .await?;
 
     assert!(
-        matches!(reply, Err(GrpcEgressError::Internal(_))),
+        matches!(
+            reply,
+            Err(GrpcEgressError::Status(GrpcStatusCode::Internal, _))
+        ),
         "got {reply:?}"
     );
     Ok(())
@@ -206,7 +225,7 @@ async fn test_call_unary_answer_in_an_unsupported_encoding_returns_unimplemented
 
 /// @covers: GrpcEgress::call_unary
 #[tokio::test]
-async fn test_call_unary_answer_that_is_not_valid_gzip_returns_internal_error(
+async fn test_call_unary_answer_that_is_not_valid_gzip_returns_internal_status_error(
 ) -> Result<(), Box<dyn Error>> {
     let reply = call_peer_replying(
         PeerBehaviour::ReplyCompressed {
@@ -218,7 +237,10 @@ async fn test_call_unary_answer_that_is_not_valid_gzip_returns_internal_error(
     .await?;
 
     assert!(
-        matches!(reply, Err(GrpcEgressError::Internal(_))),
+        matches!(
+            reply,
+            Err(GrpcEgressError::Status(GrpcStatusCode::Internal, _))
+        ),
         "got {reply:?}"
     );
     Ok(())
@@ -291,6 +313,7 @@ async fn test_call_server_stream_gzip_answer_is_decompressed_happy() -> Result<(
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
+        .with_compression(CompressionMode::Gzip)
         .build()?;
 
     let mut answer = client.call_server_stream(request(b"ping".to_vec())).await?;

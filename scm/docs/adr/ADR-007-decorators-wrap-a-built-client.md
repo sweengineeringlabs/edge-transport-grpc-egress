@@ -42,9 +42,11 @@ is answered by keeping: reversing would change behaviour that callers may alread
 scenario test pins the current order (`InterceptorScenario`, mutant R14 of
 `scripts/mutation_proof_composition_root.py`).
 
-**Prost and feature-dependent options:** the option is always present on the builder; without the Cargo
-feature, `build()` returns `DisabledFeatureOptions`, listing every disabled option at once. A drift-guard
-test reads `[features]` from `Cargo.toml` and fails when a feature has no builder option.
+**Prost and feature-dependent options (superseded, issue 18):** the builder had `with_prost_codec`, which set the
+content type `application/grpc+proto` and failed with `DisabledFeatureOptions` without the Cargo feature. The
+engine always sends `application/grpc` (the content subtype is outside the contract), so the option changed
+nothing on the wire and was removed with `DisabledFeatureOptions`; the `prost` feature now exposes only the
+typed helper `ProstUnaryCaller`.
 
 **Removed as scaffolding:** every `Processor`, `Validator`, `ConfigBuilderProvider`, `RetryDecorator`,
 `RetryInspector`, `BackoffScheduler` and `BreakerDecorator` trait with its `Default*` implementation,

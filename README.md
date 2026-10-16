@@ -1,6 +1,6 @@
 # edge-transport-grpc-egress
 
-> **TLDR:** Outbound gRPC client for swe-edge: one `GrpcEgress` trait, a `hyper`-backed client with a client-side load balancer built through one builder, and retry, circuit-breaker and bearer-auth pieces as separate crates. See [Overview](scm/docs/README.md) for details.
+> **TLDR:** Outbound gRPC client for swe-edge: one `GrpcEgress` trait, a client over the `proto-svc` engine with a client-side load balancer built through one builder, and retry, circuit-breaker and bearer-auth pieces as separate crates. See [Overview](scm/docs/README.md) for details.
 
 ## Crates
 
@@ -11,13 +11,13 @@ The workspace is `scm/`; each crate is in `scm/main/<crate>/`. Every theme is a 
 | Crate | What it is |
 |-------|------------|
 | `grpc-egress-transport` | the domain: the `GrpcEgress` trait, the client builder trait, requests and responses, errors, and the options of a client. No `tonic`, `hyper` or `rustls` |
-| `grpc-egress-transport-std` | the implementation: the `hyper` client, its builder, the load-balanced client, interceptors, and the constructors of the domain types |
+| `grpc-egress-transport-std` | the implementation: the client over the `proto-svc` engine, its builder, the load-balanced client, interceptors, and the constructors of the domain types |
 | `grpc-egress-retry` / `-std` | retry: `GrpcRetryFactory`, `StdGrpcRetryFactory`, the retry policy `GrpcRetryConfig` |
 | `grpc-egress-breaker` / `-std` | circuit breaker: `GrpcBreakerFactory`, `StdGrpcBreakerFactory`, the policy `GrpcBreakerConfig`, `BreakerObservable` |
 | `grpc-egress-resilient` / `-std` | retry and breaker together: `StdGrpcResilientFactory`, the policy `ResilienceConfig` |
 | `grpc-egress-auth-bearer` / `-std` | JWT bearer: `StdBearerInterceptorFactory` signs a token and adds `authorization: Bearer <jwt>` to each request |
 | `grpc-egress-test-support` | fixtures for tests: an in-process peer (echo, reply, delay, status, TLS, mTLS), a freezable proxy |
-| `grpc-egress-example-composition-root` | what a composition root does with these crates: seven tested scenarios (`scm/main/examples/composition-root`) |
+| `grpc-egress-example-composition-root` | what a composition root does with these crates: six tested scenarios (`scm/main/examples/composition-root`) |
 
 ## Usage
 
@@ -57,8 +57,8 @@ Runnable versions: `scm/main/transport-std/examples/basic_transport.rs`,
 
 ## What this crate ships, and what it does not
 
-This crate ships real transport code: the wire format (gRPC frames, status codes, `grpc-timeout`), the
-client (`hyper`, `hyper-rustls`), the load balancer, compression and interceptors. It does **not** ship
+This crate ships the client side of the transport: the client over the `proto-svc` engine (which owns the
+wire format, the connection, TLS, compression and the status codes), the load balancer and interceptors. It does **not** ship
 server machinery: it binds no listener, runs no accept loop, terminates no TLS and owns no connection
 lifecycle on the serving side. That is the job of the deploying application (for the ingress side,
 `edge-runtime`). The in-process peer in `grpc-egress-test-support` is for tests and is not part of any
@@ -68,9 +68,9 @@ published crate.
 
 `with_endpoint`, `with_plaintext_allowed`, `with_request_timeout`, `with_max_message_bytes`,
 `with_compression`, `with_mtls`, `with_root_ca`, `with_keep_alive`, `with_loadbalancer`,
-`with_prost_codec`, `with_interceptor`, `with_trace_context`, `with_channel_config` (a loaded
-`GrpcChannelConfig`, then single options override it). `with_prost_codec` needs the Cargo feature `prost`;
-without it `build()` returns `DisabledFeatureOptions` naming the option and the feature.
+`with_interceptor`, `with_trace_context`, `with_channel_config` (a loaded
+`GrpcChannelConfig`, then single options override it). The Cargo feature `prost` of the implementation crate
+exposes the typed helper `ProstUnaryCaller`; it is not an option of the builder.
 
 ## Layout
 

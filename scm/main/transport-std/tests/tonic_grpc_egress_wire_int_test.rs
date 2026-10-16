@@ -156,11 +156,16 @@ async fn test_call_unary_other_status_with_retry_after_leaves_the_message_alone(
 
 // ---------------------------------------------------------------- frames
 
+/// A unary response must carry exactly one message; none is a protocol violation, `UNIMPLEMENTED` at the
+/// client (`proto-pattern` ADR-007). The hyper client of before took none as an empty message.
+///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_empty_body_is_an_empty_message() -> Result<(), Box<dyn Error>> {
-    assert_eq!(call_raw(Vec::new(), None).await?, Vec::<u8>::new());
-    Ok(())
+async fn test_call_unary_empty_body_is_an_unimplemented_status_error() {
+    assert!(matches!(
+        call_raw(Vec::new(), None).await,
+        Err(GrpcEgressError::Status(GrpcStatusCode::Unimplemented, _))
+    ));
 }
 
 /// @covers: frames
@@ -170,57 +175,59 @@ async fn test_call_unary_one_frame_is_its_payload() -> Result<(), Box<dyn Error>
     Ok(())
 }
 
+/// A frame that ends before its announced length is never delivered as a message: the call fails.
+///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_truncated_frame_is_a_sanitized_internal_error() {
+async fn test_call_unary_truncated_frame_is_an_error_and_delivers_no_message() {
     let mut body = frame(0, b"hello");
     body.truncate(body.len() - 2);
 
-    assert!(matches!(
-        call_raw(body, None).await,
-        Err(GrpcEgressError::Internal(message)) if message == SANITIZED
-    ));
+    assert!(call_raw(body, None).await.is_err());
 }
 
+/// Bytes after the last complete message, too few to make a frame, are ignored: the message before them is
+/// delivered intact. The hyper client of before refused the response.
+///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_bytes_after_the_last_frame_are_a_sanitized_internal_error() {
+async fn test_call_unary_bytes_after_the_last_frame_are_ignored() -> Result<(), Box<dyn Error>> {
     let mut body = frame(0, b"hello");
     body.extend_from_slice(&[1, 2, 3]);
 
-    assert!(matches!(
-        call_raw(body, None).await,
-        Err(GrpcEgressError::Internal(message)) if message == SANITIZED
-    ));
+    assert_eq!(call_raw(body, None).await?, b"hello");
+    Ok(())
 }
 
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_invalid_compressed_flag_is_a_sanitized_internal_error() {
+async fn test_call_unary_invalid_compressed_flag_is_an_internal_status_error() {
     assert!(matches!(
         call_raw(frame(2, b"hello"), None).await,
-        Err(GrpcEgressError::Internal(message)) if message == SANITIZED
+        Err(GrpcEgressError::Status(GrpcStatusCode::Internal, _))
     ));
 }
 
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_compressed_flag_without_an_encoding_is_a_sanitized_internal_error() {
+async fn test_call_unary_compressed_flag_without_an_encoding_is_an_internal_status_error() {
     assert!(matches!(
         call_raw(frame(1, b"hello"), None).await,
-        Err(GrpcEgressError::Internal(message)) if message == SANITIZED
+        Err(GrpcEgressError::Status(GrpcStatusCode::Internal, _))
     ));
 }
 
+/// A unary response with two messages is a protocol violation, `UNIMPLEMENTED` at the client.
+///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_two_frames_are_a_sanitized_internal_error() {
+async fn test_call_unary_two_frames_are_an_unimplemented_status_error() {
     let mut body = frame(0, b"one");
     body.extend_from_slice(&frame(0, b"two"));
 
     assert!(matches!(
         call_raw(body, None).await,
-        Err(GrpcEgressError::Internal(message)) if message == SANITIZED
+        Err(GrpcEgressError::Status(GrpcStatusCode::Unimplemented, _))
     ));
 }
 
@@ -338,7 +345,10 @@ async fn test_call_unary_peer_slower_than_the_deadline_is_a_timeout() -> Result<
     let result = client.call_unary(request(Duration::from_millis(50))).await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ),
         "{result:?}"
     );
     Ok(())

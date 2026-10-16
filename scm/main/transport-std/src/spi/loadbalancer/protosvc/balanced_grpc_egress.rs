@@ -1,40 +1,39 @@
-//! `TonicLbGrpcEgress` — spreads calls over several backends with the engine of one endpoint.
+//! `BalancedGrpcEgress` -- spreads calls over several backends, each with a client of its own.
 
-use std::future::Future;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
+use proto_pattern::RawTransport;
 use swe_edge_loadbalancer::{
     BackendConfig, BackendPoolInstance, LoadbalancerConfig, LoadbalancerSvc, Outcome, Strategy,
 };
 
-use crate::spi::client::tonic::TonicGrpcEgress;
+use crate::spi::client::protosvc::ProtoSvcGrpcEgress;
 use grpc_egress_transport::{
     BalancingStrategy, CallStreamRequest, GrpcChannelConfigError, GrpcEgress, GrpcEgressError,
-    GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, HealthCheckRequest,
-    LoadbalancerSettings,
+    GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    HealthCheckRequest, LoadbalancerSettings,
 };
 
 /// A [`GrpcEgress`] that sends each call to a backend picked from a pool.
 ///
-/// The call itself is made by a copy of the template client pointed at the picked backend, so
-/// every option of the template (message cap, compression, request timeout, TLS, keep-alive,
-/// interceptors) applies to a balanced call exactly as to a single-endpoint one. The outcome of
-/// the call is reported to the pool: a backend that cannot be reached is avoided until a call to
-/// it succeeds.
-pub(crate) struct TonicLbGrpcEgress {
-    template: TonicGrpcEgress,
+/// Every backend has a client built once, from the same options (message cap, compression, request
+/// timeout, TLS, keep-alive, interceptors), so a balanced call is made exactly as a single-endpoint one
+/// and each backend keeps its own connection. The outcome of the call is reported to the pool: a backend
+/// that cannot be reached is avoided until a call to it succeeds.
+pub(crate) struct BalancedGrpcEgress<T> {
+    clients: Vec<(String, ProtoSvcGrpcEgress<T>)>,
     pool: Arc<BackendPoolInstance>,
 }
 
-impl TonicLbGrpcEgress {
-    /// A balanced client over the backends of `settings`, calling through `template`.
+impl<T> BalancedGrpcEgress<T> {
+    /// A balanced client over the backends of `settings`; `clients` has the client of each backend by URL.
     ///
     /// # Errors
     ///
     /// `InvalidOptionValue` for `loadbalancer` when the pool cannot be built from the settings.
     pub(crate) fn create(
-        template: TonicGrpcEgress,
+        clients: Vec<(String, ProtoSvcGrpcEgress<T>)>,
         settings: &LoadbalancerSettings,
     ) -> Result<Self, GrpcChannelConfigError> {
         let config = LoadbalancerConfig {
@@ -59,33 +58,42 @@ impl TonicLbGrpcEgress {
             }
         })?;
         Ok(Self {
-            template,
+            clients,
             pool: Arc::new(pool),
         })
     }
 
-    /// Pick a backend, make the call through a client pointed at it, report how it went.
-    async fn route<T, F, Fut>(&self, call: F) -> GrpcEgressResult<T>
+    /// Pick a backend, make the call through its client, report how it went.
+    async fn route<R, F>(&self, call: F) -> GrpcEgressResult<R>
     where
-        F: FnOnce(TonicGrpcEgress) -> Fut,
-        Fut: Future<Output = GrpcEgressResult<T>>,
+        F: for<'a> FnOnce(&'a ProtoSvcGrpcEgress<T>) -> BoxFuture<'a, GrpcEgressResult<R>>,
     {
         let backend = LoadbalancerSvc::select(&self.pool)
             .map_err(|e| GrpcEgressError::Unavailable(e.to_string()))?;
-        let result = call(self.template.retarget(&backend.url)).await;
+        let client = self
+            .clients
+            .iter()
+            .find(|(url, _)| *url == backend.url)
+            .map(|(_, client)| client)
+            .ok_or_else(|| {
+                tracing::warn!(url = %backend.url, "the pool picked a backend that has no client");
+                GrpcEgressError::Internal("internal client error".into())
+            })?;
+        let result = call(client).await;
         LoadbalancerSvc::report_outcome(&self.pool, &backend.id, Self::judge_outcome(&result));
         result
     }
 
-    /// A backend is at fault when it cannot be reached or does not answer in time. Any other
-    /// answer, an error status included, shows that it is up; so does a call the caller
-    /// cancelled or that failed on this side.
-    fn judge_outcome<T>(result: &GrpcEgressResult<T>) -> Outcome {
+    /// A backend is at fault when it cannot be reached or does not answer in time. Any other answer, an
+    /// error status included, shows that it is up; so does a call the caller cancelled or that failed on
+    /// this side.
+    fn judge_outcome<R>(result: &GrpcEgressResult<R>) -> Outcome {
         match result {
             Err(
                 e @ (GrpcEgressError::ConnectionFailed(_)
                 | GrpcEgressError::Timeout(_)
-                | GrpcEgressError::Unavailable(_)),
+                | GrpcEgressError::Unavailable(_)
+                | GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _)),
             ) => Outcome::Failure {
                 reason: e.to_string(),
             },
@@ -94,37 +102,39 @@ impl TonicLbGrpcEgress {
     }
 }
 
-impl GrpcEgress for TonicLbGrpcEgress {
+impl<T: RawTransport + Send + Sync + 'static> GrpcEgress for BalancedGrpcEgress<T> {
     fn call_unary(&self, request: GrpcRequest) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
-        Box::pin(self.route(move |client| async move { client.call_unary(request).await }))
+        Box::pin(self.route(move |client: &ProtoSvcGrpcEgress<T>| client.call_unary(request)))
     }
 
     fn call_stream(
         &self,
         req: CallStreamRequest,
     ) -> BoxFuture<'_, GrpcEgressResult<GrpcMessageStreamResponse>> {
-        Box::pin(self.route(move |client| async move { client.call_stream(req).await }))
+        Box::pin(self.route(move |client: &ProtoSvcGrpcEgress<T>| client.call_stream(req)))
     }
 
     fn call_server_stream(
         &self,
         request: GrpcRequest,
     ) -> BoxFuture<'_, GrpcEgressResult<GrpcMessageStreamResponse>> {
-        Box::pin(self.route(move |client| async move { client.call_server_stream(request).await }))
+        Box::pin(
+            self.route(move |client: &ProtoSvcGrpcEgress<T>| client.call_server_stream(request)),
+        )
     }
 
     fn call_client_stream(
         &self,
         req: CallStreamRequest,
     ) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
-        Box::pin(self.route(move |client| async move { client.call_client_stream(req).await }))
+        Box::pin(self.route(move |client: &ProtoSvcGrpcEgress<T>| client.call_client_stream(req)))
     }
 
     fn call_bidi_stream(
         &self,
         req: CallStreamRequest,
     ) -> BoxFuture<'_, GrpcEgressResult<GrpcMessageStreamResponse>> {
-        Box::pin(self.route(move |client| async move { client.call_bidi_stream(req).await }))
+        Box::pin(self.route(move |client: &ProtoSvcGrpcEgress<T>| client.call_bidi_stream(req)))
     }
 
     fn health_check(&self, _req: HealthCheckRequest) -> BoxFuture<'_, GrpcEgressResult<()>> {

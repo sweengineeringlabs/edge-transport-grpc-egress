@@ -40,7 +40,7 @@ async fn test_call_response_at_max_message_bytes_returns_the_message() -> Result
 
 /// @covers: GrpcChannelConfig::with_max_message_bytes
 #[tokio::test]
-async fn test_call_response_one_byte_over_max_message_bytes_returns_resource_exhausted(
+async fn test_call_response_one_byte_over_max_message_bytes_returns_out_of_range(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(vec![7u8; 1025])).await?;
@@ -60,12 +60,9 @@ async fn test_call_response_one_byte_over_max_message_bytes_returns_resource_exh
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(
-                GrpcStatusCode::ResourceExhausted,
-                _
-            ))
+            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
         ),
-        "expected ResourceExhausted, got {result:?}"
+        "expected OutOfRange, got {result:?}"
     );
     Ok(())
 }
@@ -90,8 +87,11 @@ async fn test_call_slower_than_the_deadline_returns_timeout_at_the_deadline(
     let elapsed = started.elapsed();
 
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
-        "expected Timeout, got {result:?}"
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ),
+        "expected DeadlineExceeded, got {result:?}"
     );
     assert!(
         elapsed < Duration::from_secs(2),
@@ -124,7 +124,10 @@ async fn test_call_unary_request_timeout_shorter_than_the_deadline_returns_timeo
     let elapsed = started.elapsed();
 
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ),
         "the 300 ms request timeout must cut the call, got {result:?}"
     );
     assert!(
@@ -158,7 +161,10 @@ async fn test_call_unary_request_timeout_longer_than_the_deadline_keeps_the_dead
     let elapsed = started.elapsed();
 
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ),
         "the 300 ms deadline must cut the call, got {result:?}"
     );
     assert!(

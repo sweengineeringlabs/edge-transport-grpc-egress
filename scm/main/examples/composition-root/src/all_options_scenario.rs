@@ -104,10 +104,7 @@ impl AllOptionsScenario {
         let result = client.call_unary(Self::request(b"ping")).await;
         Ok(matches!(
             result,
-            Err(GrpcEgressError::Status(
-                GrpcStatusCode::ResourceExhausted,
-                _
-            ))
+            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
         ))
     }
 
@@ -119,7 +116,10 @@ impl AllOptionsScenario {
             .with_request_timeout(Duration::from_millis(150))
             .build()?;
         let result = client.call_unary(Self::request(b"ping")).await;
-        Ok(matches!(result, Err(GrpcEgressError::Timeout(_))))
+        Ok(matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ))
     }
 
     async fn mtls_works() -> Result<bool, Box<dyn Error>> {

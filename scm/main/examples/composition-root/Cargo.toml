@@ -13,11 +13,6 @@ publish = false
 application_type = "binary"
 service_type = "processor"
 
-[features]
-default = []
-# The prost codec option of the client builder works only with this feature.
-prost = ["grpc-egress-transport-std/prost"]
-
 [dependencies]
 grpc-egress-transport = { path = "../../transport" }
 grpc-egress-transport-std = { path = "../../transport-std" }

@@ -521,8 +521,11 @@ async fn transport_struct_call_unary_returns_timeout_error_when_server_stalls(
     let req = GrpcRequest::new("svc/Method", b"ping".to_vec(), Duration::from_millis(80));
     let result = client.call_unary(req).await;
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
-        "expected Timeout, got {result:?}"
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ),
+        "expected DeadlineExceeded, got {result:?}"
     );
     Ok(())
 }
@@ -835,8 +838,11 @@ async fn test_call_unary_with_context_timeout_edge() -> Result<(), Box<dyn std::
         .call_unary_with_context(CallUnaryWithContextRequest { request: req, ctx })
         .await;
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
-        "call_unary_with_context must propagate Timeout from call_unary; got {result:?}"
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ),
+        "call_unary_with_context must propagate DeadlineExceeded from call_unary; got {result:?}"
     );
     Ok(())
 }
@@ -875,7 +881,7 @@ async fn transport_struct_call_unary_with_context_returns_connection_failed_when
 /// by feeding a server that returns a malformed (truncated) gRPC frame in the
 /// response body.
 #[tokio::test]
-async fn transport_struct_call_unary_sanitizes_internal_error_message_on_truncated_response(
+async fn transport_struct_call_stream_truncated_response_delivers_no_message(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let listener = bind_listener().await?;
     let addr = listener.local_addr()?;
@@ -918,21 +924,18 @@ async fn transport_struct_call_unary_sanitizes_internal_error_message_on_truncat
             messages,
         })
         .await;
-    let err = match result {
-        Ok(_) => panic!("expected an error from a truncated server response, got Ok"),
-        Err(e) => e,
-    };
-    match err {
-        GrpcEgressError::Internal(msg) => {
-            // Sanitized: must NOT contain raw byte counts, file names, or struct names.
-            assert!(
-                !msg.contains("expected") && !msg.contains("got"),
-                "internal error message leaked details: {msg}"
-            );
-            assert!(!msg.is_empty(), "sanitized message must be non-empty");
-        }
-        other => panic!("expected sanitized Internal error, got {other:?}"),
+    // The call opens and the stream is read as it arrives; the truncated frame is never delivered as a
+    // message. (The client of before read the whole body when the call was made and failed there.)
+    use futures::StreamExt as _;
+    let mut answer = result?;
+    let mut delivered = Vec::new();
+    while let Some(item) = answer.stream.next().await {
+        delivered.push(item);
     }
+    assert!(
+        delivered.iter().all(Result::is_err),
+        "a truncated frame must never be delivered as a message, got {delivered:?}"
+    );
     Ok(())
 }
 
@@ -1050,7 +1053,7 @@ async fn test_call_client_stream_multiple_frames_returns_the_one_reply_message_h
 ///
 /// @covers: call_client_stream
 #[tokio::test]
-async fn test_call_client_stream_peer_replying_with_two_messages_returns_internal_error(
+async fn test_call_client_stream_peer_replying_with_two_messages_returns_unimplemented_status_error(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let peer = PeerServer::start(PeerBehaviour::Echo).await?;
 
@@ -1071,7 +1074,10 @@ async fn test_call_client_stream_peer_replying_with_two_messages_returns_interna
         .await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::Internal(_))),
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::Unimplemented, _))
+        ),
         "got {result:?}"
     );
     Ok(())

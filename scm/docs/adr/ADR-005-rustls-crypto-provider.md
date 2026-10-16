@@ -1,8 +1,9 @@
 # ADR-005: Use `aws_lc_rs` as the rustls Cryptography Provider
 
-**Status:** Accepted
+**Status:** Accepted for the client of v0.8.0; superseded in this respect by the engine swap of issue 18 (see `behaviour-comparison.md`, difference 12)
 **Date:** 2026-06-05
 **Deciders:** phdsystems
+**Note (2026-10-16):** the client now calls through `proto-svc`, whose `tonic` uses `ring` and sets its own provider; this crate installs none. The aim of this record (a TLS client never panics for want of a provider) holds and is covered by the TLS handshake tests.
 **Note (2026-10-15):** renumbered from ADR-001: two records carried that number (this one and the security specialisations record). The client this record calls `TonicGrpcClient` is `TonicGrpcEgress` today, a private type built through `TransportConstruction`.
 
 ---

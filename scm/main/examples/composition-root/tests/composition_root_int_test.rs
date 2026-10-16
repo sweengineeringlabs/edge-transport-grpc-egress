@@ -5,7 +5,7 @@ use std::error::Error;
 
 use grpc_egress_example_composition_root::{
     AllOptionsScenario, DecoratorScenario, InterceptorScenario, InvalidCombinationScenario,
-    LoadbalancerScenario, LoadedConfigScenario, ProstScenario, ScenarioReport,
+    LoadbalancerScenario, LoadedConfigScenario, ScenarioReport,
 };
 
 fn missing(report: &ScenarioReport) -> Vec<&'static str> {
@@ -57,18 +57,6 @@ async fn test_run_interceptor_scenario_observes_order_trace_context_and_refusal(
 async fn test_run_loadbalancer_scenario_reaches_both_backends_and_avoids_the_dead_one(
 ) -> Result<(), Box<dyn Error>> {
     assert_complete(&LoadbalancerScenario.run().await?, 2);
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_run_prost_scenario_observes_the_feature_dependent_effects(
-) -> Result<(), Box<dyn Error>> {
-    let report = ProstScenario.run().await?;
-
-    #[cfg(feature = "prost")]
-    assert_complete(&report, 1);
-    #[cfg(not(feature = "prost"))]
-    assert_complete(&report, 2);
     Ok(())
 }
 

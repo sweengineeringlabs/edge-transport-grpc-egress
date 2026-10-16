@@ -1,4 +1,4 @@
-//! `TonicGrpcEgressBuilder` -- the builder of [`TonicGrpcEgress`], the `hyper`-backed client.
+//! `GrpcEgressBuilderImpl` -- the builder of the client that calls through `proto-svc`.
 //!
 //! Not part of the crate's public surface: a caller gets a builder from
 //! [`crate::saf::TonicGrpcEgressBuilderSpiFactory`] and uses it through the
@@ -8,7 +8,11 @@ use crate::std::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::spi::loadbalancer::tonic::TonicLbGrpcEgress;
+use crate::spi::loadbalancer::protosvc::BalancedGrpcEgress;
+use proto_pattern::{
+    BuildTransportRequest, Compression, RawTransport, RawTransportFactory, TlsSettings,
+};
+use proto_tonic_spi::TonicTransportSpiFactory;
 
 use grpc_egress_transport::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
@@ -16,15 +20,15 @@ use grpc_egress_transport::{
     DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 
-use super::tonic_grpc_egress::TonicGrpcEgress;
-use super::tonic_grpc_egress_client::TonicGrpcEgressClient;
-use super::tonic_grpc_egress_protocol::TonicGrpcEgressProtocol;
+use super::grpc_egress_client::GrpcEgressClient;
+use super::proto_svc_grpc_egress::ProtoSvcGrpcEgress;
+use super::tls_file_reader::TlsFileReader;
 
 /// Holds the options of one client and builds it.
 ///
 /// Defaults: TLS required, a 30 s request timeout, a 4 MiB message cap, no compression, no
 /// interceptor.
-pub(crate) struct TonicGrpcEgressBuilder {
+pub(crate) struct GrpcEgressBuilderImpl {
     endpoint: String,
     /// Whether `with_endpoint` or a channel config named an endpoint, as opposed to the one the
     /// factory was created with.
@@ -38,10 +42,9 @@ pub(crate) struct TonicGrpcEgressBuilder {
     keep_alive: Option<KeepAliveConfig>,
     root_ca: Option<String>,
     loadbalancer: Option<LoadbalancerSettings>,
-    prost_codec: bool,
 }
 
-impl TonicGrpcEgressBuilder {
+impl GrpcEgressBuilderImpl {
     /// A builder for `endpoint` with every option at its default.
     pub(crate) fn new(endpoint: impl Into<String>) -> Self {
         Self {
@@ -56,12 +59,11 @@ impl TonicGrpcEgressBuilder {
             keep_alive: None,
             root_ca: None,
             loadbalancer: None,
-            prost_codec: false,
         }
     }
 }
 
-impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
+impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
     fn with_endpoint(self, endpoint: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
@@ -126,13 +128,6 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         }
     }
 
-    fn with_prost_codec(self) -> Self {
-        Self {
-            prost_codec: true,
-            ..self
-        }
-    }
-
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self {
         Self {
             interceptors: self.interceptors.push(interceptor),
@@ -169,14 +164,10 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
     }
 
     fn build(self) -> Result<impl GrpcEgress + use<>, GrpcChannelConfigError> {
-        self.check_features()?;
         self.check_values()?;
         let targets = self.list_targets()?;
         if !self.plaintext_allowed {
-            if let Some(url) = targets
-                .iter()
-                .find(|url| TonicGrpcEgressProtocol::is_plaintext_endpoint(url))
-            {
+            if let Some(url) = targets.iter().find(|url| Self::is_plaintext_endpoint(url)) {
                 return Err(GrpcChannelConfigError::PlaintextRejected(url.clone()));
             }
         }
@@ -185,54 +176,33 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
             .as_deref()
             .or_else(|| self.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref()));
         if let Some(option) = self.name_tls_option(root_ca) {
-            if targets
-                .iter()
-                .all(|url| TonicGrpcEgressProtocol::is_plaintext_endpoint(url))
-            {
+            if targets.iter().all(|url| Self::is_plaintext_endpoint(url)) {
                 return Err(GrpcChannelConfigError::TlsOptionOnPlaintextEndpoint {
                     option,
                     endpoint: targets.first().cloned().unwrap_or_default(),
                 });
             }
         }
-        let first = targets.first().cloned().unwrap_or_default();
-        let mut client = TonicGrpcEgress::new(first).with_tls(self.mtls.as_ref(), root_ca)?;
-        if let Some(keep_alive) = self.keep_alive {
-            client = client.with_keep_alive(keep_alive);
-        }
-        let client = if self.prost_codec {
-            client.with_prost_codec()
-        } else {
-            client
-        };
-        let client = client
-            .with_request_timeout(self.request_timeout)
-            .with_max_message_bytes(self.max_message_bytes)
-            .with_compression(self.compression)
-            .with_interceptors(self.interceptors);
-        Ok(match &self.loadbalancer {
+        let tls = TlsFileReader::read(self.mtls.as_ref(), root_ca)?;
+        match &self.loadbalancer {
             Some(settings) => {
-                TonicGrpcEgressClient::Balanced(TonicLbGrpcEgress::create(client, settings)?)
+                let mut clients = Vec::with_capacity(targets.len());
+                for url in &targets {
+                    clients.push((url.clone(), self.create_client(url, &tls)?));
+                }
+                Ok(GrpcEgressClient::Balanced(BalancedGrpcEgress::create(
+                    clients, settings,
+                )?))
             }
-            None => TonicGrpcEgressClient::Direct(client),
-        })
+            None => {
+                let first = targets.first().cloned().unwrap_or_default();
+                Ok(GrpcEgressClient::Direct(self.create_client(&first, &tls)?))
+            }
+        }
     }
 }
 
-impl TonicGrpcEgressBuilder {
-    /// Refuse every option whose Cargo feature is off in this build, all at once.
-    fn check_features(&self) -> Result<(), GrpcChannelConfigError> {
-        let mut disabled: Vec<(&'static str, &'static str)> = Vec::new();
-        if self.prost_codec && !cfg!(feature = "prost") {
-            disabled.push(("prost_codec", "prost"));
-        }
-        if disabled.is_empty() {
-            Ok(())
-        } else {
-            Err(GrpcChannelConfigError::DisabledFeatureOptions { options: disabled })
-        }
-    }
-
+impl GrpcEgressBuilderImpl {
     /// Refuse a zero cap or timeout, and options that exclude each other.
     fn check_values(&self) -> Result<(), GrpcChannelConfigError> {
         if self.max_message_bytes == 0 {
@@ -295,5 +265,54 @@ impl TonicGrpcEgressBuilder {
             (None, Some(_)) => Some("root_ca"),
             (None, None) => None,
         }
+    }
+}
+
+impl GrpcEgressBuilderImpl {
+    /// Returns `true` when `endpoint` starts with `http://` (case-insensitive).
+    fn is_plaintext_endpoint(endpoint: &str) -> bool {
+        endpoint.len() >= 7 && endpoint[..7].eq_ignore_ascii_case("http://")
+    }
+
+    /// The client for `url`: its transport is built by the `proto-svc` factory from the options of this
+    /// builder, and TLS is set up for an `https` endpoint only.
+    fn create_client(
+        &self,
+        url: &str,
+        tls: &TlsSettings,
+    ) -> Result<ProtoSvcGrpcEgress<impl RawTransport + 'static>, GrpcChannelConfigError> {
+        let mut factory = TonicTransportSpiFactory::new(url)
+            .with_max_decoding_message_size(self.max_message_bytes);
+        if !Self::is_plaintext_endpoint(url) {
+            factory = factory.with_tls(tls.clone());
+        }
+        factory = match self.compression {
+            CompressionMode::None => factory,
+            CompressionMode::Gzip => factory
+                .with_send_compression(Compression::Gzip)
+                .with_accept_compression(Compression::Gzip),
+            CompressionMode::Zstd => factory
+                .with_send_compression(Compression::Zstd)
+                .with_accept_compression(Compression::Zstd),
+        };
+        if let Some(keep_alive) = self.keep_alive {
+            factory = factory
+                .with_http2_keep_alive_interval(keep_alive.interval)
+                .with_keep_alive_timeout(keep_alive.timeout)
+                .with_keep_alive_while_idle(keep_alive.permit_without_calls);
+        }
+        let transport =
+            RawTransportFactory::build(&factory, BuildTransportRequest).map_err(|e| {
+                GrpcChannelConfigError::InvalidOptionValue {
+                    option: "endpoint",
+                    reason: e.to_string(),
+                }
+            })?;
+        Ok(ProtoSvcGrpcEgress::create(
+            transport,
+            url,
+            self.request_timeout,
+            self.interceptors.clone(),
+        ))
     }
 }

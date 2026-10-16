@@ -61,15 +61,6 @@ pub trait GrpcEgressBuilder: Sized {
     /// factory was created with is not used.
     fn with_loadbalancer(self, settings: LoadbalancerSettings) -> Self;
 
-    /// Declare that the messages are prost-encoded: calls carry the content type
-    /// `application/grpc+proto`, and the built client works with the typed calls of `ProstUnaryCaller`.
-    ///
-    /// The option is always present and takes no prost type. It needs the Cargo feature `prost` of the
-    /// implementation crate: without it `build` fails with
-    /// [`GrpcChannelConfigError::DisabledFeatureOptions`], naming this option and the feature, before
-    /// any call.
-    fn with_prost_codec(self) -> Self;
-
     /// Run `interceptor` before and after every call. Interceptors run in the order they were added.
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self;
 

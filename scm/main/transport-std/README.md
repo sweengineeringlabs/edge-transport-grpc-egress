@@ -1,7 +1,7 @@
 # grpc-egress-transport-std
 
-Implementation of the gRPC egress domain (`grpc-egress-transport`): the client backed by `hyper`
-over HTTP/2 (a private type, built through `TonicGrpcEgressBuilderSpiFactory` or
+Implementation of the gRPC egress domain (`grpc-egress-transport`): the client over the `proto-svc`
+engine (a private type, built through `TonicGrpcEgressBuilderSpiFactory` or
 `TransportConstruction`), the load-balanced client, interceptors, and the constructors and builders
 of the domain's data types (`GrpcRequestFactory`, `GrpcChannelConfigFactory`, `MtlsConfigFactory`).
 

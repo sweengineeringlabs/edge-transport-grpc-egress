@@ -7,6 +7,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A tag is cut only on the owner's
 word.
 
+## [Unreleased]
+
+Issue 18, stage 1: the engine of the client is `proto-svc`. Breaking in what a failure reports (see
+`docs/behaviour-comparison.md`, which accounts for every test of v0.8.0 that behaved differently against the new
+engine, with the decision for each); the public API of the builder is unchanged.
+
+### Changed (breaking)
+
+- **The client calls through `proto-svc`** (`proto-pattern` 0.9.2 `RawTransport`, `proto-svc` 0.3.x `tonic`): the
+  hand-written `hyper` client, its frame codec and its TLS connector are removed. `rust-version` is 1.99.
+- A call that passed its deadline is `Status(DeadlineExceeded, _)`, not `Timeout`.
+- A response over `max_message_bytes` is `Status(OutOfRange, _)` (`tonic`'s code), not `Status(ResourceExhausted, _)`.
+- A unary response with no message, or with several, is `Status(Unimplemented, _)`.
+- A response compressed with an encoding the client did not advertise is refused; `with_compression` advertises it.
+- Default trust for an `https` endpoint with no CA is the platform's root store (was the bundled web PKI roots);
+  `rustls` uses `ring` through `tonic` (was `aws-lc-rs`; ADR-005).
+- Streams run as they arrive (they were buffered whole); a failure while reading is an item of the stream.
+- A balanced client holds one client per backend, built once.
+- **Removed:** `GrpcEgressBuilder::with_prost_codec` and `GrpcChannelConfigError::DisabledFeatureOptions`. The
+  engine always sends `application/grpc`, so the option could change nothing on the wire. The composition-root
+  example has six scenarios; the prost one went with the option. The `prost` feature of the implementation crate
+  still exposes `ProstUnaryCaller`.
+
+### Fixed
+
+- `PeerServer` of `grpc-egress-test-support` sends the status of a call that carried a message in the trailers, as a
+  server does; it sent it in the headers, which a client reads as a response with no message.
+
 ## [0.8.0] - 2026-10-16
 
 The restructuring of issues #16 and #17. Breaking throughout: package names, crate layout, the way a

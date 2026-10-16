@@ -6,7 +6,6 @@ the retry and breaker decorators. An in-process peer stands in for the server, s
 
 ```bash
 cargo run -p grpc-egress-example-composition-root                    # one line per scenario, exit 0
-cargo run -p grpc-egress-example-composition-root --features prost   # the prost codec is on
 cargo test -p grpc-egress-example-composition-root
 ```
 
@@ -32,19 +31,18 @@ pub fn assemble(&self) -> Result<impl GrpcEgressBuilder, Box<dyn Error>> {
 
 A test fails when this quote differs from `src/composition_root.rs`.
 
-## The seven scenarios
+## The six scenarios (the seventh, the prost codec option, went with the option)
 
 1. every transport option (`AllOptionsScenario`)
 2. a loaded config and one overriding option (`LoadedConfigScenario`)
 3. interceptors and the trace context (`InterceptorScenario`)
 4. a load balancer over several backends (`LoadbalancerScenario`)
-5. the prost codec, and failing fast without its Cargo feature (`ProstScenario`)
-6. retry and breaker applied by the root after `build()` (`DecoratorScenario`)
-7. every invalid combination (`InvalidCombinationScenario`)
+5. retry and breaker applied by the root after `build()` (`DecoratorScenario`)
+6. every invalid combination (`InvalidCombinationScenario`)
 
 ## What `edge-bootstrap` does today, and what the builder changes
 
 `edge-bootstrap`'s composition root builds clients with the removed factory functions
 (`create_*_from_config`) and wraps them itself. With the builder it makes one call chain per client:
 the factory, the options, `build()`. Retry and breaker stay outside the transport (ADR-004): the root
-wraps the built client with each decorator crate's own factory, as scenario 6 does.
+wraps the built client with each decorator crate's own factory, as scenario 5 does.

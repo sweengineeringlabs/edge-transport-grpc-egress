@@ -36,7 +36,6 @@ MUTANTS = [
     ("R07 with_channel_config drops the plaintext rule", B, "            plaintext_allowed: !config.tls_required,\n", "            plaintext_allowed: self.plaintext_allowed,\n", LOADED),
     ("R08 with_loadbalancer ignored", B, "Ok(match &self.loadbalancer {", "Ok(match &self.loadbalancer.as_ref().filter(|_| false) {", ["loadbalancer_scenario"]),
     ("R09 with_mtls identity not presented", B, ".with_tls(self.mtls.as_ref(), root_ca)?", ".with_tls(None, root_ca)?", ALL_OPTIONS),
-    ("R10 prost option not refused without the feature", B, "if self.prost_codec && !cfg!(feature = \"prost\") {", "if false && self.prost_codec && !cfg!(feature = \"prost\") {", ["prost_scenario"]),
     ("R11 mtls with plaintext not refused", B, "if self.mtls.is_some() && self.plaintext_allowed {", "if false {", INVALID),
     ("R12 plaintext endpoint not rejected", B, "        if !self.plaintext_allowed {\n", "        if false {\n", INVALID),
     ("R13 zero message cap not refused", B, "if self.max_message_bytes == 0 {", "if false {", INVALID),

@@ -84,10 +84,7 @@ async fn test_build_factory_called_twice_returns_independent_builders() -> Resul
     assert!(
         matches!(
             refused,
-            Err(GrpcEgressError::Status(
-                GrpcStatusCode::ResourceExhausted,
-                _
-            ))
+            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
         ),
         "the builder with a cap must refuse, got {refused:?}"
     );
@@ -169,7 +166,7 @@ async fn test_with_max_message_bytes_response_at_the_cap_returns_the_message_hap
 
 /// @covers: GrpcEgressBuilder::with_max_message_bytes
 #[tokio::test]
-async fn test_with_max_message_bytes_response_over_the_cap_returns_resource_exhausted_error(
+async fn test_with_max_message_bytes_response_over_the_cap_returns_out_of_range_error(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(vec![7u8; 1025])).await?;
@@ -184,12 +181,9 @@ async fn test_with_max_message_bytes_response_over_the_cap_returns_resource_exha
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(
-                GrpcStatusCode::ResourceExhausted,
-                _
-            ))
+            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
         ),
-        "expected ResourceExhausted, got {result:?}"
+        "expected OutOfRange, got {result:?}"
     );
     Ok(())
 }
@@ -355,10 +349,7 @@ async fn test_with_channel_config_applies_endpoint_plaintext_and_cap_happy(
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(
-                GrpcStatusCode::ResourceExhausted,
-                _
-            ))
+            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
         ),
         "the cap of the config must be applied, got {result:?}"
     );
@@ -428,17 +419,11 @@ async fn test_options_set_in_a_different_order_behave_the_same_edge() -> Result<
 
     assert!(matches!(
         first,
-        Err(GrpcEgressError::Status(
-            GrpcStatusCode::ResourceExhausted,
-            _
-        ))
+        Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
     ));
     assert!(matches!(
         second,
-        Err(GrpcEgressError::Status(
-            GrpcStatusCode::ResourceExhausted,
-            _
-        ))
+        Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
     ));
     Ok(())
 }

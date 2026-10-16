@@ -13,7 +13,7 @@ use grpc_egress_test_support::{
 };
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcEgressError, GrpcRequest, KeepAliveConfig,
+    GrpcEgressBuilderFactory, GrpcEgressError, GrpcRequest, GrpcStatusCode, KeepAliveConfig,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 
@@ -110,7 +110,10 @@ async fn test_build_without_keep_alive_peer_that_stops_answering_is_noticed_only
         freeze_during_a_call(Arc::new(client), &proxy, Duration::from_millis(2500)).await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
+        matches!(
+            result,
+            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+        ),
         "without keep-alive only the deadline ends the call, got {result:?}"
     );
     assert!(elapsed >= Duration::from_millis(2300), "took {elapsed:?}");

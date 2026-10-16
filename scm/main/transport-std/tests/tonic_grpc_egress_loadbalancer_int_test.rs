@@ -98,7 +98,7 @@ async fn test_call_balanced_two_backends_alternates_between_them() -> Result<(),
 
 /// @covers: GrpcEgressBuilder::with_loadbalancer
 #[tokio::test]
-async fn test_call_balanced_over_max_message_bytes_returns_resource_exhausted_error(
+async fn test_call_balanced_over_max_message_bytes_returns_out_of_range_error(
 ) -> Result<(), Box<dyn Error>> {
     let (_one, _two, urls) = start_two(
         PeerBehaviour::Reply(vec![0u8; 1025]),
@@ -112,10 +112,7 @@ async fn test_call_balanced_over_max_message_bytes_returns_resource_exhausted_er
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(
-                GrpcStatusCode::ResourceExhausted,
-                _
-            ))
+            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
         ),
         "got {result:?}"
     );
@@ -263,33 +260,6 @@ async fn test_call_balanced_with_mtls_presents_the_client_certificate_to_every_b
         !two.get_recorded_requests().is_empty(),
         "backend two saw no call"
     );
-    Ok(())
-}
-
-/// @covers: GrpcEgressBuilder::with_loadbalancer
-#[cfg(feature = "prost")]
-#[tokio::test]
-async fn test_call_balanced_with_prost_codec_sends_the_proto_content_type_to_every_backend(
-) -> Result<(), Box<dyn Error>> {
-    let (one, two, urls) = start_two(
-        PeerBehaviour::Reply(b"ok".to_vec()),
-        PeerBehaviour::Reply(b"ok".to_vec()),
-    )
-    .await?;
-    let client = builder_over(&urls).with_prost_codec().build()?;
-
-    for _ in 0..2 {
-        client.call_unary(request()).await?;
-    }
-
-    for peer in [&one, &two] {
-        let requests = peer.get_recorded_requests();
-        let received = requests.first().ok_or("a backend received no call")?;
-        assert_eq!(
-            received.get_header("content-type"),
-            Some("application/grpc+proto")
-        );
-    }
     Ok(())
 }
 
