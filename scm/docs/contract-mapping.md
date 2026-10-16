@@ -3,7 +3,7 @@
 Task 1 of `edge-transport-grpc-egress#18`. Checked against this repository at `dev` (v0.8.0), `proto-pattern`
 v0.9.1 (`Transport`, `RawTransport`, `MethodPath`) and `proto-svc` v0.3.0 (`TonicTransportSpiFactory` implements both
 factories). Each row is **replaced** (by a contract item), **kept** (with the reason) or **removed** (with the reason).
-A row that waits for a ruling of tasks 2, 3 or 4 says which.
+A row that depends on the rulings of tasks 2, 3 and 4 cites ADR-008, which applies the owner's criteria (production grade, zero-cost abstraction, no feature sacrificed, the layer rules); those rulings are Proposed until accepted.
 
 ## The finding that shapes the rest
 
@@ -17,17 +17,17 @@ shape and moves to `RawTransport`; a consumer that has a `Method` type uses `Tra
 
 | Item | Disposition | Contract item or reason |
 |---|---|---|
-| `GrpcEgress` | replaced | `RawTransport` for call-by-path, `Transport` for call-by-`Method`. Not object-safe: **`dyn` use waits for ruling 2** (15 non-test files) |
+| `GrpcEgress` | replaced | `RawTransport` for call-by-path, `Transport` for call-by-`Method`. Not object-safe, and a `dyn` costs a vtable call and a boxed future: **generic bounds, no `dyn`** (ADR-008 ruling 1; 15 non-test files change) |
 | `GrpcEgress::call_unary` | replaced | `RawTransport::call_raw` / `Transport::call` |
 | `GrpcEgress::call_server_stream`, `call_client_stream`, `call_bidi_stream` | replaced | `call_raw_server_stream`, `call_raw_client_stream`, `call_raw_bidi_stream` / the typed three |
 | `GrpcEgress::call_stream` (default `Unimplemented`) | removed | no equivalent; it was the pre-streaming-split entry point and every real shape has its own method. Verify no consumer calls it before the release (task 15) |
-| `GrpcEgress::call_unary_with_context` | **waits for ruling 4** | a wrapper that derives metadata from `SecurityContext`, or removal |
+| `GrpcEgress::call_unary_with_context` | kept as an interceptor wrapper | derives metadata from `SecurityContext` and wraps the transport (ADR-008 ruling 3) |
 | `GrpcEgress::health_check` | **waits** (task 12) | a `grpc.health.v1` `Method`, or removal with a reason |
-| `GrpcRequest` | replaced | `CallRequest<Vec<u8>>` + `MethodPath` (+ `CallOptions`). Its `cancellation` field **waits for ruling 3** |
+| `GrpcRequest` | replaced | `CallRequest<Vec<u8>>` + `MethodPath` (+ `CallOptions`). Its `cancellation` field: a wrapper keeps the token, dropping the future also cancels (ADR-008 ruling 2) |
 | `GrpcResponse` | replaced | `CallResponse<Vec<u8>, Metadata>` (headers and trailers separate) |
 | `GrpcMessageStreamResponse` | replaced | `impl ResponseStream<Vec<u8>>` (no boxing) |
 | `CallStreamRequest` | removed | with `call_stream` |
-| `CallUnaryWithContextRequest` | **waits for ruling 4** | with `call_unary_with_context` |
+| `CallUnaryWithContextRequest` | kept | with the security-context wrapper |
 | `HealthCheckRequest` | **waits** (task 12) | with `health_check` |
 | `GrpcEgressError` (6 string variants) | replaced | `CallError` with a `StatusCode` on every failure; per-variant map is task 6 |
 | `GrpcEgressResult` | replaced | `Result<_, CallError>` |
@@ -83,6 +83,6 @@ shape and moves to `RawTransport`; a consumer that has a `Method` type uses `Tra
 
 ## What this table does not decide
 
-- Ruling 2 (`dyn`), ruling 3 (cancellation), ruling 4 (security context): rows marked above.
+- The acceptance of ADR-008's rulings 1 to 3 (`dyn`, cancellation, security context): the rows citing it hold until then.
 - Whether `call_stream`, `Conversions` and `ProstUnaryCaller` have a consumer: removed here on the evidence of the
   crate itself; task 15 checks every dependent, and a consumer found would turn the row into "kept" with a reason.
