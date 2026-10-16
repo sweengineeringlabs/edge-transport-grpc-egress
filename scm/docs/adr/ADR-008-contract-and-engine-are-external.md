@@ -52,7 +52,7 @@ This changes the three rulings below from a choice among wrappers into a choice 
 
 ## Proposed way out
 
-A draft change for `proto-pattern`, not yet sent to its owner: [`../proposals/proto-pattern-raw-transport.md`](../proposals/proto-pattern-raw-transport.md) adds a path-addressed byte call (`RawTransport`, `MethodPath`) beside `Transport`, additive, implemented by `proto-svc` over the same engine.
+A proposal for `proto-pattern`, filed as [proto-pattern#19](https://github.com/sweengineeringlabs/proto-pattern/issues/19), adds a path-addressed byte call (`RawTransport`, `MethodPath`) beside `Transport`, additive, implemented by `proto-svc` over the same engine.
 
 ## What is not decided here
 
