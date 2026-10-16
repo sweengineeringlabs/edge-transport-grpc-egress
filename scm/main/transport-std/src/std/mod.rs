@@ -6,6 +6,7 @@ pub(crate) mod client;
 #[cfg(feature = "prost")]
 pub(crate) mod codec;
 pub(crate) mod interceptor;
+pub(crate) mod loadbalancer;
 
 pub use channel::{
     CompressionModeProvider, GrpcChannelConfigBuilder, GrpcChannelConfigFactory, MtlsConfigFactory,
@@ -14,3 +15,4 @@ pub use client::{Conversions, GrpcRequestBuilder, GrpcRequestFactory};
 #[cfg(feature = "prost")]
 pub use codec::ProstUnaryCaller;
 pub use interceptor::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
+pub use loadbalancer::LoadbalancerSettingsProvider;
