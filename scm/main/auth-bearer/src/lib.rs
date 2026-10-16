@@ -1,24 +1,20 @@
-//! `edge-transport-grpc-egress-auth-bearer` — JWT bearer
-//! [`GrpcEgressInterceptor`](grpc_egress_transport::GrpcEgressInterceptor)
-//! for the gRPC egress stack.
-//!
-//! [`BearerEgressInterceptor`] signs a JWT from configured claims
-//! (or accepts a pre-minted token) and injects it into the
-//! `authorization` request metadata on every outgoing call.
+//! `grpc_egress_auth_bearer` -- the bearer-auth domain: the outbound config, the secret, the claims,
+//! the errors and the validation contract. The implementation (the interceptor that signs a JWT and
+//! adds `authorization: Bearer <jwt>`) is in `grpc-egress-auth-bearer-std`.
 //!
 //! For the inbound (server-side) bearer validation counterpart see
 //! `edge-transport-grpc-ingress-auth-bearer`.
-//!
-//! Constant-time comparisons (`subtle`) are used for any symmetric
-//! shared-secret material in the configuration loaders.
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 
-mod api;
-mod core;
-mod saf;
-mod spi;
+mod error;
+mod traits;
+mod vo;
 
-pub use saf::*;
+pub use error::BearerAuthError;
+pub use traits::Validator;
+pub use vo::{
+    BearerEgressConfig, BearerSecret, JwtClaims, AUTHORIZATION_HEADER, EXTRACTED_BEARER_SUBJECT,
+};
