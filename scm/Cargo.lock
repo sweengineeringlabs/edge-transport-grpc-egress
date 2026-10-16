@@ -365,7 +365,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1286,7 +1286,7 @@ source = "git+https://github.com/sweengineeringlabs/proto-pattern.git?tag=v0.9.2
 [[package]]
 name = "proto-tonic-spi"
 version = "0.3.1"
-source = "git+https://github.com/sweengineeringlabs/proto-svc.git?branch=fix%2F5-built-transport-does-not-borrow-factory#2c12e21606388526bdcef7dd3abaab7754b416c4"
+source = "git+https://github.com/sweengineeringlabs/proto-svc.git?tag=v0.3.1#e887dc3f034de515f3dc080f12b3aa8ede0827c1"
 dependencies = [
  "base64 0.23.1",
  "bytes",
@@ -1408,7 +1408,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1753,7 +1753,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
