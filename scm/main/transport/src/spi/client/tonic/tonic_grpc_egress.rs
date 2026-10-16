@@ -8,8 +8,8 @@ use hyper_util::client::legacy::connect::HttpConnector;
 
 use super::tonic_tls_connector::TonicTlsConnector;
 use crate::api::{
-    CompressionMode, GrpcChannelConfigError, GrpcEgressInterceptorChain, MtlsConfig,
-    DEFAULT_MAX_MESSAGE_BYTES,
+    CompressionMode, GrpcChannelConfigError, GrpcEgressInterceptorChain, KeepAliveConfig,
+    MtlsConfig, DEFAULT_MAX_MESSAGE_BYTES,
 };
 
 /// Hyper HTTP/2 client type alias used by [`TonicGrpcEgress`].
@@ -24,6 +24,8 @@ pub(crate) type HyperClient =
 pub(crate) struct TonicGrpcEgress {
     pub(crate) base_uri: String,
     pub(crate) client: HyperClient,
+    connector: hyper_rustls::HttpsConnector<HttpConnector>,
+    keep_alive: Option<KeepAliveConfig>,
     pub(crate) timeout: Duration,
     pub(crate) interceptors: GrpcEgressInterceptorChain,
     pub(crate) max_message_bytes: usize,
@@ -44,13 +46,11 @@ impl TonicGrpcEgress {
             .https_or_http()
             .enable_http2()
             .build();
-        let client =
-            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
-                .http2_only(true)
-                .build(connector);
         Self {
             base_uri: base_uri.into(),
-            client,
+            client: Self::create_client(connector.clone(), None),
+            connector,
+            keep_alive: None,
             timeout: Duration::from_secs(30),
             interceptors: GrpcEgressInterceptorChain::new(),
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
@@ -83,12 +83,36 @@ impl TonicGrpcEgress {
                 endpoint: self.base_uri,
             });
         }
-        let connector = TonicTlsConnector::create(identity, pinned_ca)?;
-        self.client =
-            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
-                .http2_only(true)
-                .build(connector);
+        self.connector = TonicTlsConnector::create(identity, pinned_ca)?;
+        self.client = Self::create_client(self.connector.clone(), self.keep_alive.as_ref());
         Ok(self)
+    }
+
+    /// Send HTTP/2 PING frames as `keep_alive` says, and close the connection when one is not
+    /// answered in time: a peer that has silently gone away is noticed near the timeout and not
+    /// at the next call's deadline.
+    pub(crate) fn with_keep_alive(mut self, keep_alive: KeepAliveConfig) -> Self {
+        self.client = Self::create_client(self.connector.clone(), Some(&keep_alive));
+        self.keep_alive = Some(keep_alive);
+        self
+    }
+
+    fn create_client(
+        connector: hyper_rustls::HttpsConnector<HttpConnector>,
+        keep_alive: Option<&KeepAliveConfig>,
+    ) -> HyperClient {
+        let mut builder =
+            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new());
+        builder
+            .timer(hyper_util::rt::TokioTimer::new())
+            .http2_only(true);
+        if let Some(keep_alive) = keep_alive {
+            builder
+                .http2_keep_alive_interval(keep_alive.interval)
+                .http2_keep_alive_timeout(keep_alive.timeout)
+                .http2_keep_alive_while_idle(keep_alive.permit_without_calls);
+        }
+        builder.build(connector)
     }
 }
 

@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use crate::api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressInterceptor, GrpcEgressInterceptorChain, MtlsConfig,
+    GrpcEgressInterceptor, GrpcEgressInterceptorChain, KeepAliveConfig, MtlsConfig,
     TraceContextGrpcEgressInterceptor, TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES,
     DEFAULT_REQUEST_TIMEOUT_SECS,
 };
@@ -29,10 +29,8 @@ pub(crate) struct TonicGrpcEgressBuilder {
     compression: CompressionMode,
     interceptors: GrpcEgressInterceptorChain,
     mtls: Option<MtlsConfig>,
+    keep_alive: Option<KeepAliveConfig>,
     pinned_ca: Option<String>,
-    /// Options of an applied [`GrpcChannelConfig`] that this client cannot apply yet. `build`
-    /// refuses them, so that none is accepted and silently ignored.
-    unapplied: Vec<&'static str>,
 }
 
 impl TonicGrpcEgressBuilder {
@@ -46,8 +44,8 @@ impl TonicGrpcEgressBuilder {
             compression: CompressionMode::None,
             interceptors: GrpcEgressInterceptorChain::new(),
             mtls: None,
+            keep_alive: None,
             pinned_ca: None,
-            unapplied: Vec::new(),
         }
     }
 }
@@ -102,6 +100,13 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         }
     }
 
+    fn with_keep_alive(self, keep_alive: KeepAliveConfig) -> Self {
+        Self {
+            keep_alive: Some(keep_alive),
+            ..self
+        }
+    }
+
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self {
         Self {
             interceptors: self.interceptors.push(interceptor),
@@ -120,10 +125,7 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         self.with_interceptor(Arc::new(interceptor))
     }
 
-    fn with_channel_config(mut self, config: &GrpcChannelConfig) -> Self {
-        if config.keep_alive.is_some() {
-            self.unapplied.push("keep_alive");
-        }
+    fn with_channel_config(self, config: &GrpcChannelConfig) -> Self {
         let request_timeout = config
             .request_timeout_secs
             .map_or(self.request_timeout, Duration::from_secs);
@@ -134,14 +136,12 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
             max_message_bytes: config.max_message_bytes,
             compression: config.compression,
             mtls: config.mtls.clone().or(self.mtls),
+            keep_alive: config.keep_alive.or(self.keep_alive),
             ..self
         }
     }
 
     fn build(self) -> Result<impl GrpcEgress + use<>, GrpcChannelConfigError> {
-        if let Some(option) = self.unapplied.first() {
-            return Err(GrpcChannelConfigError::OptionNotApplied(option));
-        }
         if !self.plaintext_allowed && TonicGrpcEgressProtocol::is_plaintext_endpoint(&self.endpoint)
         {
             return Err(GrpcChannelConfigError::PlaintextRejected(self.endpoint));
@@ -150,8 +150,12 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
             .pinned_ca
             .as_deref()
             .or_else(|| self.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref()));
-        Ok(TonicGrpcEgress::new(self.endpoint)
-            .with_tls(self.mtls.as_ref(), pinned_ca)?
+        let mut client =
+            TonicGrpcEgress::new(self.endpoint).with_tls(self.mtls.as_ref(), pinned_ca)?;
+        if let Some(keep_alive) = self.keep_alive {
+            client = client.with_keep_alive(keep_alive);
+        }
+        Ok(client
             .with_request_timeout(self.request_timeout)
             .with_max_message_bytes(self.max_message_bytes)
             .with_compression(self.compression)

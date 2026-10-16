@@ -61,6 +61,9 @@ impl TransportConstruction {
         let mut client = TonicGrpcEgress::new(&config.endpoint)
             .with_tls(config.mtls.as_ref(), pinned_ca)?
             .with_request_timeout(timeout);
+        if let Some(keep_alive) = config.keep_alive {
+            client = client.with_keep_alive(keep_alive);
+        }
         client.max_message_bytes = config.max_message_bytes;
         client.compression = config.compression;
         Ok(client)
@@ -106,6 +109,9 @@ impl TransportConstruction {
         let mut client = TonicGrpcEgress::new(&config.endpoint)
             .with_tls(config.mtls.as_ref(), pinned_ca)?
             .with_request_timeout(timeout);
+        if let Some(keep_alive) = config.keep_alive {
+            client = client.with_keep_alive(keep_alive);
+        }
         client.max_message_bytes = config.max_message_bytes;
         client.compression = config.compression;
         Ok(Box::new(client))

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressInterceptor,
-    MtlsConfig, TraceContextSource,
+    KeepAliveConfig, MtlsConfig, TraceContextSource,
 };
 
 /// Collects the options of a client and builds it.
@@ -46,6 +46,12 @@ pub trait GrpcEgressBuilder: Sized {
     /// file and fails when it is unusable; the endpoint must be `https://`.
     fn with_pinned_ca(self, ca_pem_path: impl Into<String>) -> Self;
 
+    /// Send HTTP/2 PING frames as `keep_alive` says and close the connection when one is not
+    /// answered within its timeout, so that a peer that went away silently is noticed near that
+    /// timeout and not at the next call's deadline. With `permit_without_calls` the pings are also
+    /// sent while no call is in flight.
+    fn with_keep_alive(self, keep_alive: KeepAliveConfig) -> Self;
+
     /// Run `interceptor` before and after every call. Interceptors run in the order they were added.
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self;
 
@@ -61,7 +67,7 @@ pub trait GrpcEgressBuilder: Sized {
     /// # Errors
     ///
     /// A [`GrpcChannelConfigError`] naming what is wrong: a plaintext endpoint without
-    /// [`GrpcEgressBuilder::with_plaintext_allowed`], a TLS option on a plaintext endpoint, a TLS
-    /// file that cannot be used, or an option the client cannot apply.
+    /// [`GrpcEgressBuilder::with_plaintext_allowed`], a TLS option on a plaintext endpoint, or a TLS
+    /// file that cannot be used.
     fn build(self) -> Result<impl GrpcEgress + use<Self>, GrpcChannelConfigError>;
 }
