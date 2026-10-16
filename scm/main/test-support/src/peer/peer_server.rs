@@ -71,6 +71,7 @@ impl PeerServer {
 
         let reply = match &behaviour {
             PeerBehaviour::Reply(payload) => GrpcFrame::encode(payload),
+            PeerBehaviour::ReplyCompressed { payload, .. } => GrpcFrame::encode_compressed(payload),
             PeerBehaviour::Echo | PeerBehaviour::Delay(_) => {
                 let mut echoed = BytesMut::new();
                 for frame in &frames {
@@ -84,14 +85,23 @@ impl PeerServer {
             .unwrap_or_else(PoisonError::into_inner)
             .push(RecordedRequest::create(path, headers, frames));
 
+        let behaviour_for_headers = behaviour.clone();
         if let PeerBehaviour::Delay(wait) = behaviour {
             tokio::time::sleep(wait).await;
         }
 
-        let response = http::Response::builder()
+        let mut builder = http::Response::builder()
             .status(200)
             .header(http::header::CONTENT_TYPE, "application/grpc")
-            .header("grpc-status", "0")
+            .header("grpc-status", "0");
+        if let PeerBehaviour::ReplyCompressed {
+            encoding: Some(encoding),
+            ..
+        } = &behaviour_for_headers
+        {
+            builder = builder.header("grpc-encoding", encoding.as_str());
+        }
+        let response = builder
             .body(Full::new(reply))
             .unwrap_or_else(|_| http::Response::new(Full::new(Bytes::new())));
         Ok(response)

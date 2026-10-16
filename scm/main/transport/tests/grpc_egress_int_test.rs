@@ -20,6 +20,7 @@ use edge_transport_grpc_egress_transport::{
     GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
     TransportConstruction,
 };
+use grpc_egress_test_support::{PeerBehaviour, PeerServer};
 
 fn make_client(addr: SocketAddr) -> Arc<dyn GrpcEgress> {
     TransportConstruction::create_transport_from_config(
@@ -1001,14 +1002,13 @@ async fn test_call_server_stream_empty_body_edge() {
 
 /// @covers: call_client_stream
 #[tokio::test]
-async fn test_call_client_stream_multiple_frames_happy() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_client_stream_multiple_frames_returns_the_one_reply_message_happy() {
+    let peer = PeerServer::start(PeerBehaviour::Reply(b"the-reply".to_vec()))
+        .await
+        .expect("peer must start");
 
     ensure_rustls_provider();
-    let client = make_client(addr);
-    // Send two frames; the echo server reflects them.  call_client_stream strips
-    // the first 5-byte gRPC header and returns the remainder as the response body.
+    let client = make_client(peer.get_addr());
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![
             Ok(b"frame-1".to_vec()),
@@ -1022,13 +1022,46 @@ async fn test_call_client_stream_multiple_frames_happy() {
             messages,
         })
         .await
-        .expect("call_client_stream must succeed against echo server");
+        .expect("call_client_stream must succeed against a peer that replies once");
 
-    // The response body starts with the payload of the first echoed frame.
+    assert_eq!(response.body, b"the-reply");
+    let requests = peer.get_recorded_requests();
+    let frames = requests
+        .first()
+        .expect("the peer got a request")
+        .get_frames();
+    assert_eq!(frames.len(), 2, "both request messages must be sent");
+}
+
+/// A client-streaming call has one reply message; a peer that sends two broke the protocol, and
+/// the second message must not leak into the first one's body.
+///
+/// @covers: call_client_stream
+#[tokio::test]
+async fn test_call_client_stream_peer_replying_with_two_messages_returns_internal_error() {
+    let peer = PeerServer::start(PeerBehaviour::Echo)
+        .await
+        .expect("peer must start");
+
+    ensure_rustls_provider();
+    let client = make_client(peer.get_addr());
+    let messages = GrpcMessageStreamResponse {
+        stream: Box::pin(stream::iter(vec![
+            Ok(b"frame-1".to_vec()),
+            Ok(b"frame-2".to_vec()),
+        ])),
+    };
+    let result = client
+        .call_client_stream(CallStreamRequest {
+            method: "svc/ClientStream".into(),
+            metadata: HashMap::new(),
+            messages,
+        })
+        .await;
+
     assert!(
-        response.body.starts_with(b"frame-1"),
-        "response body must start with first echoed frame payload, got {:?}",
-        response.body
+        matches!(result, Err(GrpcEgressError::Internal(_))),
+        "got {result:?}"
     );
 }
 

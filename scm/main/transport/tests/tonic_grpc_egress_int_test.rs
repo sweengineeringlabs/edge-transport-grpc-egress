@@ -167,46 +167,6 @@ async fn test_call_unary_request_timeout_longer_than_the_deadline_keeps_the_dead
     Ok(())
 }
 
-/// KNOWN DEFECT, pinned: `CompressionMode::Gzip` announces `grpc-encoding: gzip` but the client
-/// writes every message with the compressed flag clear (`encode_grpc_frame` is always flag 0), so
-/// nothing is compressed. The existing `grpc_compression_int_test.rs` checks only the header, which
-/// is why it passes. The fix replaces this test on purpose.
-///
-/// @covers: GrpcChannelConfig::with_compression
-#[tokio::test]
-async fn test_call_with_gzip_announces_the_encoding_but_sends_the_message_uncompressed_today(
-) -> Result<(), Box<dyn Error>> {
-    Fixture::ensure_tls_provider();
-    let peer = PeerServer::start(PeerBehaviour::Echo).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
-        .allow_plaintext()
-        .with_compression(CompressionMode::Gzip);
-    let client = TransportConstruction::create_transport_from_config(&config)?;
-    let payload = vec![b'a'; 4096];
-
-    client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            payload.clone(),
-            Duration::from_secs(5),
-        ))
-        .await?;
-
-    let requests = peer.get_recorded_requests();
-    let request = requests.first().ok_or("the peer received no request")?;
-    assert_eq!(request.get_header("grpc-encoding"), Some("gzip"));
-    let frame = request
-        .get_frames()
-        .first()
-        .ok_or("the request carried no message")?;
-    assert!(
-        !frame.is_compressed(),
-        "today the message is not marked compressed"
-    );
-    assert_eq!(frame.get_payload(), payload.as_slice());
-    Ok(())
-}
-
 /// @covers: GrpcChannelConfig::with_compression
 #[tokio::test]
 async fn test_call_without_compression_sends_no_encoding_header_and_the_message_as_it_is(
