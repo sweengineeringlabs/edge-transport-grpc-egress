@@ -6,6 +6,7 @@ pub(crate) mod grpc_message_codec;
 pub(crate) mod tonic_grpc_egress;
 pub(crate) mod tonic_grpc_egress_builder;
 pub(crate) mod tonic_grpc_egress_protocol;
+pub(crate) mod tonic_tls_connector;
 
 pub(crate) use tonic_grpc_egress::TonicGrpcEgress;
 pub(crate) use tonic_grpc_egress_builder::TonicGrpcEgressBuilder;

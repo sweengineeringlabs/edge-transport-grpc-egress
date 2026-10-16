@@ -6,7 +6,11 @@ use bytes::Bytes;
 use http_body_util::Full;
 use hyper_util::client::legacy::connect::HttpConnector;
 
-use crate::api::{CompressionMode, GrpcEgressInterceptorChain, DEFAULT_MAX_MESSAGE_BYTES};
+use super::tonic_tls_connector::TonicTlsConnector;
+use crate::api::{
+    CompressionMode, GrpcChannelConfigError, GrpcEgressInterceptorChain, MtlsConfig,
+    DEFAULT_MAX_MESSAGE_BYTES,
+};
 
 /// Hyper HTTP/2 client type alias used by [`TonicGrpcEgress`].
 pub(crate) type HyperClient =
@@ -52,6 +56,39 @@ impl TonicGrpcEgress {
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
             compression: CompressionMode::None,
         }
+    }
+
+    /// Apply the TLS options: the identity to present (mutual TLS) and the CA to pin. With neither
+    /// the client is returned as it is.
+    ///
+    /// # Errors
+    ///
+    /// - `TlsOptionOnPlaintextEndpoint` when an option is set but the endpoint is plaintext;
+    /// - `UnusableTlsFile` when a certificate, key or CA file cannot be used.
+    pub(crate) fn with_tls(
+        mut self,
+        identity: Option<&MtlsConfig>,
+        pinned_ca: Option<&str>,
+    ) -> Result<Self, GrpcChannelConfigError> {
+        let option = match (identity, pinned_ca) {
+            (None, None) => return Ok(self),
+            (Some(_), _) => "mtls",
+            (None, Some(_)) => "pinned_ca",
+        };
+        if super::tonic_grpc_egress_protocol::TonicGrpcEgressProtocol::is_plaintext_endpoint(
+            &self.base_uri,
+        ) {
+            return Err(GrpcChannelConfigError::TlsOptionOnPlaintextEndpoint {
+                option,
+                endpoint: self.base_uri,
+            });
+        }
+        let connector = TonicTlsConnector::create(identity, pinned_ca)?;
+        self.client =
+            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+                .http2_only(true)
+                .build(connector);
+        Ok(self)
     }
 }
 

@@ -57,7 +57,10 @@ impl TransportConstruction {
                 .request_timeout_secs
                 .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS),
         );
-        let mut client = TonicGrpcEgress::new(&config.endpoint).with_request_timeout(timeout);
+        let pinned_ca = config.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref());
+        let mut client = TonicGrpcEgress::new(&config.endpoint)
+            .with_tls(config.mtls.as_ref(), pinned_ca)?
+            .with_request_timeout(timeout);
         client.max_message_bytes = config.max_message_bytes;
         client.compression = config.compression;
         Ok(client)
@@ -99,7 +102,10 @@ impl TransportConstruction {
                 .request_timeout_secs
                 .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS),
         );
-        let mut client = TonicGrpcEgress::new(&config.endpoint).with_request_timeout(timeout);
+        let pinned_ca = config.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref());
+        let mut client = TonicGrpcEgress::new(&config.endpoint)
+            .with_tls(config.mtls.as_ref(), pinned_ca)?
+            .with_request_timeout(timeout);
         client.max_message_bytes = config.max_message_bytes;
         client.compression = config.compression;
         Ok(Box::new(client))
