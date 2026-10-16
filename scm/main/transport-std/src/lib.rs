@@ -10,7 +10,7 @@ mod std;
 pub use crate::std::ProstUnaryCaller;
 pub use crate::std::{
     CompressionModeProvider, Conversions, GrpcChannelConfigBuilder, GrpcChannelConfigFactory,
-    GrpcEgressInterceptorChain, GrpcRequestBuilder, GrpcRequestFactory, MtlsConfigFactory,
-    TraceContextGrpcEgressInterceptor,
+    GrpcEgressInterceptorChain, GrpcRequestBuilder, GrpcRequestFactory,
+    LoadbalancerSettingsProvider, MtlsConfigFactory, TraceContextGrpcEgressInterceptor,
 };
 pub use saf::{StdGrpcEgressInterceptorFactory, TonicGrpcEgressBuilderSpiFactory};

@@ -691,6 +691,7 @@ dependencies = [
  "hyper-util",
  "prost",
  "rustls",
+ "serde",
  "swe-edge-loadbalancer",
  "tokio",
  "tokio-util",

@@ -55,6 +55,15 @@ Runnable versions: `scm/main/transport-std/examples/basic_transport.rs`,
 `scm/main/resilient-std/examples/resilient.rs` and the composition-root example
 (`cargo run -p grpc-egress-example-composition-root`).
 
+## What this crate ships, and what it does not
+
+This crate ships real transport code: the wire format (gRPC frames, status codes, `grpc-timeout`), the
+client (`hyper`, `hyper-rustls`), the load balancer, compression and interceptors. It does **not** ship
+server machinery: it binds no listener, runs no accept loop, terminates no TLS and owns no connection
+lifecycle on the serving side. That is the job of the deploying application (for the ingress side,
+`edge-runtime`). The in-process peer in `grpc-egress-test-support` is for tests and is not part of any
+published crate.
+
 ## Options of the client builder
 
 `with_endpoint`, `with_plaintext_allowed`, `with_request_timeout`, `with_max_message_bytes`,
