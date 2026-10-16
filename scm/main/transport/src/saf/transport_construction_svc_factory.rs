@@ -16,12 +16,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::api::{
-    GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressError, Processor,
-    DEFAULT_REQUEST_TIMEOUT_SECS,
+    GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, Processor, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 use crate::spi::client::tonic::{TonicGrpcEgress, TonicGrpcEgressProtocol};
-use crate::spi::loadbalancer::tonic::TonicLbGrpcEgress;
-use swe_edge_loadbalancer::LoadbalancerConfig;
 
 /// Namespace for the construction methods wiring `core/` + `spi/` adapters
 /// into transports. Zero-sized — never instantiated.
@@ -57,9 +54,9 @@ impl TransportConstruction {
                 .request_timeout_secs
                 .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS),
         );
-        let pinned_ca = config.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref());
+        let root_ca = config.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref());
         let mut client = TonicGrpcEgress::new(&config.endpoint)
-            .with_tls(config.mtls.as_ref(), pinned_ca)?
+            .with_tls(config.mtls.as_ref(), root_ca)?
             .with_request_timeout(timeout);
         if let Some(keep_alive) = config.keep_alive {
             client = client.with_keep_alive(keep_alive);
@@ -67,22 +64,6 @@ impl TransportConstruction {
         client.max_message_bytes = config.max_message_bytes;
         client.compression = config.compression;
         Ok(client)
-    }
-
-    /// Construct a load-balanced [`GrpcEgress`] from a [`LoadbalancerConfig`].
-    ///
-    /// Uses `tonic::transport::Channel::balance_list` for transport-level routing
-    /// and [`swe_edge_loadbalancer`] for health-aware backend selection.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`GrpcEgressError::Unavailable`] when the config has no backends
-    /// or any backend URL is not a valid URI.
-    pub fn create_lb_transport_from_config(
-        config: LoadbalancerConfig,
-    ) -> Result<Arc<dyn GrpcEgress>, GrpcEgressError> {
-        let client = TonicLbGrpcEgress::from_config(config)?;
-        Ok(Arc::new(client))
     }
 }
 
@@ -105,9 +86,9 @@ impl TransportConstruction {
                 .request_timeout_secs
                 .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS),
         );
-        let pinned_ca = config.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref());
+        let root_ca = config.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref());
         let mut client = TonicGrpcEgress::new(&config.endpoint)
-            .with_tls(config.mtls.as_ref(), pinned_ca)?
+            .with_tls(config.mtls.as_ref(), root_ca)?
             .with_request_timeout(timeout);
         if let Some(keep_alive) = config.keep_alive {
             client = client.with_keep_alive(keep_alive);

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressInterceptor,
-    KeepAliveConfig, MtlsConfig, TraceContextSource,
+    KeepAliveConfig, LoadbalancerSettings, MtlsConfig, TraceContextSource,
 };
 
 /// Collects the options of a client and builds it.
@@ -44,13 +44,22 @@ pub trait GrpcEgressBuilder: Sized {
     /// Verify the server against the CA bundle in the PEM file `ca_pem_path` alone, instead of the
     /// web PKI roots. Overrides the bundle of [`GrpcEgressBuilder::with_mtls`]. `build` reads the
     /// file and fails when it is unusable; the endpoint must be `https://`.
-    fn with_pinned_ca(self, ca_pem_path: impl Into<String>) -> Self;
+    fn with_root_ca(self, ca_pem_path: impl Into<String>) -> Self;
 
     /// Send HTTP/2 PING frames as `keep_alive` says and close the connection when one is not
     /// answered within its timeout, so that a peer that went away silently is noticed near that
     /// timeout and not at the next call's deadline. With `permit_without_calls` the pings are also
     /// sent while no call is in flight.
     fn with_keep_alive(self, keep_alive: KeepAliveConfig) -> Self;
+
+    /// Spread calls over the backends of `settings` instead of sending them to one endpoint. The
+    /// balanced client honours every other option the same way a single-endpoint client does: the
+    /// message cap, compression, request timeout, TLS, keep-alive and interceptors.
+    ///
+    /// The backends carry their own URLs, so this cannot be combined with
+    /// [`GrpcEgressBuilder::with_endpoint`]; `build` fails when both are set. The endpoint the
+    /// factory was created with is not used.
+    fn with_loadbalancer(self, settings: LoadbalancerSettings) -> Self;
 
     /// Run `interceptor` before and after every call. Interceptors run in the order they were added.
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self;
@@ -66,7 +75,9 @@ pub trait GrpcEgressBuilder: Sized {
     ///
     /// # Errors
     ///
-    /// A [`GrpcChannelConfigError`] naming what is wrong: a plaintext endpoint without
+    /// A [`GrpcChannelConfigError`] naming what is wrong, and for a conflict both options: a zero
+    /// message cap or request timeout, mutual TLS with plaintext allowed, a load balancer with no
+    /// backends or together with an endpoint, a plaintext endpoint without
     /// [`GrpcEgressBuilder::with_plaintext_allowed`], a TLS option on a plaintext endpoint, or a TLS
     /// file that cannot be used.
     fn build(self) -> Result<impl GrpcEgress + use<Self>, GrpcChannelConfigError>;

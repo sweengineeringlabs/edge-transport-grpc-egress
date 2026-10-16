@@ -7,14 +7,17 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::spi::loadbalancer::tonic::TonicLbGrpcEgress;
+
 use crate::api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressInterceptor, GrpcEgressInterceptorChain, KeepAliveConfig, MtlsConfig,
-    TraceContextGrpcEgressInterceptor, TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES,
+    GrpcEgressInterceptor, GrpcEgressInterceptorChain, KeepAliveConfig, LoadbalancerSettings,
+    MtlsConfig, TraceContextGrpcEgressInterceptor, TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES,
     DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 
 use super::tonic_grpc_egress::TonicGrpcEgress;
+use super::tonic_grpc_egress_client::TonicGrpcEgressClient;
 use super::tonic_grpc_egress_protocol::TonicGrpcEgressProtocol;
 
 /// Holds the options of one client and builds it.
@@ -23,6 +26,9 @@ use super::tonic_grpc_egress_protocol::TonicGrpcEgressProtocol;
 /// interceptor.
 pub(crate) struct TonicGrpcEgressBuilder {
     endpoint: String,
+    /// Whether `with_endpoint` or a channel config named an endpoint, as opposed to the one the
+    /// factory was created with.
+    endpoint_explicit: bool,
     plaintext_allowed: bool,
     request_timeout: Duration,
     max_message_bytes: usize,
@@ -30,7 +36,8 @@ pub(crate) struct TonicGrpcEgressBuilder {
     interceptors: GrpcEgressInterceptorChain,
     mtls: Option<MtlsConfig>,
     keep_alive: Option<KeepAliveConfig>,
-    pinned_ca: Option<String>,
+    root_ca: Option<String>,
+    loadbalancer: Option<LoadbalancerSettings>,
 }
 
 impl TonicGrpcEgressBuilder {
@@ -38,6 +45,7 @@ impl TonicGrpcEgressBuilder {
     pub(crate) fn new(endpoint: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
+            endpoint_explicit: false,
             plaintext_allowed: false,
             request_timeout: Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS),
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
@@ -45,7 +53,8 @@ impl TonicGrpcEgressBuilder {
             interceptors: GrpcEgressInterceptorChain::new(),
             mtls: None,
             keep_alive: None,
-            pinned_ca: None,
+            root_ca: None,
+            loadbalancer: None,
         }
     }
 }
@@ -54,6 +63,7 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
     fn with_endpoint(self, endpoint: impl Into<String>) -> Self {
         Self {
             endpoint: endpoint.into(),
+            endpoint_explicit: true,
             ..self
         }
     }
@@ -93,9 +103,9 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
         }
     }
 
-    fn with_pinned_ca(self, ca_pem_path: impl Into<String>) -> Self {
+    fn with_root_ca(self, ca_pem_path: impl Into<String>) -> Self {
         Self {
-            pinned_ca: Some(ca_pem_path.into()),
+            root_ca: Some(ca_pem_path.into()),
             ..self
         }
     }
@@ -103,6 +113,13 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
     fn with_keep_alive(self, keep_alive: KeepAliveConfig) -> Self {
         Self {
             keep_alive: Some(keep_alive),
+            ..self
+        }
+    }
+
+    fn with_loadbalancer(self, settings: LoadbalancerSettings) -> Self {
+        Self {
+            loadbalancer: Some(settings),
             ..self
         }
     }
@@ -131,6 +148,7 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
             .map_or(self.request_timeout, Duration::from_secs);
         Self {
             endpoint: config.endpoint.clone(),
+            endpoint_explicit: self.endpoint_explicit || !config.endpoint.is_empty(),
             plaintext_allowed: !config.tls_required,
             request_timeout,
             max_message_bytes: config.max_message_bytes,
@@ -142,23 +160,112 @@ impl GrpcEgressBuilder for TonicGrpcEgressBuilder {
     }
 
     fn build(self) -> Result<impl GrpcEgress + use<>, GrpcChannelConfigError> {
-        if !self.plaintext_allowed && TonicGrpcEgressProtocol::is_plaintext_endpoint(&self.endpoint)
-        {
-            return Err(GrpcChannelConfigError::PlaintextRejected(self.endpoint));
+        self.check_values()?;
+        let targets = self.list_targets()?;
+        if !self.plaintext_allowed {
+            if let Some(url) = targets
+                .iter()
+                .find(|url| TonicGrpcEgressProtocol::is_plaintext_endpoint(url))
+            {
+                return Err(GrpcChannelConfigError::PlaintextRejected(url.clone()));
+            }
         }
-        let pinned_ca = self
-            .pinned_ca
+        let root_ca = self
+            .root_ca
             .as_deref()
             .or_else(|| self.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref()));
-        let mut client =
-            TonicGrpcEgress::new(self.endpoint).with_tls(self.mtls.as_ref(), pinned_ca)?;
+        if let Some(option) = self.name_tls_option(root_ca) {
+            if targets
+                .iter()
+                .all(|url| TonicGrpcEgressProtocol::is_plaintext_endpoint(url))
+            {
+                return Err(GrpcChannelConfigError::TlsOptionOnPlaintextEndpoint {
+                    option,
+                    endpoint: targets.first().cloned().unwrap_or_default(),
+                });
+            }
+        }
+        let first = targets.first().cloned().unwrap_or_default();
+        let mut client = TonicGrpcEgress::new(first).with_tls(self.mtls.as_ref(), root_ca)?;
         if let Some(keep_alive) = self.keep_alive {
             client = client.with_keep_alive(keep_alive);
         }
-        Ok(client
+        let client = client
             .with_request_timeout(self.request_timeout)
             .with_max_message_bytes(self.max_message_bytes)
             .with_compression(self.compression)
-            .with_interceptors(self.interceptors))
+            .with_interceptors(self.interceptors);
+        Ok(match &self.loadbalancer {
+            Some(settings) => {
+                TonicGrpcEgressClient::Balanced(TonicLbGrpcEgress::create(client, settings)?)
+            }
+            None => TonicGrpcEgressClient::Direct(client),
+        })
+    }
+}
+
+impl TonicGrpcEgressBuilder {
+    /// Refuse a zero cap or timeout, and options that exclude each other.
+    fn check_values(&self) -> Result<(), GrpcChannelConfigError> {
+        if self.max_message_bytes == 0 {
+            return Err(GrpcChannelConfigError::InvalidOptionValue {
+                option: "max_message_bytes",
+                reason: "zero would refuse every message; use a positive number of bytes".into(),
+            });
+        }
+        if self.request_timeout.is_zero() {
+            return Err(GrpcChannelConfigError::InvalidOptionValue {
+                option: "request_timeout",
+                reason: "zero would end every call at once; use a positive duration".into(),
+            });
+        }
+        if self.mtls.is_some() && self.plaintext_allowed {
+            return Err(GrpcChannelConfigError::ConflictingOptions {
+                first: "mtls",
+                second: "plaintext_allowed",
+                reason: "mutual TLS needs TLS, and plaintext_allowed lets the client fall back to plaintext",
+            });
+        }
+        if self.loadbalancer.is_some() && self.endpoint_explicit {
+            return Err(GrpcChannelConfigError::ConflictingOptions {
+                first: "endpoint",
+                second: "loadbalancer",
+                reason: "the backends of the load balancer carry the URLs; drop the endpoint",
+            });
+        }
+        Ok(())
+    }
+
+    /// The URLs calls go to: the endpoint, or each backend of the load balancer.
+    fn list_targets(&self) -> Result<Vec<String>, GrpcChannelConfigError> {
+        let Some(settings) = &self.loadbalancer else {
+            return Ok(vec![self.endpoint.clone()]);
+        };
+        if settings.backends.is_empty() {
+            return Err(GrpcChannelConfigError::InvalidOptionValue {
+                option: "loadbalancer",
+                reason: "no backends; give at least one".into(),
+            });
+        }
+        let mut urls = Vec::with_capacity(settings.backends.len());
+        for backend in &settings.backends {
+            if backend.url.parse::<http::Uri>().is_err() {
+                return Err(GrpcChannelConfigError::InvalidOptionValue {
+                    option: "loadbalancer",
+                    reason: format!("backend '{}' is not a valid URL", backend.url),
+                });
+            }
+            urls.push(backend.url.clone());
+        }
+        Ok(urls)
+    }
+
+    /// The TLS option that is set, for an error message: mutual TLS first, then the root CA.
+    fn name_tls_option(&self, root_ca: Option<&str>) -> Option<&'static str> {
+        match (&self.mtls, root_ca) {
+            (Some(_), _) => Some("mtls"),
+            (None, Some(_)) => Some("root_ca"),
+            (None, None) => None,
+        }
     }
 }

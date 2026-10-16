@@ -21,6 +21,7 @@ pub(crate) type HyperClient =
 /// Not part of the crate's public surface — external consumers obtain a
 /// `GrpcEgress` via `TransportSvc`/`GrpcEgressFactory`, never by naming this
 /// type directly (see SEA rule `pub_types_in_api_only`).
+#[derive(Clone)]
 pub(crate) struct TonicGrpcEgress {
     pub(crate) base_uri: String,
     pub(crate) client: HyperClient,
@@ -58,34 +59,31 @@ impl TonicGrpcEgress {
         }
     }
 
-    /// Apply the TLS options: the identity to present (mutual TLS) and the CA to pin. With neither
+    /// Apply the TLS options: the identity to present (mutual TLS) and the root CA to trust. With neither
     /// the client is returned as it is.
     ///
     /// # Errors
     ///
-    /// - `TlsOptionOnPlaintextEndpoint` when an option is set but the endpoint is plaintext;
-    /// - `UnusableTlsFile` when a certificate, key or CA file cannot be used.
+    /// `UnusableTlsFile` when a certificate, key or CA file cannot be used.
     pub(crate) fn with_tls(
         mut self,
         identity: Option<&MtlsConfig>,
-        pinned_ca: Option<&str>,
+        root_ca: Option<&str>,
     ) -> Result<Self, GrpcChannelConfigError> {
-        let option = match (identity, pinned_ca) {
-            (None, None) => return Ok(self),
-            (Some(_), _) => "mtls",
-            (None, Some(_)) => "pinned_ca",
-        };
-        if super::tonic_grpc_egress_protocol::TonicGrpcEgressProtocol::is_plaintext_endpoint(
-            &self.base_uri,
-        ) {
-            return Err(GrpcChannelConfigError::TlsOptionOnPlaintextEndpoint {
-                option,
-                endpoint: self.base_uri,
-            });
+        if identity.is_none() && root_ca.is_none() {
+            return Ok(self);
         }
-        self.connector = TonicTlsConnector::create(identity, pinned_ca)?;
+        self.connector = TonicTlsConnector::create(identity, root_ca)?;
         self.client = Self::create_client(self.connector.clone(), self.keep_alive.as_ref());
         Ok(self)
+    }
+
+    /// The same client, sending to `base_uri`: one engine for every backend of a balanced client.
+    pub(crate) fn retarget(&self, base_uri: &str) -> Self {
+        Self {
+            base_uri: base_uri.to_string(),
+            ..self.clone()
+        }
     }
 
     /// Send HTTP/2 PING frames as `keep_alive` says, and close the connection when one is not

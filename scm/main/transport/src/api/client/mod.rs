@@ -6,6 +6,8 @@
 
 pub mod dto;
 pub mod traits;
+pub mod vo;
 
 pub use dto::BuildGrpcEgressBuilderRequest;
 pub use traits::{GrpcEgressBuilder, GrpcEgressBuilderFactory};
+pub use vo::{BackendTarget, BalancingStrategy, LoadbalancerSettings};

@@ -3,7 +3,7 @@
 use crate::api::MtlsConfig;
 
 impl MtlsConfig {
-    /// Construct an mTLS config with platform trust roots.
+    /// Construct an mTLS config that trusts the bundled web PKI roots.
     pub fn new(cert_pem_path: impl Into<String>, key_pem_path: impl Into<String>) -> Self {
         Self {
             cert_pem_path: cert_pem_path.into(),
@@ -12,8 +12,8 @@ impl MtlsConfig {
         }
     }
 
-    /// Construct an mTLS config that pins a specific CA bundle.
-    pub fn with_pinned_ca(
+    /// Construct an mTLS config that verifies the server against a specific CA bundle.
+    pub fn with_root_ca(
         cert_pem_path: impl Into<String>,
         key_pem_path: impl Into<String>,
         ca_pem_path: impl Into<String>,
