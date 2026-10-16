@@ -28,11 +28,11 @@ rcgen          = "0.14"
 socket2        = "0.6"
 tempfile       = "3"
 tokio-rustls   = "0.26"
-tokio          = { version = "1", features = ["rt", "net", "time", "sync", "io-util"] }
+tokio          = { version = "1.52", features = ["rt", "net", "time", "sync", "io-util"] }
 
 [dev-dependencies]
 hyper = { version = "1", features = ["client", "http2"] }
-tokio = { version = "1", features = ["macros", "rt", "net", "time"] }
+tokio = { version = "1.52", features = ["macros", "rt", "net", "time"] }
 
 [lints.rust]
 unsafe_code  = "deny"
