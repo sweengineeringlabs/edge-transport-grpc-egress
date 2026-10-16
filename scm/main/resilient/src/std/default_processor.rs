@@ -1,7 +1,9 @@
 //! `impl Processor for GrpcResilientSvcProcessor` — satisfies `service_type = "processor"`.
 
+use crate::std::GrpcResilientSvcProcessor;
+
 use crate::api::ResilientTransportError;
-use crate::api::{DescribeRequest, DescribeResponse, GrpcResilientSvcProcessor, Processor};
+use crate::api::{DescribeRequest, DescribeResponse, Processor};
 
 impl Processor for GrpcResilientSvcProcessor {
     fn describe(&self, _req: DescribeRequest) -> Result<DescribeResponse, ResilientTransportError> {

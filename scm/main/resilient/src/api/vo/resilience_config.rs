@@ -2,7 +2,7 @@
 //! composer-facing policy. This crate is the sole owner of this shape:
 //! `transport`'s `GrpcChannelConfig` carries no resilience-shaped field
 //! (ADR-004) — a composition root builds a bare client, then applies
-//! [`crate::api::GrpcResilientFacade::apply_resilience`] with this config.
+//! [`crate::std::GrpcResilientFacade::apply_resilience`] with this config.
 //!
 //! Uses millisecond integer fields for retry and seconds for the breaker
 //! cool-down so the struct maps directly to TOML without serde helpers:
@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 
 /// Resilience policy for a single outbound gRPC channel.
 ///
-/// Used by [`crate::api::GrpcResilientFacade::apply_resilience`] to compose
+/// Used by [`crate::std::GrpcResilientFacade::apply_resilience`] to compose
 /// an [`edge_transport_grpc_egress_retry::GrpcRetryClient`] and
 /// [`edge_transport_grpc_egress_breaker::GrpcBreakerClient`] around an
 /// already-built bare [`GrpcEgress`](edge_transport_grpc_egress::GrpcEgress)

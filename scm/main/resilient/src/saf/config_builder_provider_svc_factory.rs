@@ -1,6 +1,8 @@
 //! Composition site for [`ConfigBuilderProvider`] — one file per trait keeps wiring focused.
 
-use crate::api::{ConfigBuilderProvider, GrpcResilientSvcProcessor};
+use crate::std::GrpcResilientSvcProcessor;
+
+use crate::api::ConfigBuilderProvider;
 
 /// Factory for the default [`ConfigBuilderProvider`].
 pub struct ConfigBuilderProviderFactory;

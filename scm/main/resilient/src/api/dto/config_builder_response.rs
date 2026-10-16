@@ -1,6 +1,6 @@
 //! Response for [`crate::api::ConfigBuilderProvider::create_config_builder`].
 
-use crate::api::ApplicationConfigBuilder;
+use crate::std::ApplicationConfigBuilder;
 
 /// Output of [`crate::api::ConfigBuilderProvider::create_config_builder`].
 pub struct ConfigBuilderResponse {

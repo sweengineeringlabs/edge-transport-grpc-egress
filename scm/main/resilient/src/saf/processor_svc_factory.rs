@@ -1,6 +1,8 @@
 //! Composition site for [`Processor`] — one file per trait keeps wiring focused.
 
-use crate::api::{GrpcResilientSvcProcessor, Processor};
+use crate::std::GrpcResilientSvcProcessor;
+
+use crate::api::Processor;
 
 /// Factory for the default [`Processor`].
 pub struct ProcessorFactory;

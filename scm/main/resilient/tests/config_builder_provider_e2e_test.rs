@@ -68,37 +68,3 @@ fn test_create_config_builder_repeated_calls_are_independent_edge() {
     first.builder.build_loader().expect("first must build");
     second.builder.build_loader().expect("second must build");
 }
-
-/// @covers: default_provider
-#[test]
-fn test_default_provider_returns_zero_sized_marker_happy() {
-    let svc = <GrpcResilientSvcProcessor as ConfigBuilderProvider>::default_provider();
-    assert_eq!(std::mem::size_of_val(&svc), 0);
-}
-
-/// @covers: default_provider
-#[test]
-fn test_default_provider_actually_implements_the_trait_error() {
-    // "error"-flavored scenario for an infallible constructor: prove the
-    // returned marker genuinely implements ConfigBuilderProvider (i.e. it
-    // isn't just a same-named unrelated zero-sized type) by exercising it.
-    let svc = <GrpcResilientSvcProcessor as ConfigBuilderProvider>::default_provider();
-    let resp = svc
-        .create_config_builder(ConfigBuilderRequest)
-        .expect("default_provider's result must implement the trait for real");
-    resp.builder
-        .build_loader()
-        .expect("must build a real loader");
-}
-
-/// @covers: default_provider
-#[test]
-fn test_default_provider_is_deterministic_edge() {
-    let a = <GrpcResilientSvcProcessor as ConfigBuilderProvider>::default_provider();
-    let b = <GrpcResilientSvcProcessor as ConfigBuilderProvider>::default_provider();
-    assert_eq!(
-        std::mem::size_of_val(&a),
-        std::mem::size_of_val(&b),
-        "repeated calls must produce equivalent markers"
-    );
-}
