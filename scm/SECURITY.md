@@ -2,9 +2,15 @@
 
 ## Supported Versions
 
+Only the latest minor release receives security fixes. Releases before 1.0 may break between minors, so
+older minors are not patched: upgrade to the latest.
+
 | Version | Supported |
 |---------|-----------|
-| 0.1.x   | Yes       |
+| 0.8.x   | Yes       |
+| < 0.8   | No        |
+
+When a new minor is released this table is updated in the same change.
 
 ## Reporting a Vulnerability
 
