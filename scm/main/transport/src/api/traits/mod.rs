@@ -9,7 +9,6 @@ pub use grpc_egress::GrpcEgress;
 
 pub mod grpc_egress_interceptor;
 pub mod processor;
-pub mod resilient_grpc_client_port;
 
 #[cfg(feature = "prost")]
 pub mod grpc_egress_prost_codec;

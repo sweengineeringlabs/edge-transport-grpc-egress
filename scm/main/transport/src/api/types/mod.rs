@@ -60,18 +60,5 @@ pub use describe_request::DescribeRequest;
 pub use describe_response::DescribeResponse;
 pub use processing_request::ProcessingRequest;
 
-pub mod circuit_state_request;
-pub mod circuit_state_response;
-pub mod consecutive_failures_request;
-pub mod consecutive_failures_response;
-pub mod last_error_request;
-pub mod last_error_response;
-pub use circuit_state_request::CircuitStateRequest;
-pub use circuit_state_response::CircuitStateResponse;
-pub use consecutive_failures_request::ConsecutiveFailuresRequest;
-pub use consecutive_failures_response::ConsecutiveFailuresResponse;
-pub use last_error_request::LastErrorRequest;
-pub use last_error_response::LastErrorResponse;
-
 pub mod after_call_request;
 pub use after_call_request::AfterCallRequest;
