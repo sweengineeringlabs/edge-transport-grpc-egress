@@ -11,7 +11,7 @@ Key capabilities:
 - **`GrpcRequest`** / **`GrpcResponse`**: raw protobuf bytes and metadata; each request has a mandatory deadline and an optional cancellation token
 - **`GrpcChannelConfig`**: typed channel configuration: endpoint, TLS (required by default), keep-alive, message size cap, compression mode, request timeout
 - **`TonicGrpcEgressBuilderSpiFactory`**: the one way to build a client: a factory for the endpoint hands out a builder with a `with_*` option for every capability (TLS and mTLS, keep-alive, message cap, compression, request timeout, interceptors, trace context, load balancer, prost codec), and `build` returns the client
-- **`GrpcEgressInterceptor`** and its chain: hooks before and after each call; **`TraceContextGrpcEgressInterceptor`** injects the W3C trace headers when it is attached
+- **`GrpcEgressInterceptor`** and its chain: hooks before and after each call; **`TraceContextGrpcEgressInterceptor`** injects the W3C trace headers when `with_trace_context` attaches it
 - Workspace crates: `transport`, `retry`, `breaker`, `resilient`, `auth-bearer`, each a domain crate and an implementation crate (`<name>-std`)
 
 ## WHY
@@ -20,6 +20,6 @@ Key capabilities:
 |---------|----------|
 | Channel setup (TLS, keep-alive, deadlines, message cap) repeated in every service | `GrpcChannelConfig` and the builder |
 | Retry and circuit breaking implemented per client | the `retry` and `breaker` crates wrap any `GrpcEgress`; the `resilient` crate applies both |
-| Trace headers dropped on outbound calls | `TraceContextGrpcEgressInterceptor` injects them; it is not attached by default (see Known limits in the root README) |
+| Trace headers dropped on outbound calls | the builder's `with_trace_context` attaches the interceptor that injects them |
 | One client per backend and no balancing | the load-balanced client selects among several backends and tracks their health |
 | Bearer tokens minted by hand | the `auth-bearer` crate signs a JWT from configured claims and adds it to each request |
