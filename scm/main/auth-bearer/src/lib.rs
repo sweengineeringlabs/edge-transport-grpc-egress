@@ -9,12 +9,10 @@
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 
-mod error;
-mod traits;
-mod vo;
+mod api;
 
-pub use error::BearerAuthError;
-pub use traits::Validator;
-pub use vo::{
+pub use api::error::BearerAuthError;
+pub use api::traits::Validator;
+pub use api::vo::{
     BearerEgressConfig, BearerSecret, JwtClaims, AUTHORIZATION_HEADER, EXTRACTED_BEARER_SUBJECT,
 };

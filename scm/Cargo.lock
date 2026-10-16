@@ -529,6 +529,7 @@ name = "grpc-egress-auth-bearer"
 version = "0.8.0"
 dependencies = [
  "edge-security-transport-egress-grpc",
+ "jsonwebtoken",
  "serde",
  "thiserror 2.0.19",
 ]
@@ -557,6 +558,7 @@ dependencies = [
  "grpc-egress-transport",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
+ "tokio",
 ]
 
 [[package]]
@@ -594,12 +596,14 @@ dependencies = [
 name = "grpc-egress-resilient"
 version = "0.8.0"
 dependencies = [
+ "futures",
  "grpc-egress-breaker",
- "grpc-egress-retry",
  "grpc-egress-transport",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
  "thiserror 2.0.19",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -623,9 +627,11 @@ name = "grpc-egress-retry"
 version = "0.8.0"
 dependencies = [
  "edge-transport-retry-policy",
+ "futures",
  "grpc-egress-transport",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
+ "tokio",
 ]
 
 [[package]]
@@ -670,7 +676,9 @@ dependencies = [
  "futures",
  "serde",
  "thiserror 2.0.19",
+ "tokio",
  "tokio-util",
+ "toml",
 ]
 
 [[package]]

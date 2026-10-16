@@ -403,3 +403,47 @@ fn test_grpc_breaker_config_section_name_is_grpc_breaker() {
     use swe_edge_configbuilder::ConfigSection as _;
     assert_eq!(GrpcBreakerConfig::section_name(), "grpc_breaker");
 }
+
+/// @covers: StdGrpcBreakerFactory::build — after every failed call the state is the one the shared
+/// state machine of `edge-transport-breaker` computes.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_state_after_each_failed_call_follows_the_shared_state_machine(
+) -> Result<(), Box<dyn std::error::Error>> {
+    use edge_transport_breaker::DefaultBreakerTransition;
+    use edge_transport_breaker_policy::{BreakerTransition, Outcome, RecordOutcomeRequest};
+
+    let config = fast_cfg()?;
+    let inner = Arc::new(ToggleClient::new(1)); // Unavailable
+    let client = build(Shared(inner.clone()), config.clone())?;
+    let mut state = BreakerState::Closed;
+    let (mut failures, mut successes) = (0, 0);
+
+    for call in 1..=config.failure_threshold {
+        let recorded = DefaultBreakerTransition.record(RecordOutcomeRequest {
+            state,
+            consecutive_failures: failures,
+            consecutive_successes: successes,
+            config: config.clone().into(),
+            outcome: Outcome::Failure,
+        })?;
+        state = recorded.state;
+        failures = recorded.consecutive_failures;
+        successes = recorded.consecutive_successes;
+
+        let _ = client.call_unary(make_request()).await;
+
+        // `Open` carries the instant it opened at, which differs by microseconds between the two
+        // clocks; the kind of state is what the machine decides.
+        assert_eq!(
+            std::mem::discriminant(&state_of(&client).await?),
+            std::mem::discriminant(&state),
+            "after failed call {call}"
+        );
+    }
+    assert!(
+        matches!(state, BreakerState::Open { .. }),
+        "the threshold of {} failures must open the circuit",
+        config.failure_threshold
+    );
+    Ok(())
+}

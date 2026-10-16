@@ -32,7 +32,16 @@ fn refusal(config: &ResilienceConfig) -> Result<String, Box<dyn Error>> {
 /// @covers: ResilienceConfigProvider::validate
 #[test]
 fn test_validate_valid_config_returns_ok() {
+    let invalid = ResilienceConfig {
+        max_attempts: 0,
+        ..valid()
+    };
+
     assert!(valid().validate().is_ok());
+    assert!(
+        invalid.validate().is_err(),
+        "the same policy with no attempts must not"
+    );
 }
 
 /// @covers: ResilienceConfigProvider::validate

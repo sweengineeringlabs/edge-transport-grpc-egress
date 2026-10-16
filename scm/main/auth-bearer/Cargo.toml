@@ -23,6 +23,9 @@ swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "ht
 thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }
 
+[dev-dependencies]
+jsonwebtoken = "9"
+
 [lints.rust]
 unsafe_code  = "deny"
 missing_docs = "warn"

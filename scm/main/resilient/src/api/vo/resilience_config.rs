@@ -142,7 +142,6 @@ impl Default for ResilienceConfig {
 
 impl swe_edge_configbuilder::ConfigSection for ResilienceConfig {
     fn section_name() -> &'static str {
-        // @allow: no_stub_fn_bodies
         "grpc_resilience"
     }
 }

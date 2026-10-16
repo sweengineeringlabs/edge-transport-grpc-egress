@@ -16,4 +16,3 @@ cargo test
 
 - `src/std/` - the breaker client and the types that carry behaviour
 - `src/saf/` - the factory
-- `config/application.toml` - default breaker policy

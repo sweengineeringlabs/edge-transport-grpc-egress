@@ -6,15 +6,12 @@
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 
-mod dto;
-mod error;
-mod traits;
-mod vo;
+mod api;
 
-pub use dto::{BuildGrpcBreakerRequest, ObserveStateRequest, ObserveStateResponse};
-pub use error::{BreakerDomainError, Error};
-pub use traits::{BreakerObservable, GrpcBreakerFactory};
-pub use vo::{
+pub use api::dto::{BuildGrpcBreakerRequest, ObserveStateRequest, ObserveStateResponse};
+pub use api::error::{BreakerDomainError, Error};
+pub use api::traits::{BreakerObservable, GrpcBreakerFactory};
+pub use api::vo::{
     BreakerState, GrpcBreakerConfig, BREAKER_EGRESS_LOG_PREFIX, FAILURE_CLASSIFIER_LOG_TARGET,
     GRPC_BREAKER_CLIENT_LOG_TARGET,
 };

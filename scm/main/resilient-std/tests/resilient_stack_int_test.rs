@@ -1,8 +1,7 @@
 //! Integration tests for the resilient gRPC transport stack.
 //!
-//! These tests use an in-memory [`CountingMock`] that implements
-//! [`GrpcEgress`] so the retry and circuit-breaker logic runs against
-//! configurable response sequences without a real network connection.
+//! These tests wrap a [`ScriptedClient`] (a [`GrpcEgress`] that answers from a script) in the real
+//! retry and circuit-breaker decorators, so their logic runs against chosen response sequences.
 
 use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::{HashMap, VecDeque};
@@ -99,19 +98,17 @@ fn valid_resilience() -> ResilienceConfig {
     }
 }
 
-// ── CountingMock ─────────────────────────────────────────────────────────────
+// ── ScriptedClient ─────────────────────────────────────────────────────────────
 
-// @allow: no_mocks_in_integration — CountingMock is an in-process test double
-// for the GrpcEgress transport layer, not an external service mock. It
-// exercises the real retry and circuit-breaker logic with deterministic
-// responses, which is only possible via a programmatic stand-in.
-/// In-memory mock: counts calls and returns pre-loaded responses in order.
-struct CountingMock {
+/// A client that counts its calls and answers them from a script, in order. The decorators around it
+/// are the real ones; only the answers are scripted, so that a failure can be made to happen at a
+/// chosen call.
+struct ScriptedClient {
     hits: Arc<AtomicUsize>,
     queue: Arc<Mutex<VecDeque<GrpcEgressResult<GrpcResponse>>>>,
 }
 
-impl CountingMock {
+impl ScriptedClient {
     fn with_responses(
         hits: Arc<AtomicUsize>,
         responses: Vec<GrpcEgressResult<GrpcResponse>>,
@@ -123,7 +120,7 @@ impl CountingMock {
     }
 }
 
-impl GrpcEgress for CountingMock {
+impl GrpcEgress for ScriptedClient {
     fn call_unary(&self, _req: GrpcRequest) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
         self.hits.fetch_add(1, Ordering::SeqCst);
         let result = self
@@ -158,7 +155,7 @@ fn fast_retry(max_attempts: u32) -> GrpcRetryConfig {
 //
 // `GrpcResilientFacade::apply_resilience` is a decorator only — it never
 // builds a base client (that moved to the composition root, ADR-004
-// amendment). These tests wrap `CountingMock` rather than a real transport;
+// amendment). These tests wrap `ScriptedClient` rather than a real transport;
 // the "genuinely connects" proof that used to live here belongs to
 // `transport`'s own test suite now (`transport_svc_int_test.rs`).
 
@@ -167,7 +164,7 @@ fn fast_retry(max_attempts: u32) -> GrpcRetryConfig {
 async fn test_apply_resilience_default_config_wraps_and_delegates_happy(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
-    let mock = CountingMock::with_responses(Arc::clone(&hits), vec![ok_response()]);
+    let mock = ScriptedClient::with_responses(Arc::clone(&hits), vec![ok_response()]);
     let wrapped = apply_resilience(mock, ResilienceConfig::default())?;
     let result = wrapped.call_unary(req()).await;
     assert!(result.is_ok(), "the wrapped client must delegate through");
@@ -180,7 +177,8 @@ async fn test_apply_resilience_default_config_wraps_and_delegates_happy(
 async fn test_apply_resilience_retries_a_transient_failure_happy(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
-    let mock = CountingMock::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
+    let mock =
+        ScriptedClient::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
     let wrapped = apply_resilience(mock, valid_resilience())?;
     let result = wrapped.call_unary(req()).await;
     assert!(result.is_ok(), "must succeed on the retried attempt");
@@ -196,7 +194,7 @@ async fn test_apply_resilience_retries_a_transient_failure_happy(
 #[test]
 fn test_apply_resilience_invalid_resilience_returns_error_edge() {
     let hits = Arc::new(AtomicUsize::new(0));
-    let mock = CountingMock::with_responses(hits, vec![ok_response()]);
+    let mock = ScriptedClient::with_responses(hits, vec![ok_response()]);
     let mut r = valid_resilience();
     r.max_attempts = 0;
     assert!(matches!(
@@ -236,7 +234,7 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times(
         ok_response(),
         ok_response(),
     ];
-    let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
+    let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let breaker_cfg = GrpcBreakerConfig {
         failure_threshold: 100,
         cool_down_seconds: 60,
@@ -272,7 +270,7 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let responses = vec![unavailable(), unavailable(), unavailable()];
-    let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
+    let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let breaker_cfg = GrpcBreakerConfig {
         failure_threshold: 100,
         cool_down_seconds: 60,
@@ -307,7 +305,7 @@ async fn test_hard_quota_resource_exhausted_is_not_retried(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let responses = vec![hard_quota(), ok_response(), ok_response()]; // extra ok's unused
-    let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
+    let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let breaker_cfg = GrpcBreakerConfig {
         failure_threshold: 100,
         cool_down_seconds: 60,
@@ -347,7 +345,7 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard(
         rate_limited(),
         rate_limited(),
     ];
-    let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
+    let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let retry_cfg = GrpcRetryConfig {
         max_attempts: 5,
         initial_backoff_ms: 1,
@@ -391,7 +389,7 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let responses = vec![unavailable(), unavailable(), unavailable(), unavailable()];
-    let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
+    let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let breaker_cfg = GrpcBreakerConfig {
         failure_threshold: 3,
         cool_down_seconds: 60,
@@ -449,7 +447,7 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
         ok_response(), // probe after cool-down
         ok_response(), // final call to confirm breaker is closed
     ];
-    let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
+    let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let breaker_cfg = GrpcBreakerConfig {
         failure_threshold: 3,
         cool_down_seconds: 1,

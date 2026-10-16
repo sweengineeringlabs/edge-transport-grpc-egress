@@ -15,4 +15,3 @@ cargo test
 
 - `src/std/` - the retry client and the types that carry behaviour
 - `src/saf/` - the factory
-- `config/application.toml` - default retry policy

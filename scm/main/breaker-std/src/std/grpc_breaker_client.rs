@@ -1,15 +1,15 @@
 //! Public type — the breaker decorator.
-//!
-//! Per SEA rule 160 the type *declaration* is here; the `GrpcEgress` impl
-//! block lives in `core::breaker_egress`; the `Debug`, constructor, and
-//! accessor impls live in `core::grpc_breaker_client`.
 
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
-
 use edge_transport_breaker_policy::BreakerNode;
-use grpc_egress_breaker::GrpcBreakerConfig;
+use futures::future::BoxFuture;
+use grpc_egress_breaker::{
+    BreakerDomainError, BreakerObservable, BreakerState, GrpcBreakerConfig, ObserveStateRequest,
+    ObserveStateResponse, GRPC_BREAKER_CLIENT_LOG_TARGET,
+};
+use tokio::sync::Mutex;
+use tracing::trace;
 
 /// Decorator that wraps an inner [`GrpcEgress`](grpc_egress_transport::GrpcEgress) with a
 /// three-state circuit breaker.
@@ -20,4 +20,42 @@ pub struct GrpcBreakerClient<T> {
     pub(crate) inner: T,
     pub(crate) config: Arc<GrpcBreakerConfig>,
     pub(crate) node: Arc<Mutex<BreakerNode>>,
+}
+
+impl<T> std::fmt::Debug for GrpcBreakerClient<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GrpcBreakerClient")
+            .field("failure_threshold", &self.config.failure_threshold)
+            .field("cool_down_seconds", &self.config.cool_down_seconds)
+            .field("half_open_probe_count", &self.config.half_open_probe_count)
+            .finish()
+    }
+}
+
+impl<T> GrpcBreakerClient<T> {
+    /// Construct a new breaker decorator around `inner`.
+    pub(crate) fn new(inner: T, config: GrpcBreakerConfig) -> Self {
+        Self {
+            inner,
+            config: Arc::new(config),
+            node: Arc::new(Mutex::new(BreakerNode {
+                state: BreakerState::Closed,
+                consecutive_failures: 0,
+                consecutive_successes: 0,
+            })),
+        }
+    }
+}
+
+impl<T: Send + Sync> BreakerObservable for GrpcBreakerClient<T> {
+    fn state(
+        &self,
+        _req: ObserveStateRequest,
+    ) -> BoxFuture<'_, Result<ObserveStateResponse, BreakerDomainError>> {
+        Box::pin(async move {
+            let state = self.node.lock().await.state;
+            trace!(target: GRPC_BREAKER_CLIENT_LOG_TARGET, ?state, "grpc-breaker: state observed");
+            Ok(ObserveStateResponse { state })
+        })
+    }
 }

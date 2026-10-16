@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 
 use futures::future::BoxFuture;
+use grpc_egress_breaker::{BreakerObservable, BreakerState, ObserveStateRequest};
 use grpc_egress_resilient::{BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig};
 use grpc_egress_resilient_std::StdGrpcResilientFactory;
 use grpc_egress_transport::{
@@ -55,12 +56,18 @@ fn test_error_invalid_resilience_variant_produced_on_bad_config() {
 }
 
 /// @covers: StdGrpcResilientFactory::build — a valid config wraps the inner client without error
-#[test]
-fn test_build_valid_config_returns_ok() {
-    let result = StdGrpcResilientFactory::new(ResilienceConfig::default())
-        .build(BuildGrpcResilientRequest { inner: AlwaysOk });
-    assert!(
-        result.is_ok(),
-        "a genuinely valid config must wrap successfully"
+#[tokio::test]
+async fn test_build_valid_config_returns_a_client_whose_breaker_is_closed(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let client = StdGrpcResilientFactory::new(ResilienceConfig::default())
+        .build(BuildGrpcResilientRequest { inner: AlwaysOk })?;
+
+    let observed = client.state(ObserveStateRequest).await?;
+
+    assert_eq!(
+        observed.state,
+        BreakerState::Closed,
+        "a fresh stack has not tripped"
     );
+    Ok(())
 }

@@ -14,14 +14,13 @@ fn transport_trait_grpc_egress_interceptor_is_object_safe_int_test() {
 /// metadata header (or fails, if `fail_before`); `after_call` injects a
 /// response header (or fails, if `fail_after`) — used to exercise the trait's methods
 /// `before_call`/`after_call` themselves from outside the crate.
-// @allow: no_mocks_in_integration — hand-rolled test double, not a mock library.
 #[derive(Default)]
-struct StubInterceptor {
+struct ScriptedInterceptor {
     fail_before: bool,
     fail_after: bool,
 }
 
-impl GrpcEgressInterceptor for StubInterceptor {
+impl GrpcEgressInterceptor for ScriptedInterceptor {
     fn before_call(&self, req: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
         if self.fail_before {
             return Err(GrpcEgressError::Internal(
@@ -51,7 +50,7 @@ impl GrpcEgressInterceptor for StubInterceptor {
 /// @covers: before_call
 #[test]
 fn test_before_call_injects_metadata_happy() -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = StubInterceptor::default();
+    let interceptor = ScriptedInterceptor::default();
     let mut req = GrpcRequest::new("svc/Method", Vec::new(), std::time::Duration::from_secs(5));
     interceptor.before_call(&mut req)?;
     assert_eq!(req.metadata.get("x-stub-injected"), Some(&"1".to_string()));
@@ -61,7 +60,7 @@ fn test_before_call_injects_metadata_happy() -> Result<(), Box<dyn std::error::E
 /// @covers: before_call
 #[test]
 fn test_before_call_propagates_forced_failure_error() -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = StubInterceptor {
+    let interceptor = ScriptedInterceptor {
         fail_before: true,
         fail_after: false,
     };
@@ -78,7 +77,7 @@ fn test_before_call_propagates_forced_failure_error() -> Result<(), Box<dyn std:
 #[test]
 fn test_before_call_does_not_overwrite_existing_metadata_edge(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = StubInterceptor::default();
+    let interceptor = ScriptedInterceptor::default();
     let mut req = GrpcRequest::new("svc/Method", Vec::new(), std::time::Duration::from_secs(5));
     req.metadata
         .insert("x-caller-set".to_string(), "original".to_string());
@@ -97,7 +96,7 @@ fn test_before_call_does_not_overwrite_existing_metadata_edge(
 /// @covers: after_call
 #[test]
 fn test_after_call_injects_response_metadata_happy() -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = StubInterceptor::default();
+    let interceptor = ScriptedInterceptor::default();
     let mut response = GrpcResponse {
         body: Vec::new(),
         metadata: std::collections::HashMap::new(),
@@ -115,7 +114,7 @@ fn test_after_call_injects_response_metadata_happy() -> Result<(), Box<dyn std::
 /// @covers: after_call
 #[test]
 fn test_after_call_propagates_forced_failure_error() -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = StubInterceptor {
+    let interceptor = ScriptedInterceptor {
         fail_before: false,
         fail_after: true,
     };
@@ -136,7 +135,7 @@ fn test_after_call_propagates_forced_failure_error() -> Result<(), Box<dyn std::
 /// @covers: after_call
 #[test]
 fn test_after_call_preserves_response_body_edge() -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = StubInterceptor::default();
+    let interceptor = ScriptedInterceptor::default();
     let mut response = GrpcResponse {
         body: b"original-body".to_vec(),
         metadata: std::collections::HashMap::new(),
