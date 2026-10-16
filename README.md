@@ -14,7 +14,7 @@ The workspace is `scm/`; each crate is in `scm/main/<crate>/`.
 | `grpc-egress-retry-std` | retry decorator around any `GrpcEgress` |
 | `grpc-egress-breaker` | the circuit-breaker domain: contracts, requests, responses, errors and the breaker policy (`GrpcBreakerConfig`) |
 | `grpc-egress-breaker-std` | circuit-breaker decorator around any `GrpcEgress` |
-| `edge-transport-grpc-egress-resilient` | wraps a client in retry and breaker together (`GrpcResilientFacade::apply_resilience`) |
+| `grpc-egress-resilient-std` | wraps a client in retry and breaker together (`GrpcResilientFacade::apply_resilience`) |
 | `edge-transport-grpc-egress-auth-bearer` | JWT bearer interceptor: signs a token and adds `authorization: Bearer <jwt>` to each outbound request |
 
 ## Usage

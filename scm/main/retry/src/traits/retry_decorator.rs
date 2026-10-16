@@ -4,7 +4,7 @@ use crate::DescribePolicyRequest;
 use crate::DescribePolicyResponse;
 use crate::Error;
 
-/// Interface for producing a [`GrpcRetryClient`] decorator around an inner egress.
+/// Interface for producing a `GrpcRetryClient` decorator (in `grpc-egress-retry-std`) around an inner egress.
 ///
 /// Implemented by `DefaultRetryDecorator`
 /// in `core/`.

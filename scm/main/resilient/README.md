@@ -1,23 +1,6 @@
-# grpc-resilient
+# grpc-egress-resilient
 
-Resilience decorator for gRPC egress: wraps an already-built `GrpcEgress` client in the retry and circuit-breaker decorators (`GrpcResilientFacade::apply_resilience`). It does not build the client.
+The resilience domain of the gRPC egress: the contracts, requests, responses, errors and the resilience
+policy value (`ResilienceConfig`). No implementation.
 
-## Build
-
-```bash
-cargo build
-```
-
-## Test
-
-```bash
-cargo test
-```
-
-## Project Structure
-
-- `src/api/` - Public types and traits (L2)
-- `src/core/` - Implementation layer (L3)
-- `src/saf/` - Public facade (L4)
-- `src/gateway/` - Public entry boundary
-- `config/application.toml` - Default resilience policy
+The decorator that wraps a `GrpcEgress` in retry and a circuit breaker is in `grpc-egress-resilient-std`.

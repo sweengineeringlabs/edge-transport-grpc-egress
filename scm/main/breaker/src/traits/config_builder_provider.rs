@@ -7,7 +7,7 @@ use crate::ConfigBuilderResponse;
 /// Contract for producing a config builder pre-populated with this crate's
 /// name and version.
 ///
-/// Implemented by [`GrpcBreakerSvc`] in `core::provider::config_builder_provider`.
+/// Implemented by `GrpcBreakerSvc` of `grpc-egress-breaker-std`.
 pub trait ConfigBuilderProvider: Send + Sync {
     /// Create a config builder pre-populated with this crate's name and version.
     fn create_config_builder(

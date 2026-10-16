@@ -1,32 +1,19 @@
-//! `edge_transport_grpc_egress_resilient` — resilience decorator for gRPC egress.
-//!
-//! This crate is a **decorator only** — it never builds a base transport
-//! client. A composition root builds the bare client (e.g. via
-//! `grpc_egress_transport_std::TransportConstruction::create_tonic_client_from_config`)
-//! and calls [`GrpcResilientFacade::apply_resilience`] to wrap it in a
-//! [`grpc_egress_retry_std::GrpcRetryClient`] then a
-//! [`grpc_egress_breaker_std::GrpcBreakerClient`].
-//!
-//! Call-stack once wrapped:
-//! ```text
-//! GrpcBreakerClient   ← fast-fail when circuit is open
-//!   └─ GrpcRetryClient ← exponential-backoff retry
-//!        └─ (caller-supplied bare client) ← hyper HTTP/2 transport
-//! ```
+//! `grpc_egress_resilient` -- the resilience domain: the contracts, requests, responses, errors and the
+//! resilience policy value (`ResilienceConfig`). The implementation, which wraps a `GrpcEgress` in
+//! retry and a circuit breaker, is in `grpc-egress-resilient-std`.
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-mod api;
-mod saf;
-mod std;
+mod dto;
+mod error;
+mod traits;
+mod vo;
 
-// Public contracts and value objects — all flow directly from api/.
-pub use crate::api::{
-    ConfigBuilderProvider, ConfigBuilderRequest, ConfigBuilderResponse, ConfigValidationRequest,
-    DescribeRequest, DescribeResponse, Processor, ResilienceConfig, ResilientTransportError,
-    Validator,
+pub use dto::{
+    ConfigBuilderRequest, ConfigBuilderResponse, ConfigValidationRequest, DescribeRequest,
+    DescribeResponse,
 };
-pub use crate::std::{ApplicationConfigBuilder, GrpcResilientFacade, GrpcResilientSvcProcessor};
-pub use saf::*;
+pub use error::ResilientTransportError;
+pub use traits::{ConfigBuilderProvider, Processor, Validator};
+pub use vo::{ApplicationConfigBuilder, ResilienceConfig};
