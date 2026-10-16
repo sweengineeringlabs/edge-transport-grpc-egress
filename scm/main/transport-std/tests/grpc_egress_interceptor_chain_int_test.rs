@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for `api/interceptor/grpc/grpc_egress_interceptor_chain.rs`.
 
 use grpc_egress_transport_std::GrpcRequestFactory;
@@ -20,11 +19,17 @@ struct Recorder {
 
 impl GrpcEgressInterceptor for Recorder {
     fn before_call(&self, _: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
-        self.log.lock().unwrap().push(self.marker);
+        self.log
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(self.marker);
         Ok(())
     }
     fn after_call(&self, _: AfterCallRequest<'_>) -> Result<(), GrpcEgressError> {
-        self.log.lock().unwrap().push(self.marker);
+        self.log
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(self.marker);
         Ok(())
     }
 }
@@ -74,7 +79,8 @@ fn transport_trait_new_chain_is_empty_int_test() {
 }
 
 #[test]
-fn transport_trait_push_appends_in_registration_order_int_test() {
+fn transport_trait_push_appends_in_registration_order_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     let log = Arc::new(Mutex::new(Vec::new()));
     let chain = GrpcEgressInterceptorChain::new()
         .push(Arc::new(Recorder {
@@ -90,8 +96,12 @@ fn transport_trait_push_appends_in_registration_order_int_test() {
             log: log.clone(),
         }));
     let mut r = req();
-    chain.run_before(&mut r).expect("chain should pass");
-    assert_eq!(log.lock().unwrap().clone(), vec!["a", "b", "c"]);
+    chain.run_before(&mut r)?;
+    assert_eq!(
+        log.lock().map_err(|e| e.to_string())?.clone(),
+        vec!["a", "b", "c"]
+    );
+    Ok(())
 }
 
 #[test]
@@ -111,7 +121,8 @@ fn transport_trait_run_before_short_circuits_on_first_failure_int_test() {
 }
 
 #[test]
-fn transport_trait_run_after_invokes_every_interceptor_in_order_int_test() {
+fn transport_trait_run_after_invokes_every_interceptor_in_order_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     let log = Arc::new(Mutex::new(Vec::new()));
     let chain = GrpcEgressInterceptorChain::new()
         .push(Arc::new(Recorder {
@@ -123,8 +134,12 @@ fn transport_trait_run_after_invokes_every_interceptor_in_order_int_test() {
             log: log.clone(),
         }));
     let mut r = resp();
-    chain.run_after(&mut r).expect("chain should pass");
-    assert_eq!(log.lock().unwrap().clone(), vec!["x", "y"]);
+    chain.run_after(&mut r)?;
+    assert_eq!(
+        log.lock().map_err(|e| e.to_string())?.clone(),
+        vec!["x", "y"]
+    );
+    Ok(())
 }
 
 #[test]

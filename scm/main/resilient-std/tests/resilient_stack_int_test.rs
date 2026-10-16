@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for the resilient gRPC transport stack.
 //!
 //! These tests use an in-memory [`CountingMock`] that implements
@@ -35,10 +34,8 @@ use grpc_egress_transport::{
 fn guard<T: GrpcEgress + Send + Sync + 'static>(
     inner: T,
     config: GrpcBreakerConfig,
-) -> impl GrpcEgress + BreakerObservable {
-    StdGrpcBreakerFactory::new(config)
-        .build(BuildGrpcBreakerRequest { inner })
-        .expect("the test policies are valid")
+) -> Result<impl GrpcEgress + BreakerObservable, grpc_egress_breaker::BreakerDomainError> {
+    StdGrpcBreakerFactory::new(config).build(BuildGrpcBreakerRequest { inner })
 }
 
 fn apply_resilience<T: GrpcEgress + Send + Sync + 'static>(
@@ -48,12 +45,10 @@ fn apply_resilience<T: GrpcEgress + Send + Sync + 'static>(
     StdGrpcResilientFactory::new(config).build(BuildGrpcResilientRequest { inner })
 }
 
-async fn state_of(client: &impl BreakerObservable) -> BreakerState {
-    client
-        .state(ObserveStateRequest)
-        .await
-        .expect("observing the state is infallible")
-        .state
+async fn state_of(
+    client: &impl BreakerObservable,
+) -> Result<BreakerState, grpc_egress_breaker::BreakerDomainError> {
+    Ok(client.state(ObserveStateRequest).await?.state)
 }
 
 fn ok_response() -> GrpcEgressResult<GrpcResponse> {
@@ -134,7 +129,7 @@ impl GrpcEgress for CountingMock {
         let result = self
             .queue
             .lock()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .pop_front()
             .unwrap_or_else(ok_response);
         Box::pin(futures::future::ready(result))
@@ -169,23 +164,24 @@ fn fast_retry(max_attempts: u32) -> GrpcRetryConfig {
 
 /// @covers: apply_resilience
 #[tokio::test]
-async fn test_apply_resilience_default_config_wraps_and_delegates_happy() {
+async fn test_apply_resilience_default_config_wraps_and_delegates_happy(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let mock = CountingMock::with_responses(Arc::clone(&hits), vec![ok_response()]);
-    let wrapped = apply_resilience(mock, ResilienceConfig::default())
-        .expect("apply_resilience must succeed for the default config");
+    let wrapped = apply_resilience(mock, ResilienceConfig::default())?;
     let result = wrapped.call_unary(req()).await;
     assert!(result.is_ok(), "the wrapped client must delegate through");
     assert_eq!(hits.load(Ordering::SeqCst), 1);
+    Ok(())
 }
 
 /// @covers: apply_resilience — a transient failure is genuinely retried
 #[tokio::test]
-async fn test_apply_resilience_retries_a_transient_failure_happy() {
+async fn test_apply_resilience_retries_a_transient_failure_happy(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let mock = CountingMock::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
-    let wrapped = apply_resilience(mock, valid_resilience())
-        .expect("apply_resilience must succeed for a valid config");
+    let wrapped = apply_resilience(mock, valid_resilience())?;
     let result = wrapped.call_unary(req()).await;
     assert!(result.is_ok(), "must succeed on the retried attempt");
     assert_eq!(
@@ -193,6 +189,7 @@ async fn test_apply_resilience_retries_a_transient_failure_happy() {
         2,
         "expected exactly one retry after the first transient failure"
     );
+    Ok(())
 }
 
 /// @covers: apply_resilience
@@ -215,7 +212,8 @@ fn test_apply_resilience_invalid_resilience_returns_error_edge() {
 /// 10 client calls; 2 fail once then succeed on the first retry.
 /// Expected server hits: 10 + 2 = 12 (1.2× amplification ≤ 1.5× threshold).
 #[tokio::test]
-async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times() {
+async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     // Responses in pop order:
     // call 1: ok              → 1 hit
@@ -247,7 +245,7 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times() 
     let client = guard(
         StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
         breaker_cfg,
-    );
+    )?;
 
     for _ in 0..10_usize {
         let _ = client.call_unary(req()).await;
@@ -260,6 +258,7 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times() 
         amplification <= 1.5,
         "amplification {amplification:.2}× exceeds 1.5× ({server_hits} hits / {n_calls} calls)",
     );
+    Ok(())
 }
 
 // ── retry exhaustion ─────────────────────────────────────────────────────────
@@ -269,7 +268,8 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times() 
 /// max_attempts=3, all 3 fail with Unavailable.
 /// Server is hit exactly 3 times; result is Err(Unavailable or Status(Unavailable)).
 #[tokio::test]
-async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails() {
+async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let responses = vec![unavailable(), unavailable(), unavailable()];
     let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
@@ -281,7 +281,7 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails() {
     let client = guard(
         StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
         breaker_cfg,
-    );
+    )?;
 
     let result = client.call_unary(req()).await;
     assert!(
@@ -293,6 +293,7 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails() {
         3,
         "expected exactly 3 server hits"
     );
+    Ok(())
 }
 
 // ── hard quota — never retried ────────────────────────────────────────────────
@@ -302,7 +303,8 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails() {
 /// max_attempts=3 would allow up to 3 hits, but HardQuota is Terminal.
 /// Server must be hit exactly once.
 #[tokio::test]
-async fn test_hard_quota_resource_exhausted_is_not_retried() {
+async fn test_hard_quota_resource_exhausted_is_not_retried(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let responses = vec![hard_quota(), ok_response(), ok_response()]; // extra ok's unused
     let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
@@ -314,7 +316,7 @@ async fn test_hard_quota_resource_exhausted_is_not_retried() {
     let client = guard(
         StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
         breaker_cfg,
-    );
+    )?;
 
     let result = client.call_unary(req()).await;
     assert!(result.is_err(), "expected quota error");
@@ -323,6 +325,7 @@ async fn test_hard_quota_resource_exhausted_is_not_retried() {
         1,
         "HardQuota must not be retried — server should see exactly 1 hit",
     );
+    Ok(())
 }
 
 // ── rate-limit retry track ────────────────────────────────────────────────────
@@ -333,7 +336,8 @@ async fn test_hard_quota_resource_exhausted_is_not_retried() {
 /// Semantics: 1 initial call + rate_limit_max_attempts retries = 3 total server hits,
 /// which is less than the standard max_attempts ceiling of 5.
 #[tokio::test]
-async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard() {
+async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     // Queue 5 rate-limit responses; only 3 should be consumed (1 + 2 retries).
     let responses = vec![
@@ -362,7 +366,7 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard() {
     let client = guard(
         StdGrpcRetryFactory::new(retry_cfg).build(BuildGrpcRetryRequest { inner: mock }),
         breaker_cfg,
-    );
+    )?;
 
     let result = client.call_unary(req()).await;
     assert!(result.is_err());
@@ -372,6 +376,7 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard() {
         3,
         "rate-limit track: 1 initial + rate_limit_max_attempts(2) retries = 3 total hits",
     );
+    Ok(())
 }
 
 // ── circuit breaker — opens at threshold ─────────────────────────────────────
@@ -382,7 +387,8 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard() {
 /// After 3 failing calls, breaker is Open.
 /// 4th call fast-fails without touching the server.
 #[tokio::test]
-async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
+async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let responses = vec![unavailable(), unavailable(), unavailable(), unavailable()];
     let mock = CountingMock::with_responses(Arc::clone(&hits), responses);
@@ -394,7 +400,7 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
     let client = guard(
         StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
         breaker_cfg,
-    );
+    )?;
 
     for _ in 0..3 {
         let _ = client.call_unary(req()).await;
@@ -406,7 +412,7 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
         "expected 3 server hits to trip the breaker"
     );
     assert!(
-        matches!(state_of(&client).await, BreakerState::Open { .. }),
+        matches!(state_of(&client).await?, BreakerState::Open { .. }),
         "breaker must be Open after threshold failures",
     );
 
@@ -421,6 +427,7 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
         3,
         "server hit count must not increase after breaker opens",
     );
+    Ok(())
 }
 
 // ── circuit breaker — recovers via HalfOpen ──────────────────────────────────
@@ -432,7 +439,8 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
 ///
 /// NOTE: This test takes ≈1.1 s due to the real-time cool-down wait.
 #[tokio::test]
-async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open() {
+async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
+) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     let responses = vec![
         unavailable(),
@@ -450,13 +458,16 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open() {
     let client = guard(
         StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
         breaker_cfg,
-    );
+    )?;
 
     // Trip the breaker.
     for _ in 0..3 {
         let _ = client.call_unary(req()).await;
     }
-    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
+    assert!(matches!(
+        state_of(&client).await?,
+        BreakerState::Open { .. }
+    ));
 
     // Wait for cool-down to expire.
     tokio::time::sleep(Duration::from_millis(1100)).await;
@@ -465,7 +476,7 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open() {
     let probe = client.call_unary(req()).await;
     assert!(probe.is_ok(), "probe should succeed");
     assert_eq!(
-        state_of(&client).await,
+        state_of(&client).await?,
         BreakerState::Closed,
         "breaker must be Closed after probe"
     );
@@ -474,4 +485,5 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open() {
     let final_result = client.call_unary(req()).await;
     assert!(final_result.is_ok());
     assert_eq!(hits.load(Ordering::SeqCst), 5);
+    Ok(())
 }

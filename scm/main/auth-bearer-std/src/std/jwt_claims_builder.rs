@@ -31,8 +31,7 @@ impl JwtClaimsBuilder {
     }
 
     /// Set the `sub` (subject) claim.
-    #[allow(clippy::should_implement_trait)]
-    pub fn sub(mut self, sub: impl Into<String>) -> Self {
+    pub fn subject(mut self, sub: impl Into<String>) -> Self {
         self.sub = Some(sub.into());
         self
     }

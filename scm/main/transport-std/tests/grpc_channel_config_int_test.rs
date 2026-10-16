@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for `GrpcChannelConfig` and `create_transport_from_config`.
 //!
 //! Verifies the **fail-closed TLS-by-default invariant** at the
@@ -50,12 +49,12 @@ fn transport_struct_channel_config_from_config_rejects_plaintext_int_test() {
 
 /// @covers: create_transport_from_config — plaintext accepted with allow_plaintext().
 #[tokio::test]
-async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_in_int_test() {
+async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_in_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     Fixture::ensure_tls_provider();
-    let closed = Fixture::reserve_closed_port().expect("a closed port");
+    let closed = Fixture::reserve_closed_port()?;
     let cfg = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
-    let transport =
-        ClientFixture::from_config(&cfg).expect("plaintext accepted with allow_plaintext()");
+    let transport = ClientFixture::from_config(&cfg)?;
     // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
     let health = transport
@@ -65,6 +64,7 @@ async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_
         matches!(health, Err(GrpcEgressError::Unavailable(_))),
         "health_check against an unbound port must report Unavailable, got: {health:?}"
     );
+    Ok(())
 }
 
 /// @covers: create_transport_from_config — https endpoint accepted, unlike
@@ -95,7 +95,8 @@ fn transport_struct_channel_config_with_interceptors_accepts_chain_int_test() {
 
 /// @covers: GrpcEgressInterceptorChain — before_call short-circuits on first failure.
 #[tokio::test]
-async fn transport_struct_channel_config_interceptor_short_circuits_int_test() {
+async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     use std::time::Duration;
 
     ensure_rustls_provider();
@@ -114,7 +115,7 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test() {
     }
 
     let cfg = GrpcChannelConfig::new("http://127.0.0.1:1").allow_plaintext();
-    let base = ClientFixture::from_config(&cfg).expect("transport");
+    let base = ClientFixture::from_config(&cfg)?;
     let chain = GrpcEgressInterceptorChain::new().push(Arc::new(Deny));
 
     struct WithChain {
@@ -148,6 +149,7 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test() {
         }
         other => panic!("expected PermissionDenied; got {other:?}"),
     }
+    Ok(())
 }
 
 /// @covers: GrpcChannelConfig::with_compression — sets mode.

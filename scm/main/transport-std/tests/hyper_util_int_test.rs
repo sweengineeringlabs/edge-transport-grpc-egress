@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests that directly exercise the `hyper-util` dependency used
 //! by `TonicGrpcEgress`'s HTTP/2 transport layer.
 //!
@@ -10,7 +9,6 @@
 
 use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
-use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -28,17 +26,17 @@ fn ensure_rustls_provider() {
 }
 
 /// Bind an OS-assigned TCP port and return the `TcpListener`.
-async fn bind_listener() -> tokio::net::TcpListener {
-    tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind test listener")
+async fn bind_listener() -> Result<tokio::net::TcpListener, Box<dyn std::error::Error>> {
+    Ok(tokio::net::TcpListener::bind("127.0.0.1:0").await?)
 }
 
 /// Spawn a minimal HTTP/2 server using `hyper_util::rt::TokioIo` and
 /// `hyper_util::rt::TokioExecutor` — the exact types from the `hyper-util`
 /// crate that `TonicGrpcEgress` relies on — and return the bound address.
-async fn spawn_hyper_util_http2_server(listener: tokio::net::TcpListener) -> SocketAddr {
-    let addr = listener.local_addr().expect("local_addr");
+async fn spawn_hyper_util_http2_server(
+    listener: tokio::net::TcpListener,
+) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+    let addr = listener.local_addr()?;
 
     tokio::spawn(async move {
         loop {
@@ -66,9 +64,8 @@ async fn spawn_hyper_util_http2_server(listener: tokio::net::TcpListener) -> Soc
                                     .status(200)
                                     .header(http::header::CONTENT_TYPE, "application/grpc")
                                     .header("grpc-status", "0")
-                                    .body(Full::new(buf.freeze()))
-                                    .unwrap();
-                                Ok::<_, Infallible>(resp)
+                                    .body(Full::new(buf.freeze()))?;
+                                Ok::<_, http::Error>(resp)
                             },
                         ),
                     )
@@ -77,7 +74,7 @@ async fn spawn_hyper_util_http2_server(listener: tokio::net::TcpListener) -> Soc
         }
     });
 
-    addr
+    Ok(addr)
 }
 
 /// Verify that the `hyper_util` client-legacy path can complete an end-to-end
@@ -87,24 +84,23 @@ async fn spawn_hyper_util_http2_server(listener: tokio::net::TcpListener) -> Soc
 /// `TonicGrpcEgress` internals) against a server built with
 /// `hyper_util::rt::TokioIo` and `hyper_util::rt::TokioExecutor`.
 #[tokio::test]
-async fn transport_struct_hyper_util_tokio_executor_drives_http2_client_round_trip() {
+async fn transport_struct_hyper_util_tokio_executor_drives_http2_client_round_trip(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_hyper_util_http2_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_hyper_util_http2_server(listener).await?;
 
     let cfg = GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext();
-    let client = ClientFixture::from_config(&cfg).expect("create_transport_from_config");
+    let client = ClientFixture::from_config(&cfg)?;
 
     let req = GrpcRequest::new("svc/Method", b"ping".to_vec(), Duration::from_secs(5));
-    let resp = client
-        .call_unary(req)
-        .await
-        .expect("call_unary should succeed via hyper-util HTTP/2 transport");
+    let resp = client.call_unary(req).await?;
 
     assert_eq!(
         resp.body, b"pong!",
         "body must be echoed back through hyper-util layer"
     );
+    Ok(())
 }
 
 /// Verify that `hyper_util::rt::TokioIo` correctly adapts a
@@ -112,31 +108,31 @@ async fn transport_struct_hyper_util_tokio_executor_drives_http2_client_round_tr
 /// structural test: if `TokioIo` were broken, the server would never accept
 /// a connection and `health_check` would time out.
 #[tokio::test]
-async fn transport_struct_hyper_util_tokio_io_adapts_tcp_stream_for_http2_handshake() {
+async fn transport_struct_hyper_util_tokio_io_adapts_tcp_stream_for_http2_handshake(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_hyper_util_http2_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_hyper_util_http2_server(listener).await?;
 
     let cfg = GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext();
-    let client = ClientFixture::from_config(&cfg).expect("create_transport_from_config");
+    let client = ClientFixture::from_config(&cfg)?;
 
     // health_check opens a TCP connection — proves TokioIo wrapping works.
-    client
-        .health_check(HealthCheckRequest)
-        .await
-        .expect("health_check should succeed — TokioIo TCP adapter is functional");
+    client.health_check(HealthCheckRequest).await?;
+    Ok(())
 }
 
 /// Verify the hyper-util client-legacy builder connects to an HTTP/2 server
 /// and that multiple sequential requests succeed (connection reuse path).
 #[tokio::test]
-async fn transport_struct_hyper_util_client_legacy_handles_sequential_requests() {
+async fn transport_struct_hyper_util_client_legacy_handles_sequential_requests(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_hyper_util_http2_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_hyper_util_http2_server(listener).await?;
 
     let cfg = GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext();
-    let client = ClientFixture::from_config(&cfg).expect("create_transport_from_config");
+    let client = ClientFixture::from_config(&cfg)?;
 
     for i in 0..3_u8 {
         let payload = vec![i];
@@ -144,8 +140,8 @@ async fn transport_struct_hyper_util_client_legacy_handles_sequential_requests()
         let result = client.call_unary(req).await;
         assert!(
             result.is_ok(),
-            "request {i} failed via hyper-util transport: {:?}",
-            result.unwrap_err()
+            "request {i} failed via hyper-util transport: {result:?}"
         );
     }
+    Ok(())
 }

@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for `api/value/grpc/grpc_request.rs`.
 
 use grpc_egress_transport_std::GrpcRequestFactory;
@@ -38,17 +37,22 @@ fn transport_struct_with_metadata_replaces_metadata_entirely_int_test() {
 }
 
 #[test]
-fn transport_struct_with_cancellation_attaches_token_int_test() {
+fn transport_struct_with_cancellation_attaches_token_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     let token = CancellationToken::new();
     let req =
         GrpcRequest::new("svc/M", vec![], Duration::from_secs(1)).with_cancellation(token.clone());
-    let stored = req.cancellation.as_ref().expect("token should be Some");
+    let stored = req
+        .cancellation
+        .as_ref()
+        .ok_or("the request must carry the token")?;
     assert!(!stored.is_cancelled());
     token.cancel();
     assert!(
         stored.is_cancelled(),
         "stored token must observe cancellation"
     );
+    Ok(())
 }
 
 #[test]

@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Tests for [`GrpcBreakerConfig`].
 
 use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
@@ -9,33 +8,37 @@ use swe_edge_configbuilder::ConfigSection as _;
 
 /// @covers: from_config
 #[test]
-fn test_from_config_parses_full_toml() {
+fn test_from_config_parses_full_toml() -> Result<(), Box<dyn std::error::Error>> {
     let toml = r#"
         failure_threshold = 5
         cool_down_seconds = 30
         half_open_probe_count = 1
     "#;
-    let cfg = GrpcBreakerConfig::from_config(toml).expect("parses");
+    let cfg = GrpcBreakerConfig::from_config(toml)?;
     assert_eq!(cfg.failure_threshold, 5);
     assert_eq!(cfg.cool_down_seconds, 30);
     assert_eq!(cfg.half_open_probe_count, 1);
+    Ok(())
 }
 
 /// @covers: from_config
 #[test]
-fn test_from_config_unknown_key_is_error() {
+fn test_from_config_unknown_key_is_error() -> Result<(), Box<dyn std::error::Error>> {
     let toml = r#"
         failure_threshold = 5
         cool_down_seconds = 30
         half_open_probe_count = 1
         unknown = 99
     "#;
-    let err = GrpcBreakerConfig::from_config(toml).expect_err("unknown field must fail");
+    let err = GrpcBreakerConfig::from_config(toml)
+        .err()
+        .ok_or("unknown field must fail")?;
     let s = err.to_string();
     assert!(
         s.contains("unknown") || s.contains("unknown field"),
         "expected error to name unknown field, got: {s}",
     );
+    Ok(())
 }
 
 /// @covers: from_config

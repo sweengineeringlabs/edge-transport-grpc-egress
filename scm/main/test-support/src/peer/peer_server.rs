@@ -129,6 +129,8 @@ impl PeerServer {
         let reply = match &behaviour {
             PeerBehaviour::Reply(payload) => GrpcFrame::encode(payload),
             PeerBehaviour::ReplyCompressed { payload, .. } => GrpcFrame::encode_compressed(payload),
+            PeerBehaviour::ReplyRaw { body, .. } => Bytes::from(body.clone()),
+            PeerBehaviour::ReplyStatus { .. } => Bytes::new(),
             PeerBehaviour::Echo | PeerBehaviour::Delay(_) => {
                 let mut echoed = BytesMut::new();
                 for frame in &frames {
@@ -154,9 +156,34 @@ impl PeerServer {
         if let PeerBehaviour::ReplyCompressed {
             encoding: Some(encoding),
             ..
+        }
+        | PeerBehaviour::ReplyRaw {
+            encoding: Some(encoding),
+            ..
         } = &behaviour_for_headers
         {
             builder = builder.header("grpc-encoding", encoding.as_str());
+        }
+        if let PeerBehaviour::ReplyStatus {
+            status,
+            message,
+            retry_after_secs,
+        } = &behaviour_for_headers
+        {
+            if let Some(headers) = builder.headers_mut() {
+                headers.insert(
+                    "grpc-status",
+                    status
+                        .parse()
+                        .unwrap_or_else(|_| http::HeaderValue::from_static("")),
+                );
+            }
+            if let Some(message) = message {
+                builder = builder.header("grpc-message", message.as_str());
+            }
+            if let Some(secs) = retry_after_secs {
+                builder = builder.header("retry-after", secs.to_string());
+            }
         }
         let response = builder
             .body(Full::new(reply))

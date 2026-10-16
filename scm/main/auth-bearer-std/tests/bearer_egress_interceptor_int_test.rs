@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for [`BearerEgressInterceptor`].
 
 use grpc_egress_auth_bearer_std::BearerSecretGuard;
@@ -30,17 +29,18 @@ fn test_from_config_constructs_interceptor() {
 
 /// @covers: BearerEgressInterceptor::before_call
 #[test]
-fn test_before_call_injects_bearer_authorization_header() {
+fn test_before_call_injects_bearer_authorization_header() -> Result<(), Box<dyn std::error::Error>>
+{
     use grpc_egress_transport::GrpcEgressInterceptor;
 
     let interceptor = BearerEgressInterceptor::from_config(hs256_config(b"sec"));
     let mut req = GrpcRequest::new("/svc/M", vec![], Duration::from_secs(1));
-    interceptor.before_call(&mut req).expect("before_call");
+    interceptor.before_call(&mut req)?;
     let auth = req
         .metadata
         .get(AUTHORIZATION_HEADER)
         .cloned()
-        .expect("authorization header must be injected");
+        .ok_or("the interceptor must add an authorization header")?;
     assert!(
         auth.starts_with("Bearer "),
         "expected Bearer-prefixed header, got {auth}"
@@ -51,11 +51,13 @@ fn test_before_call_injects_bearer_authorization_header() {
         2,
         "JWT must have 3 segments: {token}"
     );
+    Ok(())
 }
 
 /// @covers: BearerEgressInterceptor::sign_token (via before_call round-trip with swe-edge-configbuilder and jsonwebtoken)
 #[test]
-fn test_sign_token_round_trips_through_jsonwebtoken_verifier() {
+fn test_sign_token_round_trips_through_jsonwebtoken_verifier(
+) -> Result<(), Box<dyn std::error::Error>> {
     use grpc_egress_transport::GrpcEgressInterceptor;
     use serde::{Deserialize, Serialize};
 
@@ -70,22 +72,22 @@ fn test_sign_token_round_trips_through_jsonwebtoken_verifier() {
 
     let interceptor = BearerEgressInterceptor::from_config(hs256_config(b"sec"));
     let mut req = GrpcRequest::new("/svc/M", vec![], Duration::from_secs(1));
-    interceptor.before_call(&mut req).expect("before_call");
+    interceptor.before_call(&mut req)?;
     let auth = req
         .metadata
         .get(AUTHORIZATION_HEADER)
         .cloned()
-        .expect("auth header");
+        .ok_or("the interceptor must add an authorization header")?;
     let token = auth.trim_start_matches("Bearer ");
 
     let mut validation = Validation::new(Algorithm::HS256);
     validation.set_audience(&["test-aud"]);
     validation.set_issuer(&["test-iss"]);
-    let decoded = decode::<Claims>(token, &DecodingKey::from_secret(b"sec"), &validation)
-        .expect("token must be verifiable with matching key");
+    let decoded = decode::<Claims>(token, &DecodingKey::from_secret(b"sec"), &validation)?;
     assert_eq!(decoded.claims.iss, "test-iss");
     assert_eq!(decoded.claims.aud, "test-aud");
     assert_eq!(decoded.claims.sub, "test-sub");
+    Ok(())
 }
 
 /// @covers: subtle constant-time comparison via BearerSecret::ct_eq_hs256

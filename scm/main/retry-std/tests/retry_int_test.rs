@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for the gRPC retry decorator.
 //!
 //! These exercise the public API end-to-end: a stub
@@ -92,7 +91,7 @@ impl GrpcEgress for SharedClient<ScriptedClient> {
     }
 }
 
-fn fast_config() -> GrpcRetryConfig {
+fn fast_config() -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
     GrpcRetryConfig::from_config(
         r#"
             max_attempts = 5
@@ -105,7 +104,6 @@ fn fast_config() -> GrpcRetryConfig {
             rate_limit_max_backoff_ms = 1
         "#,
     )
-    .expect("test config")
 }
 
 fn make_request(deadline: Duration) -> GrpcRequest {
@@ -132,15 +130,15 @@ fn test_grpc_retry_config_default_has_positive_max_attempts() {
 
 /// @covers: GrpcRetryClient — first-call success short-circuits.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_first_attempt_success_does_not_retry() {
+async fn test_first_attempt_success_does_not_retry() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![Outcome::Ok]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let resp = client
         .call_unary(make_request(Duration::from_secs(5)))
-        .await
-        .expect("ok");
+        .await?;
     assert_eq!(resp.body, b"ok");
     assert_eq!(inner.call_count(), 1, "no retry on success");
+    Ok(())
 }
 
 /// @covers: classify(PermissionDenied) — NEVER retried.
@@ -148,16 +146,17 @@ async fn test_first_attempt_success_does_not_retry() {
 /// **Acceptance test gate**: hand a stub returning
 /// `PermissionDenied`, assert call_count == 1.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_permission_denied_is_never_retried() {
+async fn test_permission_denied_is_never_retried() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![Outcome::Status(
         GrpcStatusCode::PermissionDenied,
         "no",
     )]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let err = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
-        .expect_err("must fail");
+        .err()
+        .ok_or("must fail")?;
     match err {
         GrpcEgressError::Status(GrpcStatusCode::PermissionDenied, _) => {}
         other => panic!("expected PermissionDenied, got {other:?}"),
@@ -168,115 +167,129 @@ async fn test_permission_denied_is_never_retried() {
         "PermissionDenied must not be retried (called {} times)",
         inner.call_count(),
     );
+    Ok(())
 }
 
 /// @covers: classify(Unauthenticated) — NEVER retried.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_unauthenticated_is_never_retried() {
+async fn test_unauthenticated_is_never_retried() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![Outcome::Status(
         GrpcStatusCode::Unauthenticated,
         "bad token",
     )]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let err = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
-        .expect_err("must fail");
+        .err()
+        .ok_or("must fail")?;
     assert!(matches!(
         err,
         GrpcEgressError::Status(GrpcStatusCode::Unauthenticated, _)
     ));
     assert_eq!(inner.call_count(), 1, "Unauthenticated must not be retried");
+    Ok(())
 }
 
 /// @covers: classify(Unavailable) — retries until success.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_unavailable_then_ok_succeeds_after_retry() {
+async fn test_unavailable_then_ok_succeeds_after_retry() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![
         Outcome::Status(GrpcStatusCode::Unavailable, "blip"),
         Outcome::Status(GrpcStatusCode::Unavailable, "blip"),
         Outcome::Ok,
     ]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let resp = client
         .call_unary(make_request(Duration::from_secs(5)))
-        .await
-        .expect("eventually ok");
+        .await?;
     assert_eq!(resp.body, b"ok");
     assert_eq!(inner.call_count(), 3, "two retries before the Ok");
+    Ok(())
 }
 
 /// @covers: classify(Unavailable) — exhausts attempts.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_unavailable_throughout_exhausts_max_attempts() {
+async fn test_unavailable_throughout_exhausts_max_attempts(
+) -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![Outcome::Status(
         GrpcStatusCode::Unavailable,
         "down",
     )]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let err = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
-        .expect_err("never recovers");
+        .err()
+        .ok_or("never recovers")?;
     assert!(matches!(
         err,
         GrpcEgressError::Status(GrpcStatusCode::Unavailable, _)
     ));
     assert_eq!(inner.call_count(), 5, "exhausts max_attempts");
+    Ok(())
 }
 
 /// @covers: classify(Internal) — terminal, no retry.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_internal_is_terminal() {
+async fn test_internal_is_terminal() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![Outcome::Status(
         GrpcStatusCode::Internal,
         "bug",
     )]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let _ = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
-        .expect_err("terminal");
+        .err()
+        .ok_or("terminal")?;
     assert_eq!(inner.call_count(), 1, "Internal must not be retried");
+    Ok(())
 }
 
 /// @covers: classify(DeadlineExceeded) — terminal.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_deadline_exceeded_is_terminal() {
+async fn test_deadline_exceeded_is_terminal() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![Outcome::Status(
         GrpcStatusCode::DeadlineExceeded,
         "tick",
     )]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let _ = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
-        .expect_err("terminal");
+        .err()
+        .ok_or("terminal")?;
     assert_eq!(
         inner.call_count(),
         1,
         "DeadlineExceeded counts retry budget — not retried",
     );
+    Ok(())
 }
 
 /// @covers: classify(transport Unavailable) → retried.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_transport_unavailable_retries_then_internal_terminates() {
+async fn test_transport_unavailable_retries_then_internal_terminates(
+) -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![
         Outcome::Unavailable("transport blip"),
         Outcome::Internal("not retryable"),
     ]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let _ = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
-        .expect_err("Internal is terminal");
+        .err()
+        .ok_or("Internal is terminal")?;
     assert_eq!(inner.call_count(), 2);
+    Ok(())
 }
 
 /// @covers: classify(ResourceExhausted RateLimit) — retried on rate-limit track.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_resource_exhausted_rate_limit_retries_on_rate_limit_track() {
+async fn test_resource_exhausted_rate_limit_retries_on_rate_limit_track(
+) -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![
         Outcome::Status(GrpcStatusCode::ResourceExhausted, "rate limit exceeded"),
         Outcome::Status(GrpcStatusCode::ResourceExhausted, "rate limit exceeded"),
@@ -293,46 +306,49 @@ async fn test_resource_exhausted_rate_limit_retries_on_rate_limit_track() {
             rate_limit_initial_backoff_ms = 1
             rate_limit_max_backoff_ms = 100
         "#,
-    )
-    .unwrap();
+    )?;
     let client = wrap_with(SharedClient::new(inner.clone()), cfg);
     let resp = client
         .call_unary(make_request(Duration::from_secs(5)))
-        .await
-        .expect("eventually ok");
+        .await?;
     assert_eq!(resp.body, b"ok");
     assert_eq!(inner.call_count(), 3);
+    Ok(())
 }
 
 /// @covers: classify(ResourceExhausted HardQuota) — never retried.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_resource_exhausted_hard_quota_is_terminal() {
+async fn test_resource_exhausted_hard_quota_is_terminal() -> Result<(), Box<dyn std::error::Error>>
+{
     let inner = Arc::new(ScriptedClient::new(vec![
         Outcome::Status(GrpcStatusCode::ResourceExhausted, "quota exceeded"),
         Outcome::Ok,
     ]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let _ = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
-        .expect_err("HardQuota is terminal, must not succeed");
+        .err()
+        .ok_or("HardQuota is terminal, must not succeed")?;
     assert_eq!(inner.call_count(), 1, "HardQuota must not retry");
+    Ok(())
 }
 
 /// @covers: classify(ResourceExhausted Capacity) — retried on standard track.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_resource_exhausted_capacity_retries_on_standard_track() {
+async fn test_resource_exhausted_capacity_retries_on_standard_track(
+) -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ScriptedClient::new(vec![
         Outcome::Status(GrpcStatusCode::ResourceExhausted, "server overloaded"),
         Outcome::Ok,
     ]));
-    let client = wrap(inner.clone(), fast_config());
+    let client = wrap(inner.clone(), fast_config()?);
     let resp = client
         .call_unary(make_request(Duration::from_secs(5)))
-        .await
-        .expect("capacity exhausted retries on standard track");
+        .await?;
     assert_eq!(resp.body, b"ok");
     assert_eq!(inner.call_count(), 2);
+    Ok(())
 }
 
 /// @covers: deadline budget — retry stops when budget exhausted.
@@ -344,7 +360,8 @@ async fn test_resource_exhausted_capacity_retries_on_standard_track() {
 /// config allows up to 100 attempts, the retry loop must abandon
 /// when the deadline is exhausted.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_retry_honors_caller_deadline_as_total_budget() {
+async fn test_retry_honors_caller_deadline_as_total_budget(
+) -> Result<(), Box<dyn std::error::Error>> {
     struct Slow {
         calls: AtomicU32,
         per_call: Duration,
@@ -385,8 +402,7 @@ async fn test_retry_honors_caller_deadline_as_total_budget() {
             rate_limit_initial_backoff_ms = 10
             rate_limit_max_backoff_ms = 10
         "#,
-    )
-    .unwrap();
+    )?;
     let client = wrap_with(SharedSlow(stats.clone()), cfg);
 
     let total_budget = Duration::from_millis(200);
@@ -394,7 +410,8 @@ async fn test_retry_honors_caller_deadline_as_total_budget() {
     let _ = client
         .call_unary(make_request(total_budget))
         .await
-        .expect_err("budget exhausts");
+        .err()
+        .ok_or("budget exhausts")?;
     let elapsed = started.elapsed();
 
     let calls = stats.calls.load(Ordering::SeqCst);
@@ -411,6 +428,7 @@ async fn test_retry_honors_caller_deadline_as_total_budget() {
         elapsed < total_budget * 3,
         "retry loop ran for {elapsed:?}, far past budget {total_budget:?}",
     );
+    Ok(())
 }
 
 /// @covers: GrpcRetryConfig::section_name

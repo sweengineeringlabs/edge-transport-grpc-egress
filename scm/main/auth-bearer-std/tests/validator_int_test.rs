@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for the Validator trait and BearerEgressConfig validation.
 
 use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret};
@@ -30,42 +29,57 @@ fn test_validate_valid_config_returns_ok() {
 
 /// @covers: Validator::validate
 #[test]
-fn test_validate_empty_issuer_returns_err() {
+fn test_validate_empty_issuer_returns_err() -> Result<(), Box<dyn std::error::Error>> {
     use grpc_egress_auth_bearer::Validator;
     let mut config = make_valid_config();
     config.issuer = String::new();
     let result = config.validate();
     assert!(result.is_err(), "empty issuer must fail validation");
     assert!(
-        result.unwrap_err().to_string().contains("issuer"),
+        result
+            .err()
+            .ok_or("the call must fail")?
+            .to_string()
+            .contains("issuer"),
         "error must mention issuer"
     );
+    Ok(())
 }
 
 /// @covers: Validator::validate
 #[test]
-fn test_validate_empty_audience_returns_err() {
+fn test_validate_empty_audience_returns_err() -> Result<(), Box<dyn std::error::Error>> {
     use grpc_egress_auth_bearer::Validator;
     let mut config = make_valid_config();
     config.audience = String::new();
     let result = config.validate();
     assert!(result.is_err(), "empty audience must fail validation");
     assert!(
-        result.unwrap_err().to_string().contains("audience"),
+        result
+            .err()
+            .ok_or("the call must fail")?
+            .to_string()
+            .contains("audience"),
         "error must mention audience"
     );
+    Ok(())
 }
 
 /// @covers: Validator::validate
 #[test]
-fn test_validate_empty_subject_returns_err() {
+fn test_validate_empty_subject_returns_err() -> Result<(), Box<dyn std::error::Error>> {
     use grpc_egress_auth_bearer::Validator;
     let mut config = make_valid_config();
     config.subject = String::new();
     let result = config.validate();
     assert!(result.is_err(), "empty subject must fail validation");
     assert!(
-        result.unwrap_err().to_string().contains("subject"),
+        result
+            .err()
+            .ok_or("the call must fail")?
+            .to_string()
+            .contains("subject"),
         "error must mention subject"
     );
+    Ok(())
 }

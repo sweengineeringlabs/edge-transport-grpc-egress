@@ -19,4 +19,23 @@ pub enum PeerBehaviour {
         /// The bytes of the message as they travel, already compressed (or not valid at all).
         payload: Vec<u8>,
     },
+    /// Answer with no message and the `grpc-status` header `status`, written as given so that a value
+    /// that is no integer can be sent. `message` goes into `grpc-message`, and `retry_after_secs`
+    /// into `retry-after`.
+    ReplyStatus {
+        /// The `grpc-status` header value.
+        status: String,
+        /// The `grpc-message` header value, if any.
+        message: Option<String>,
+        /// The `retry-after` header value in seconds, if any.
+        retry_after_secs: Option<u64>,
+    },
+    /// Answer with exactly these body bytes, framed or not, announcing `encoding` in `grpc-encoding`
+    /// when it is given. For responses that are not valid gRPC frames.
+    ReplyRaw {
+        /// The response body as it travels.
+        body: Vec<u8>,
+        /// The `grpc-encoding` header value, if any.
+        encoding: Option<String>,
+    },
 }

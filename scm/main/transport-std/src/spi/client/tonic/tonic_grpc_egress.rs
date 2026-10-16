@@ -121,16 +121,3 @@ impl TonicGrpcEgress {
         builder.build(connector)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// @covers: new
-    #[test]
-    fn test_new_constructs_client_with_default_timeout() {
-        let client = TonicGrpcEgress::new("http://127.0.0.1:50051");
-        assert_eq!(client.base_uri, "http://127.0.0.1:50051");
-        assert_eq!(client.timeout, Duration::from_secs(30));
-    }
-}

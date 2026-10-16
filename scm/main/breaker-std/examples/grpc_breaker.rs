@@ -4,11 +4,6 @@
 //! constructs.
 //!
 //! [`StdGrpcBreakerFactory`]: grpc_egress_breaker_std::StdGrpcBreakerFactory
-#![allow(
-    clippy::expect_used,
-    reason = "example code, not production library code"
-)]
-
 use grpc_egress_transport_std::GrpcRequestFactory;
 
 use std::collections::HashMap;
@@ -66,7 +61,7 @@ fn request() -> GrpcRequest {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let should_fail = Arc::new(AtomicBool::new(true));
 
@@ -79,8 +74,7 @@ async fn main() {
         cool_down_seconds: 1,
         half_open_probe_count: 1,
     })
-    .build(BuildGrpcBreakerRequest { inner: upstream })
-    .expect("build must succeed for a valid config");
+    .build(BuildGrpcBreakerRequest { inner: upstream })?;
 
     // Two real failures reach the upstream and trip the breaker.
     for attempt in 1..=2 {
@@ -117,4 +111,5 @@ async fn main() {
         "the half-open probe must reach the upstream and succeed"
     );
     println!("confirmed: breaker transitioned Open -> HalfOpen -> Closed for real");
+    Ok(())
 }
