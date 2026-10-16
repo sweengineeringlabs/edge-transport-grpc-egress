@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for `ResilientTransportError`, produced by
 //! [`StdGrpcResilientFactory::build`].
 

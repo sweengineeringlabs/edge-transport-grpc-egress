@@ -45,34 +45,3 @@ impl GrpcBreakerConfigProvider for GrpcBreakerConfig {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_default_has_positive_baseline_values() {
-        let cfg = GrpcBreakerConfig::default();
-        assert_eq!(cfg.failure_threshold, 5);
-        assert_eq!(cfg.cool_down_seconds, 30);
-        assert_eq!(cfg.half_open_probe_count, 1);
-    }
-
-    /// @covers: cool_down
-    #[test]
-    fn test_cool_down_converts_seconds_to_duration() {
-        let cfg = GrpcBreakerConfig {
-            failure_threshold: 1,
-            cool_down_seconds: 42,
-            half_open_probe_count: 1,
-        };
-        assert_eq!(cfg.cool_down(), Duration::from_secs(42));
-    }
-
-    /// @covers: from_config
-    #[test]
-    fn test_from_config_rejects_invalid_toml() {
-        let err = GrpcBreakerConfig::from_config("not valid toml {{{").unwrap_err();
-        assert!(matches!(err, Error::ParseFailed(_)));
-    }
-}

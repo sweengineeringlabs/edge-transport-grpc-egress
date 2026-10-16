@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for `GrpcEgress` (via `create_transport_from_config`).
 //!
 //! Tests spin up a minimal in-process HTTP/2 echo server using `hyper_util`.
@@ -23,9 +22,10 @@ use grpc_egress_transport::{
     GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
 };
 
-fn make_client(addr: SocketAddr) -> Arc<dyn GrpcEgress> {
-    ClientFixture::from_config(&GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext())
-        .expect("create_transport_from_config")
+fn make_client(addr: SocketAddr) -> Result<Arc<dyn GrpcEgress>, Box<dyn std::error::Error>> {
+    Ok(ClientFixture::from_config(
+        &GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext(),
+    )?)
 }
 
 // ── gRPC frame helpers (duplicated here to keep test self-contained) ─────────
@@ -55,17 +55,17 @@ fn decode_frames(mut data: Bytes) -> Vec<Vec<u8>> {
 // ── test server helpers ───────────────────────────────────────────────────────
 
 /// Bind to an OS-assigned port and return the address.
-async fn bind_listener() -> tokio::net::TcpListener {
-    tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind test listener")
+async fn bind_listener() -> Result<tokio::net::TcpListener, Box<dyn std::error::Error>> {
+    Ok(tokio::net::TcpListener::bind("127.0.0.1:0").await?)
 }
 
 /// Spawn an echo gRPC server that reflects every request frame back as a response frame.
 ///
 /// Returns the bound `SocketAddr`.
-async fn spawn_echo_server(listener: tokio::net::TcpListener) -> SocketAddr {
-    let addr = listener.local_addr().expect("local_addr");
+async fn spawn_echo_server(
+    listener: tokio::net::TcpListener,
+) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+    let addr = listener.local_addr()?;
 
     tokio::spawn(async move {
         loop {
@@ -83,8 +83,12 @@ async fn spawn_echo_server(listener: tokio::net::TcpListener) -> SocketAddr {
                             hyper::service::service_fn(
                                 |req: http::Request<hyper::body::Incoming>| async {
                                     // Collect body bytes.
-                                    let collected = req.into_body().collect().await.unwrap();
-                                    let body_bytes = collected.to_bytes();
+                                    let body_bytes = req
+                                        .into_body()
+                                        .collect()
+                                        .await
+                                        .map(|collected| collected.to_bytes())
+                                        .unwrap_or_default();
 
                                     // Decode frames and re-encode the payloads as response frames.
                                     let frames = decode_frames(body_bytes);
@@ -97,10 +101,9 @@ async fn spawn_echo_server(listener: tokio::net::TcpListener) -> SocketAddr {
                                         .status(200)
                                         .header(http::header::CONTENT_TYPE, "application/grpc")
                                         .header("grpc-status", "0")
-                                        .body(Full::new(resp_buf.freeze()))
-                                        .unwrap();
+                                        .body(Full::new(resp_buf.freeze()))?;
 
-                                    Ok::<_, Infallible>(resp)
+                                    Ok::<_, http::Error>(resp)
                                 },
                             ),
                         )
@@ -109,12 +112,14 @@ async fn spawn_echo_server(listener: tokio::net::TcpListener) -> SocketAddr {
         }
     });
 
-    addr
+    Ok(addr)
 }
 
 /// Spawn a server that always responds with grpc-status=13 (Internal).
-async fn spawn_error_server(listener: tokio::net::TcpListener) -> SocketAddr {
-    let addr = listener.local_addr().expect("local_addr");
+async fn spawn_error_server(
+    listener: tokio::net::TcpListener,
+) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+    let addr = listener.local_addr()?;
 
     tokio::spawn(async move {
         loop {
@@ -135,9 +140,8 @@ async fn spawn_error_server(listener: tokio::net::TcpListener) -> SocketAddr {
                                         .header(http::header::CONTENT_TYPE, "application/grpc")
                                         .header("grpc-status", "13")
                                         .header("grpc-message", "server-side error")
-                                        .body(Full::new(Bytes::new()))
-                                        .unwrap();
-                                    Ok::<_, Infallible>(resp)
+                                        .body(Full::new(Bytes::new()))?;
+                                    Ok::<_, http::Error>(resp)
                                 },
                             ),
                         )
@@ -146,13 +150,15 @@ async fn spawn_error_server(listener: tokio::net::TcpListener) -> SocketAddr {
         }
     });
 
-    addr
+    Ok(addr)
 }
 
 /// Spawn a gRPC server that accepts HTTP/2 connections but never sends a response.
 /// Used to verify that the client's timeout fires correctly.
-async fn spawn_stalling_grpc_server(listener: tokio::net::TcpListener) -> SocketAddr {
-    let addr = listener.local_addr().expect("local_addr");
+async fn spawn_stalling_grpc_server(
+    listener: tokio::net::TcpListener,
+) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+    let addr = listener.local_addr()?;
 
     tokio::spawn(async move {
         loop {
@@ -170,12 +176,9 @@ async fn spawn_stalling_grpc_server(listener: tokio::net::TcpListener) -> Socket
                                 |_req: http::Request<hyper::body::Incoming>| async {
                                     // Complete the HTTP/2 handshake but never return a response.
                                     tokio::time::sleep(Duration::from_secs(60)).await;
-                                    Ok::<_, Infallible>(
-                                        http::Response::builder()
-                                            .status(200)
-                                            .body(http_body_util::Full::new(bytes::Bytes::new()))
-                                            .unwrap(),
-                                    )
+                                    http::Response::builder()
+                                        .status(200)
+                                        .body(http_body_util::Full::new(bytes::Bytes::new()))
                                 },
                             ),
                         )
@@ -184,12 +187,14 @@ async fn spawn_stalling_grpc_server(listener: tokio::net::TcpListener) -> Socket
         }
     });
 
-    addr
+    Ok(addr)
 }
 
 /// Spawn a server that echoes request frames back and sends custom metadata as HTTP/2 trailers.
-async fn spawn_metadata_server(listener: tokio::net::TcpListener) -> SocketAddr {
-    let addr = listener.local_addr().expect("local_addr");
+async fn spawn_metadata_server(
+    listener: tokio::net::TcpListener,
+) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+    let addr = listener.local_addr()?;
 
     tokio::spawn(async move {
         loop {
@@ -205,8 +210,12 @@ async fn spawn_metadata_server(listener: tokio::net::TcpListener) -> SocketAddr 
                             io,
                             hyper::service::service_fn(
                                 |req: http::Request<hyper::body::Incoming>| async {
-                                    let collected = req.into_body().collect().await.unwrap();
-                                    let body_bytes = collected.to_bytes();
+                                    let body_bytes = req
+                                        .into_body()
+                                        .collect()
+                                        .await
+                                        .map(|collected| collected.to_bytes())
+                                        .unwrap_or_default();
                                     let frames = decode_frames(body_bytes);
                                     let mut resp_buf = BytesMut::new();
                                     for f in &frames {
@@ -231,10 +240,9 @@ async fn spawn_metadata_server(listener: tokio::net::TcpListener) -> SocketAddr 
                                     let resp = http::Response::builder()
                                         .status(200)
                                         .header(http::header::CONTENT_TYPE, "application/grpc")
-                                        .body(body.boxed())
-                                        .unwrap();
+                                        .body(body.boxed())?;
 
-                                    Ok::<_, Infallible>(resp)
+                                    Ok::<_, http::Error>(resp)
                                 },
                             ),
                         )
@@ -243,7 +251,7 @@ async fn spawn_metadata_server(listener: tokio::net::TcpListener) -> SocketAddr 
         }
     });
 
-    addr
+    Ok(addr)
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -262,34 +270,34 @@ fn ensure_rustls_provider() {
 
 /// @covers: TonicGrpcEgress::call_unary — happy path echo.
 #[tokio::test]
-async fn transport_struct_call_unary_sends_request_and_receives_response() {
+async fn transport_struct_call_unary_sends_request_and_receives_response(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("echo/Echo", b"hello".to_vec(), Duration::from_secs(5));
 
-    let resp = client
-        .call_unary(req)
-        .await
-        .expect("call_unary should succeed");
+    let resp = client.call_unary(req).await?;
     assert_eq!(resp.body, b"hello");
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::call_unary — grpc-status 13 maps to Status(Internal, _).
 #[tokio::test]
-async fn transport_struct_call_unary_propagates_grpc_error_status() {
-    let listener = bind_listener().await;
-    let addr = spawn_error_server(listener).await;
+async fn transport_struct_call_unary_propagates_grpc_error_status(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_error_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("echo/Echo", b"ping".to_vec(), Duration::from_secs(5));
 
     let result = client.call_unary(req).await;
     assert!(result.is_err(), "expected Err for grpc-status 13, got Ok");
-    match result.unwrap_err() {
+    match result.err().ok_or("the call must fail")? {
         GrpcEgressError::Status(GrpcStatusCode::Internal, msg) => {
             // server-side message comes through grpc-message verbatim
             assert!(
@@ -299,16 +307,17 @@ async fn transport_struct_call_unary_propagates_grpc_error_status() {
         }
         other => panic!("expected Status(Internal, _), got {other:?}"),
     }
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::call_stream — multiple frames echoed back.
 #[tokio::test]
-async fn test_call_stream_multiple_frames_happy() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_stream_multiple_frames_happy() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![
             Ok(b"frame1".to_vec()),
@@ -323,8 +332,7 @@ async fn test_call_stream_multiple_frames_happy() {
             metadata: HashMap::new(),
             messages,
         })
-        .await
-        .expect("call_stream should succeed");
+        .await?;
     let mut resp_stream = resp_stream.stream;
 
     let mut items: Vec<Vec<u8>> = Vec::new();
@@ -332,13 +340,14 @@ async fn test_call_stream_multiple_frames_happy() {
         use futures::StreamExt as _;
         resp_stream.next().await
     } {
-        items.push(item.expect("stream item should be Ok"));
+        items.push(item?);
     }
 
     assert_eq!(items.len(), 3, "expected 3 frames, got {}", items.len());
     assert_eq!(items[0], b"frame1");
     assert_eq!(items[1], b"frame2");
     assert_eq!(items[2], b"frame3");
+    Ok(())
 }
 
 /// @covers: call_stream
@@ -370,12 +379,12 @@ async fn test_call_stream_default_impl_unimplemented_error() {
 
 /// @covers: call_stream
 #[tokio::test]
-async fn test_call_stream_empty_message_list_edge() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_stream_empty_message_list_edge() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(Vec::<Result<Vec<u8>, GrpcEgressError>>::new())),
     };
@@ -386,8 +395,7 @@ async fn test_call_stream_empty_message_list_edge() {
             metadata: HashMap::new(),
             messages,
         })
-        .await
-        .expect("call_stream should succeed even with zero request frames");
+        .await?;
     let mut resp_stream = resp_stream.stream;
 
     use futures::StreamExt as _;
@@ -395,40 +403,37 @@ async fn test_call_stream_empty_message_list_edge() {
         resp_stream.next().await.is_none(),
         "an empty request stream must yield an empty response stream"
     );
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::health_check — succeeds when server is listening.
 #[tokio::test]
-async fn test_health_check_server_listening_happy() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_health_check_server_listening_happy() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
-    client
-        .health_check(HealthCheckRequest)
-        .await
-        .expect("health_check should succeed when port is open");
+    let client = make_client(addr)?;
+    client.health_check(HealthCheckRequest).await?;
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::health_check — fails when nothing is listening.
 #[tokio::test]
-async fn test_health_check_no_server_listening_error() {
+async fn test_health_check_no_server_listening_error() -> Result<(), Box<dyn std::error::Error>> {
     // Bind to get an OS-assigned port, then drop the listener so nothing is listening on it.
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind");
-    let addr = listener.local_addr().expect("local_addr");
+    let listener = bind_listener().await?;
+    let addr = listener.local_addr()?;
     drop(listener);
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let result = client.health_check(HealthCheckRequest).await;
     assert!(
         result.is_err(),
         "expected Err when nothing is listening, got Ok"
     );
-    match result.unwrap_err() {
+    match result.err().ok_or("the call must fail")? {
         GrpcEgressError::Unavailable(msg) => {
             assert!(
                 msg.contains(&addr.port().to_string()),
@@ -437,24 +442,21 @@ async fn test_health_check_no_server_listening_error() {
         }
         other => panic!("expected Unavailable error, got {other:?}"),
     }
+    Ok(())
 }
 
 /// @covers: health_check
 #[tokio::test]
-async fn test_health_check_repeated_calls_are_idempotent_edge() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_health_check_repeated_calls_are_idempotent_edge(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
-    client
-        .health_check(HealthCheckRequest)
-        .await
-        .expect("first health_check call");
-    client
-        .health_check(HealthCheckRequest)
-        .await
-        .expect("second health_check call must not be affected by the first");
+    let client = make_client(addr)?;
+    client.health_check(HealthCheckRequest).await?;
+    client.health_check(HealthCheckRequest).await?;
+    Ok(())
 }
 
 // ── value-object regression tests (kept from original file) ──────────────────
@@ -486,18 +488,16 @@ fn transport_struct_grpc_response_holds_body_bytes_int_test() {
 
 /// @covers: TonicGrpcEgress::call_unary — response metadata from HTTP/2 trailers is preserved.
 #[tokio::test]
-async fn transport_struct_call_unary_receives_response_metadata_from_trailers() {
-    let listener = bind_listener().await;
-    let addr = spawn_metadata_server(listener).await;
+async fn transport_struct_call_unary_receives_response_metadata_from_trailers(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_metadata_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("echo/Echo", b"hi".to_vec(), Duration::from_secs(5));
 
-    let resp = client
-        .call_unary(req)
-        .await
-        .expect("call_unary should succeed");
+    let resp = client.call_unary(req).await?;
     assert_eq!(resp.body, b"hi", "body must be echoed");
     assert_eq!(
         resp.metadata.get("x-response-id").map(String::as_str),
@@ -505,43 +505,48 @@ async fn transport_struct_call_unary_receives_response_metadata_from_trailers() 
         "x-response-id trailer must be present in response metadata; got: {:?}",
         resp.metadata
     );
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::call_unary — timeout fires when server does not respond.
 #[tokio::test]
-async fn transport_struct_call_unary_returns_timeout_error_when_server_stalls() {
-    let listener = bind_listener().await;
-    let addr = spawn_stalling_grpc_server(listener).await;
+async fn transport_struct_call_unary_returns_timeout_error_when_server_stalls(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_stalling_grpc_server(listener).await?;
 
     // Per-call deadline drives the timeout for unary now.
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("svc/Method", b"ping".to_vec(), Duration::from_millis(80));
     let result = client.call_unary(req).await;
     assert!(
         matches!(result, Err(GrpcEgressError::Timeout(_))),
         "expected Timeout, got {result:?}"
     );
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::call_unary — ConnectionFailed when nothing listens on the port.
 #[tokio::test]
-async fn transport_struct_call_unary_returns_connection_failed_when_no_server_is_listening() {
+async fn transport_struct_call_unary_returns_connection_failed_when_no_server_is_listening(
+) -> Result<(), Box<dyn std::error::Error>> {
     let addr = {
-        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let a = l.local_addr().unwrap();
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let a = l.local_addr()?;
         drop(l);
         a
     };
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("svc/Method", b"ping".to_vec(), Duration::from_secs(5));
     let result = client.call_unary(req).await;
     assert!(
         matches!(result, Err(GrpcEgressError::ConnectionFailed(_))),
         "expected ConnectionFailed, got {result:?}"
     );
+    Ok(())
 }
 
 // ── Phase 1 enrichment: deadlines, cancellation, status mapping ──────────────
@@ -552,8 +557,8 @@ use std::sync::Mutex;
 /// request, so tests can assert that the egress side really sent it.
 async fn spawn_timeout_recording_server(
     listener: tokio::net::TcpListener,
-) -> (SocketAddr, Arc<Mutex<Option<String>>>) {
-    let addr = listener.local_addr().expect("local_addr");
+) -> Result<(SocketAddr, Arc<Mutex<Option<String>>>), Box<dyn std::error::Error>> {
+    let addr = listener.local_addr()?;
     let captured = Arc::new(Mutex::new(None::<String>));
     let cap = captured.clone();
     tokio::spawn(async move {
@@ -575,11 +580,17 @@ async fn spawn_timeout_recording_server(
                                     async move {
                                         if let Some(v) = req.headers().get("grpc-timeout") {
                                             if let Ok(s) = v.to_str() {
-                                                *cap.lock().unwrap() = Some(s.to_owned());
+                                                *cap.lock().unwrap_or_else(
+                                                    std::sync::PoisonError::into_inner,
+                                                ) = Some(s.to_owned());
                                             }
                                         }
-                                        let collected = req.into_body().collect().await.unwrap();
-                                        let body_bytes = collected.to_bytes();
+                                        let body_bytes = req
+                                            .into_body()
+                                            .collect()
+                                            .await
+                                            .map(|collected| collected.to_bytes())
+                                            .unwrap_or_default();
                                         let frames = decode_frames(body_bytes);
                                         let mut buf = BytesMut::new();
                                         for f in frames {
@@ -589,9 +600,8 @@ async fn spawn_timeout_recording_server(
                                             .status(200)
                                             .header(http::header::CONTENT_TYPE, "application/grpc")
                                             .header("grpc-status", "0")
-                                            .body(Full::new(buf.freeze()))
-                                            .unwrap();
-                                        Ok::<_, Infallible>(resp)
+                                            .body(Full::new(buf.freeze()))?;
+                                        Ok::<_, http::Error>(resp)
                                     }
                                 },
                             ),
@@ -600,29 +610,30 @@ async fn spawn_timeout_recording_server(
             });
         }
     });
-    (addr, captured)
+    Ok((addr, captured))
 }
 
 /// @covers: TonicGrpcEgress::call_unary — request carries `grpc-timeout` header
 /// derived from the GrpcRequest deadline.
 #[tokio::test]
-async fn transport_struct_call_unary_sends_grpc_timeout_header_from_deadline() {
-    let listener = bind_listener().await;
-    let (addr, captured) = spawn_timeout_recording_server(listener).await;
+async fn transport_struct_call_unary_sends_grpc_timeout_header_from_deadline(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let (addr, captured) = spawn_timeout_recording_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("svc/Method", b"x".to_vec(), Duration::from_secs(2));
-    client
-        .call_unary(req)
-        .await
-        .expect("call_unary should succeed");
+    client.call_unary(req).await?;
 
-    let header = captured.lock().unwrap().clone();
-    let header = header.expect("server must have observed a grpc-timeout header");
+    let header = captured.lock().map_err(|e| e.to_string())?.clone();
+    let header = header.ok_or("the server must have observed a grpc-timeout header")?;
     // The encoder may pick any unit; just verify it ends with one of the standard suffixes
     // and parses to a non-empty positive value.
-    let last = header.chars().last().expect("non-empty header");
+    let last = header
+        .chars()
+        .last()
+        .ok_or("the header must not be empty")?;
     assert!(
         "nuMSmH".contains(last),
         "unexpected unit suffix in {header}"
@@ -633,20 +644,22 @@ async fn transport_struct_call_unary_sends_grpc_timeout_header_from_deadline() {
         value > 0,
         "grpc-timeout value must be positive, got {header}"
     );
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::call_unary — caller-supplied cancellation token aborts
 /// the in-flight request and yields `Cancelled` rather than `Timeout`.
 #[tokio::test]
-async fn transport_struct_call_unary_cancellation_token_aborts_in_flight_request() {
+async fn transport_struct_call_unary_cancellation_token_aborts_in_flight_request(
+) -> Result<(), Box<dyn std::error::Error>> {
     use tokio_util::sync::CancellationToken;
 
-    let listener = bind_listener().await;
-    let addr = spawn_stalling_grpc_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_stalling_grpc_server(listener).await?;
 
     // Long deadline so timeout doesn't beat us; cancellation must win.
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let token = CancellationToken::new();
     let req = GrpcRequest::new("svc/Method", b"x".to_vec(), Duration::from_secs(60))
         .with_cancellation(token.clone());
@@ -658,7 +671,7 @@ async fn transport_struct_call_unary_cancellation_token_aborts_in_flight_request
     });
 
     let result = client.call_unary(req).await;
-    cancel_handle.await.unwrap();
+    cancel_handle.await?;
 
     match result {
         Err(GrpcEgressError::Cancelled(msg)) => {
@@ -669,6 +682,7 @@ async fn transport_struct_call_unary_cancellation_token_aborts_in_flight_request
         }
         other => panic!("expected Cancelled, got {other:?}"),
     }
+    Ok(())
 }
 
 /// @covers: GrpcEgressError::Status — all 17 GrpcStatusCode variants round-trip
@@ -713,25 +727,26 @@ fn transport_struct_status_error_round_trips_all_17_grpc_status_code_variants_in
 /// Failure mode: if `call_unary_with_context` drops the request or returns a different
 /// body, the `assert_eq!` on `resp.body` will fail.
 #[tokio::test]
-async fn test_call_unary_with_context_echoes_body_happy() {
+async fn test_call_unary_with_context_echoes_body_happy() -> Result<(), Box<dyn std::error::Error>>
+{
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("echo/Echo", b"ctx-payload".to_vec(), Duration::from_secs(5));
     let ctx = SecurityContext::unauthenticated();
 
     let resp = client
         .call_unary_with_context(CallUnaryWithContextRequest { request: req, ctx })
-        .await
-        .expect("call_unary_with_context should succeed against echo server");
+        .await?;
 
     assert_eq!(
         resp.body, b"ctx-payload",
         "call_unary_with_context must echo the request body; got {:?}",
         resp.body
     );
+    Ok(())
 }
 
 /// @covers: GrpcEgress::call_unary_with_context — authenticated context is accepted without error.
@@ -739,12 +754,13 @@ async fn test_call_unary_with_context_echoes_body_happy() {
 /// Failure mode: if the context type is incompatible or the method panics on a
 /// non-unauthenticated context, this test will fail.
 #[tokio::test]
-async fn transport_struct_call_unary_with_context_accepts_authenticated_context() {
+async fn transport_struct_call_unary_with_context_accepts_authenticated_context(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new(
         "echo/Echo",
         b"auth-payload".to_vec(),
@@ -756,14 +772,14 @@ async fn transport_struct_call_unary_with_context_accepts_authenticated_context(
 
     let resp = client
         .call_unary_with_context(CallUnaryWithContextRequest { request: req, ctx })
-        .await
-        .expect("call_unary_with_context must succeed with authenticated-like context");
+        .await?;
 
     assert_eq!(
         resp.body, b"auth-payload",
         "response body must match the request payload; got {:?}",
         resp.body
     );
+    Ok(())
 }
 
 /// @covers: GrpcEgress::call_unary_with_context — propagates error from call_unary
@@ -772,12 +788,13 @@ async fn transport_struct_call_unary_with_context_accepts_authenticated_context(
 /// Failure mode: if `call_unary_with_context` swallows the error instead of
 /// forwarding the `call_unary` result, this test will fail.
 #[tokio::test]
-async fn test_call_unary_with_context_propagates_grpc_error_status_error() {
+async fn test_call_unary_with_context_propagates_grpc_error_status_error(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_error_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_error_server(listener).await?;
 
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("echo/Echo", b"ping".to_vec(), Duration::from_secs(5));
     let ctx = SecurityContext::unauthenticated();
 
@@ -788,7 +805,7 @@ async fn test_call_unary_with_context_propagates_grpc_error_status_error() {
         result.is_err(),
         "call_unary_with_context must propagate grpc-status 13 as Err; got Ok"
     );
-    match result.unwrap_err() {
+    match result.err().ok_or("the call must fail")? {
         GrpcEgressError::Status(GrpcStatusCode::Internal, msg) => {
             assert!(
                 msg.contains("server-side error"),
@@ -797,6 +814,7 @@ async fn test_call_unary_with_context_propagates_grpc_error_status_error() {
         }
         other => panic!("expected Status(Internal, _), got {other:?}"),
     }
+    Ok(())
 }
 
 /// @covers: GrpcEgress::call_unary_with_context — timeout fires when server does not respond.
@@ -804,12 +822,12 @@ async fn test_call_unary_with_context_propagates_grpc_error_status_error() {
 /// Failure mode: if `call_unary_with_context` bypasses the deadline from the request,
 /// this test will hang past the deadline and eventually return Ok instead of Timeout.
 #[tokio::test]
-async fn test_call_unary_with_context_timeout_edge() {
+async fn test_call_unary_with_context_timeout_edge() -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let listener = bind_listener().await;
-    let addr = spawn_stalling_grpc_server(listener).await;
+    let listener = bind_listener().await?;
+    let addr = spawn_stalling_grpc_server(listener).await?;
 
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("svc/Method", b"ping".to_vec(), Duration::from_millis(80));
     let ctx = SecurityContext::unauthenticated();
 
@@ -820,6 +838,7 @@ async fn test_call_unary_with_context_timeout_edge() {
         matches!(result, Err(GrpcEgressError::Timeout(_))),
         "call_unary_with_context must propagate Timeout from call_unary; got {result:?}"
     );
+    Ok(())
 }
 
 /// @covers: GrpcEgress::call_unary_with_context — ConnectionFailed when nothing listens.
@@ -828,16 +847,16 @@ async fn test_call_unary_with_context_timeout_edge() {
 /// we'd get Ok or a different error variant instead.
 #[tokio::test]
 async fn transport_struct_call_unary_with_context_returns_connection_failed_when_no_server_is_listening(
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     let addr = {
-        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let a = l.local_addr().unwrap();
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        let a = l.local_addr()?;
         drop(l);
         a
     };
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("svc/Method", b"ping".to_vec(), Duration::from_secs(5));
     let ctx = SecurityContext::unauthenticated();
 
@@ -848,6 +867,7 @@ async fn transport_struct_call_unary_with_context_returns_connection_failed_when
         matches!(result, Err(GrpcEgressError::ConnectionFailed(_))),
         "call_unary_with_context must propagate ConnectionFailed; got {result:?}"
     );
+    Ok(())
 }
 
 /// @covers: TonicGrpcEgress::call_unary — sanitized message is on the wire when
@@ -855,13 +875,15 @@ async fn transport_struct_call_unary_with_context_returns_connection_failed_when
 /// by feeding a server that returns a malformed (truncated) gRPC frame in the
 /// response body.
 #[tokio::test]
-async fn transport_struct_call_unary_sanitizes_internal_error_message_on_truncated_response() {
-    use std::convert::Infallible;
-    let listener = bind_listener().await;
-    let addr = listener.local_addr().expect("local_addr");
+async fn transport_struct_call_unary_sanitizes_internal_error_message_on_truncated_response(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = listener.local_addr()?;
 
     tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.unwrap();
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
         let io = hyper_util::rt::TokioIo::new(stream);
         let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
             .serve_connection(
@@ -876,16 +898,15 @@ async fn transport_struct_call_unary_sanitizes_internal_error_message_on_truncat
                         .status(200)
                         .header(http::header::CONTENT_TYPE, "application/grpc")
                         .header("grpc-status", "0")
-                        .body(Full::new(buf.freeze()))
-                        .unwrap();
-                    Ok::<_, Infallible>(resp)
+                        .body(Full::new(buf.freeze()))?;
+                    Ok::<_, http::Error>(resp)
                 }),
             )
             .await;
     });
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     // call_stream is the path that decodes frames and surfaces the truncation.
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![Ok(b"x".to_vec())])),
@@ -912,35 +933,31 @@ async fn transport_struct_call_unary_sanitizes_internal_error_message_on_truncat
         }
         other => panic!("expected sanitized Internal error, got {other:?}"),
     }
+    Ok(())
 }
 
 // ── Named streaming variants ──────────────────────────────────────────────────
 
 /// @covers: call_server_stream
 #[tokio::test]
-async fn test_call_server_stream_single_request_happy() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_server_stream_single_request_happy() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new(
         "svc/ServerStream".to_string(),
         b"hello".to_vec(),
         std::time::Duration::from_secs(5),
     );
-    let mut stream = client
-        .call_server_stream(req)
-        .await
-        .expect("call_server_stream must succeed against echo server")
-        .stream;
+    let mut stream = client.call_server_stream(req).await?.stream;
 
     use futures::StreamExt;
     let frame = stream
         .next()
         .await
-        .expect("stream must yield at least one item")
-        .expect("frame must be Ok");
+        .ok_or("the stream ended before the message")??;
     assert_eq!(
         frame, b"hello",
         "echo server must reflect the request payload"
@@ -949,6 +966,7 @@ async fn test_call_server_stream_single_request_happy() {
         stream.next().await.is_none(),
         "echo server yields one frame per request"
     );
+    Ok(())
 }
 
 /// @covers: call_server_stream
@@ -974,40 +992,35 @@ async fn test_call_server_stream_default_impl_unimplemented_error() {
 
 /// @covers: call_server_stream
 #[tokio::test]
-async fn test_call_server_stream_empty_body_edge() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_server_stream_empty_body_edge() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let req = GrpcRequest::new("svc/ServerStream", Vec::new(), Duration::from_secs(5));
-    let mut stream = client
-        .call_server_stream(req)
-        .await
-        .expect("call_server_stream must succeed with an empty request body")
-        .stream;
+    let mut stream = client.call_server_stream(req).await?.stream;
 
     use futures::StreamExt;
     let frame = stream
         .next()
         .await
-        .expect("stream must yield one item")
-        .expect("frame must be Ok");
+        .ok_or("the stream ended before the message")??;
     assert!(
         frame.is_empty(),
         "echo server must reflect the empty request payload, got {frame:?}"
     );
+    Ok(())
 }
 
 /// @covers: call_client_stream
 #[tokio::test]
-async fn test_call_client_stream_multiple_frames_returns_the_one_reply_message_happy() {
-    let peer = PeerServer::start(PeerBehaviour::Reply(b"the-reply".to_vec()))
-        .await
-        .expect("peer must start");
+async fn test_call_client_stream_multiple_frames_returns_the_one_reply_message_happy(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let peer = PeerServer::start(PeerBehaviour::Reply(b"the-reply".to_vec())).await?;
 
     ensure_rustls_provider();
-    let client = make_client(peer.get_addr());
+    let client = make_client(peer.get_addr())?;
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![
             Ok(b"frame-1".to_vec()),
@@ -1020,16 +1033,16 @@ async fn test_call_client_stream_multiple_frames_returns_the_one_reply_message_h
             metadata: HashMap::new(),
             messages,
         })
-        .await
-        .expect("call_client_stream must succeed against a peer that replies once");
+        .await?;
 
     assert_eq!(response.body, b"the-reply");
     let requests = peer.get_recorded_requests();
     let frames = requests
         .first()
-        .expect("the peer got a request")
+        .ok_or("the peer saw no request")?
         .get_frames();
     assert_eq!(frames.len(), 2, "both request messages must be sent");
+    Ok(())
 }
 
 /// A client-streaming call has one reply message; a peer that sends two broke the protocol, and
@@ -1037,13 +1050,12 @@ async fn test_call_client_stream_multiple_frames_returns_the_one_reply_message_h
 ///
 /// @covers: call_client_stream
 #[tokio::test]
-async fn test_call_client_stream_peer_replying_with_two_messages_returns_internal_error() {
-    let peer = PeerServer::start(PeerBehaviour::Echo)
-        .await
-        .expect("peer must start");
+async fn test_call_client_stream_peer_replying_with_two_messages_returns_internal_error(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let peer = PeerServer::start(PeerBehaviour::Echo).await?;
 
     ensure_rustls_provider();
-    let client = make_client(peer.get_addr());
+    let client = make_client(peer.get_addr())?;
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![
             Ok(b"frame-1".to_vec()),
@@ -1062,6 +1074,7 @@ async fn test_call_client_stream_peer_replying_with_two_messages_returns_interna
         matches!(result, Err(GrpcEgressError::Internal(_))),
         "got {result:?}"
     );
+    Ok(())
 }
 
 /// @covers: call_client_stream
@@ -1091,12 +1104,12 @@ async fn test_call_client_stream_default_impl_unimplemented_error() {
 
 /// @covers: call_client_stream
 #[tokio::test]
-async fn test_call_client_stream_single_frame_edge() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_client_stream_single_frame_edge() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![Ok(b"only-frame".to_vec())])),
     };
@@ -1106,23 +1119,23 @@ async fn test_call_client_stream_single_frame_edge() {
             metadata: HashMap::new(),
             messages,
         })
-        .await
-        .expect("call_client_stream must succeed with exactly one request frame");
+        .await?;
     assert!(
         response.body.starts_with(b"only-frame"),
         "response body must start with the single echoed frame payload, got {:?}",
         response.body
     );
+    Ok(())
 }
 
 /// @covers: call_bidi_stream
 #[tokio::test]
-async fn test_call_bidi_stream_multiple_frames_happy() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_bidi_stream_multiple_frames_happy() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![
             Ok(b"alpha".to_vec()),
@@ -1135,27 +1148,25 @@ async fn test_call_bidi_stream_multiple_frames_happy() {
             metadata: HashMap::new(),
             messages,
         })
-        .await
-        .expect("call_bidi_stream must succeed against echo server")
+        .await?
         .stream;
 
     use futures::StreamExt;
     let frame1 = stream
         .next()
         .await
-        .expect("stream must yield frame 1")
-        .expect("Ok");
+        .ok_or("the stream ended before the message")??;
     let frame2 = stream
         .next()
         .await
-        .expect("stream must yield frame 2")
-        .expect("Ok");
+        .ok_or("the stream ended before the message")??;
     assert_eq!(frame1, b"alpha");
     assert_eq!(frame2, b"beta");
     assert!(
         stream.next().await.is_none(),
         "stream must be exhausted after 2 frames"
     );
+    Ok(())
 }
 
 /// @covers: call_bidi_stream
@@ -1186,12 +1197,12 @@ async fn test_call_bidi_stream_default_impl_unimplemented_error() {
 
 /// @covers: call_bidi_stream
 #[tokio::test]
-async fn test_call_bidi_stream_empty_frame_list_edge() {
-    let listener = bind_listener().await;
-    let addr = spawn_echo_server(listener).await;
+async fn test_call_bidi_stream_empty_frame_list_edge() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = bind_listener().await?;
+    let addr = spawn_echo_server(listener).await?;
 
     ensure_rustls_provider();
-    let client = make_client(addr);
+    let client = make_client(addr)?;
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(Vec::<Result<Vec<u8>, GrpcEgressError>>::new())),
     };
@@ -1201,8 +1212,7 @@ async fn test_call_bidi_stream_empty_frame_list_edge() {
             metadata: HashMap::new(),
             messages,
         })
-        .await
-        .expect("call_bidi_stream must succeed against echo server even with zero frames")
+        .await?
         .stream;
 
     use futures::StreamExt;
@@ -1210,6 +1220,7 @@ async fn test_call_bidi_stream_empty_frame_list_edge() {
         stream.next().await.is_none(),
         "an empty request stream must yield an empty response stream"
     );
+    Ok(())
 }
 
 // ── a minimal GrpcEgress implementor: exercises the default streaming methods ──

@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Compression-mode wire test for the egress client.
 //!
 //! Verifies the toggle works end-to-end: a server records the
@@ -8,6 +7,7 @@
 use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::convert::Infallible;
+use std::sync::PoisonError;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -37,22 +37,26 @@ fn encode_frame(payload: &[u8]) -> Bytes {
 
 /// @covers: tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_test  coverage.
 #[tokio::test]
-async fn tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_test() {
+async fn tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
     let recorded: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?;
 
     let recorded_for_server = recorded.clone();
     tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.unwrap();
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
         let io = hyper_util::rt::TokioIo::new(stream);
         let svc = hyper::service::service_fn(move |req: http::Request<hyper::body::Incoming>| {
             let recorded = recorded_for_server.clone();
             async move {
                 if let Some(v) = req.headers().get("grpc-encoding") {
                     if let Ok(s) = v.to_str() {
-                        *recorded.lock().unwrap() = Some(s.to_string());
+                        *recorded.lock().unwrap_or_else(PoisonError::into_inner) =
+                            Some(s.to_string());
                     }
                 }
                 let _ = req.collect().await;
@@ -63,13 +67,10 @@ async fn tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_tes
                     Ok(Frame::trailers(trailers)),
                 ];
                 let body = StreamBody::new(futures::stream::iter(frames)).boxed();
-                Ok::<_, Infallible>(
-                    http::Response::builder()
-                        .status(200)
-                        .header("content-type", "application/grpc")
-                        .body(body)
-                        .unwrap(),
-                )
+                http::Response::builder()
+                    .status(200)
+                    .header("content-type", "application/grpc")
+                    .body(body)
             }
         });
         let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
@@ -82,37 +83,41 @@ async fn tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_tes
         &GrpcChannelConfig::new(format!("http://{addr}"))
             .allow_plaintext()
             .with_compression(CompressionMode::Gzip),
-    )
-    .expect("transport");
+    )?;
     let req = GrpcRequest::new("svc/M", b"payload".to_vec(), Duration::from_secs(2));
-    let _ = client.call_unary(req).await.expect("call_unary");
+    let _ = client.call_unary(req).await?;
 
-    let value = recorded.lock().unwrap().clone();
+    let value = recorded.lock().map_err(|e| e.to_string())?.clone();
     assert_eq!(
         value.as_deref(),
         Some("gzip"),
         "client must advertise grpc-encoding=gzip when CompressionMode::Gzip is set",
     );
+    Ok(())
 }
 
 /// @covers: tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test  coverage.
 #[tokio::test]
-async fn tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test() {
+async fn tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
     let recorded: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?;
 
     let recorded_for_server = recorded.clone();
     tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.unwrap();
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
         let io = hyper_util::rt::TokioIo::new(stream);
         let svc = hyper::service::service_fn(move |req: http::Request<hyper::body::Incoming>| {
             let recorded = recorded_for_server.clone();
             async move {
                 if let Some(v) = req.headers().get("grpc-encoding") {
                     if let Ok(s) = v.to_str() {
-                        *recorded.lock().unwrap() = Some(s.to_string());
+                        *recorded.lock().unwrap_or_else(PoisonError::into_inner) =
+                            Some(s.to_string());
                     }
                 }
                 let _ = req.collect().await;
@@ -123,13 +128,10 @@ async fn tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test(
                     Ok(Frame::trailers(trailers)),
                 ];
                 let body = StreamBody::new(futures::stream::iter(frames)).boxed();
-                Ok::<_, Infallible>(
-                    http::Response::builder()
-                        .status(200)
-                        .header("content-type", "application/grpc")
-                        .body(body)
-                        .unwrap(),
-                )
+                http::Response::builder()
+                    .status(200)
+                    .header("content-type", "application/grpc")
+                    .body(body)
             }
         });
         let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
@@ -140,15 +142,15 @@ async fn tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test(
 
     let client = ClientFixture::from_config(
         &GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext(),
-    )
-    .expect("transport");
+    )?;
     let req = GrpcRequest::new("svc/M", b"payload".to_vec(), Duration::from_secs(2));
-    let _ = client.call_unary(req).await.expect("call_unary");
+    let _ = client.call_unary(req).await?;
 
-    let value = recorded.lock().unwrap().clone();
+    let value = recorded.lock().map_err(|e| e.to_string())?.clone();
     assert!(
         value.is_none(),
         "client must NOT set grpc-encoding when compression is None (got {:?})",
         value,
     );
+    Ok(())
 }

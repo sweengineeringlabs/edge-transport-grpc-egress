@@ -8,7 +8,7 @@ fn bearer_struct_jwt_claims_builder_builds_valid_claims_int_test() -> Result<(),
     let claims = JwtClaimsBuilder::new()
         .iss("iss")
         .aud("aud")
-        .sub("sub")
+        .subject("sub")
         .exp(9999999999)
         .iat(1000000000)
         .build()?;

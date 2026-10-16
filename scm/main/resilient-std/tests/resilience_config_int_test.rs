@@ -1,4 +1,3 @@
-#![allow(clippy::expect_used)]
 //! Integration tests for [`ResilienceConfig`] — this crate's own owned
 //! resilience policy shape (ADR-004: no longer a newtype over a foreign
 //! transport-crate type).
@@ -37,7 +36,7 @@ fn test_clone_is_independent_of_the_original_edge() {
 
 /// @covers: ResilienceConfig
 #[test]
-fn test_toml_round_trip_preserves_fields_happy() {
+fn test_toml_round_trip_preserves_fields_happy() -> Result<(), Box<dyn std::error::Error>> {
     let cfg = ResilienceConfig {
         max_attempts: 3,
         initial_backoff_ms: 10,
@@ -51,8 +50,9 @@ fn test_toml_round_trip_preserves_fields_happy() {
         cool_down_seconds: 10,
         half_open_probe_count: 2,
     };
-    let toml_text = toml::to_string(&cfg).expect("serialize");
-    let round_tripped: ResilienceConfig = toml::from_str(&toml_text).expect("deserialize");
+    let toml_text = toml::to_string(&cfg)?;
+    let round_tripped: ResilienceConfig = toml::from_str(&toml_text)?;
     assert_eq!(round_tripped.failure_threshold, 7);
     assert_eq!(round_tripped.max_attempts, 3);
+    Ok(())
 }

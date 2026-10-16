@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for the `GrpcEgress` impl on the retry client
 //! of `grpc-egress-retry-std`.
 
@@ -53,7 +52,7 @@ impl GrpcEgress for UnhealthyInner {
     }
 }
 
-fn no_retry_config() -> GrpcRetryConfig {
+fn no_retry_config() -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
     GrpcRetryConfig::from_config(
         r#"
             max_attempts = 1
@@ -66,39 +65,41 @@ fn no_retry_config() -> GrpcRetryConfig {
             rate_limit_max_backoff_ms = 1
         "#,
     )
-    .expect("valid config")
 }
 
 /// @covers: call_unary
 #[tokio::test]
-async fn test_call_unary_exhausts_single_attempt_and_reports_unavailable_happy() {
-    let client = wrap_with(AlwaysFail, no_retry_config());
+async fn test_call_unary_exhausts_single_attempt_and_reports_unavailable_happy(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let client = wrap_with(AlwaysFail, no_retry_config()?);
     let req = GrpcRequest::new("svc/M", vec![], std::time::Duration::from_secs(5));
     let result = client.call_unary(req).await;
     assert!(matches!(result, Err(GrpcEgressError::Unavailable(_))));
+    Ok(())
 }
 
 /// @covers: health_check
 #[tokio::test]
-async fn test_health_check_delegates_to_inner_error() {
-    let healthy = wrap_with(AlwaysFail, no_retry_config());
+async fn test_health_check_delegates_to_inner_error() -> Result<(), Box<dyn std::error::Error>> {
+    let healthy = wrap_with(AlwaysFail, no_retry_config()?);
     assert!(matches!(
         healthy.health_check(HealthCheckRequest).await,
         Ok(())
     ));
     // Negative counterpart: an unhealthy inner must surface as unhealthy —
     // proves this genuinely delegates rather than always returning Ok.
-    let unhealthy = wrap_with(UnhealthyInner, no_retry_config());
+    let unhealthy = wrap_with(UnhealthyInner, no_retry_config()?);
     assert!(matches!(
         unhealthy.health_check(HealthCheckRequest).await,
         Err(GrpcEgressError::Unavailable(_))
     ));
+    Ok(())
 }
 
 /// @covers: call_stream
 #[tokio::test]
-async fn test_call_stream_delegates_to_inner_edge() {
-    let client = wrap_with(AlwaysFail, no_retry_config());
+async fn test_call_stream_delegates_to_inner_edge() -> Result<(), Box<dyn std::error::Error>> {
+    let client = wrap_with(AlwaysFail, no_retry_config()?);
     let messages = grpc_egress_transport::GrpcMessageStreamResponse {
         stream: Box::pin(futures::stream::empty::<GrpcEgressResult<Vec<u8>>>()),
     };
@@ -110,4 +111,5 @@ async fn test_call_stream_delegates_to_inner_edge() {
         })
         .await;
     assert!(result.is_ok(), "AlwaysFail's call_stream always succeeds");
+    Ok(())
 }

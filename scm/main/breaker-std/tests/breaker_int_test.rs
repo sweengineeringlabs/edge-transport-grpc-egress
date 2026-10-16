@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for the gRPC circuit-breaker decorator.
 
 use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
@@ -10,8 +9,8 @@ use std::time::Duration;
 
 use futures::future::BoxFuture;
 use grpc_egress_breaker::{
-    BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
-    GrpcBreakerFactory, ObserveStateRequest,
+    BreakerDomainError, BreakerObservable, BreakerState, BuildGrpcBreakerRequest,
+    GrpcBreakerConfig, GrpcBreakerFactory, ObserveStateRequest,
 };
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_transport::{
@@ -25,7 +24,8 @@ use grpc_egress_transport::{
 /// breaker doesn't reach the inner client.
 struct ToggleClient {
     calls: AtomicU32,
-    /// Numeric mode: 0 = Ok, 1 = Status(Unavailable), 2 = Status(Internal).
+    /// Numeric mode: 0 = Ok, 1 = Status(Unavailable), 2 = Status(Internal), 3 = Status(PermissionDenied),
+    /// 4 = Status(ResourceExhausted), 5 = Timeout, 6 = ConnectionFailed.
     mode: std::sync::atomic::AtomicU8,
 }
 
@@ -68,6 +68,12 @@ impl GrpcEgress for Shared {
                     GrpcStatusCode::PermissionDenied,
                     "no".into(),
                 )),
+                4 => Err(GrpcEgressError::Status(
+                    GrpcStatusCode::ResourceExhausted,
+                    "slow down".into(),
+                )),
+                5 => Err(GrpcEgressError::Timeout("slow".into())),
+                6 => Err(GrpcEgressError::ConnectionFailed("refused".into())),
                 _ => unreachable!(),
             }
         })
@@ -77,7 +83,7 @@ impl GrpcEgress for Shared {
     }
 }
 
-fn fast_cfg() -> GrpcBreakerConfig {
+fn fast_cfg() -> Result<GrpcBreakerConfig, BreakerDomainError> {
     GrpcBreakerConfig::from_config(
         r#"
             failure_threshold = 3
@@ -85,24 +91,17 @@ fn fast_cfg() -> GrpcBreakerConfig {
             half_open_probe_count = 1
         "#,
     )
-    .unwrap()
 }
 
 fn build<T: GrpcEgress + Send + Sync + 'static>(
     inner: T,
     config: GrpcBreakerConfig,
-) -> impl GrpcEgress + BreakerObservable {
-    StdGrpcBreakerFactory::new(config)
-        .build(BuildGrpcBreakerRequest { inner })
-        .expect("the test policies are valid")
+) -> Result<impl GrpcEgress + BreakerObservable, BreakerDomainError> {
+    StdGrpcBreakerFactory::new(config).build(BuildGrpcBreakerRequest { inner })
 }
 
-async fn state_of(client: &impl BreakerObservable) -> BreakerState {
-    client
-        .state(ObserveStateRequest)
-        .await
-        .expect("observing the state is infallible")
-        .state
+async fn state_of(client: &impl BreakerObservable) -> Result<BreakerState, BreakerDomainError> {
+    Ok(client.state(ObserveStateRequest).await?.state)
 }
 
 fn make_request() -> GrpcRequest {
@@ -118,13 +117,14 @@ fn test_grpc_breaker_config_default_has_positive_failure_threshold() {
 
 /// @covers: StdGrpcBreakerFactory::build — passes through when Closed.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_closed_state_passes_through_success() {
+async fn test_closed_state_passes_through_success() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ToggleClient::new(0));
-    let client = build(Shared(inner.clone()), fast_cfg());
-    let resp = client.call_unary(make_request()).await.expect("ok");
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
+    let resp = client.call_unary(make_request()).await?;
     assert_eq!(resp.body, b"ok");
     assert_eq!(inner.call_count(), 1);
-    assert_eq!(state_of(&client).await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await?, BreakerState::Closed);
+    Ok(())
 }
 
 /// @covers: state machine — N failures trip Open; Open
@@ -133,15 +133,19 @@ async fn test_closed_state_passes_through_success() {
 /// **Acceptance test gate**: tripped state returns `Unavailable`
 /// immediately without calling inner (verify via call counter).
 #[tokio::test(flavor = "multi_thread")]
-async fn test_open_state_short_circuits_without_calling_inner() {
+async fn test_open_state_short_circuits_without_calling_inner(
+) -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = build(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
 
     // Trip it.
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
+    assert!(matches!(
+        state_of(&client).await?,
+        BreakerState::Open { .. }
+    ));
     assert_eq!(inner.call_count(), 3, "exactly the threshold trips it");
 
     // Subsequent calls must NOT reach inner.
@@ -149,7 +153,8 @@ async fn test_open_state_short_circuits_without_calling_inner() {
         let err = client
             .call_unary(make_request())
             .await
-            .expect_err("must reject");
+            .err()
+            .ok_or("must reject")?;
         assert!(matches!(err, GrpcEgressError::Unavailable(_)));
     }
     assert_eq!(
@@ -158,21 +163,26 @@ async fn test_open_state_short_circuits_without_calling_inner() {
         "Open state must NOT call inner ({} additional calls leaked)",
         inner.call_count() - 3,
     );
+    Ok(())
 }
 
 /// @covers: state machine — full lifecycle:
 /// closed → N failures → open → cool-down → half-open → success → closed.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_full_state_lifecycle_closed_open_half_open_closed() {
+async fn test_full_state_lifecycle_closed_open_half_open_closed(
+) -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = build(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
 
     // 1) Closed → Open after 3 failures.
-    assert_eq!(state_of(&client).await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await?, BreakerState::Closed);
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
+    assert!(matches!(
+        state_of(&client).await?,
+        BreakerState::Open { .. }
+    ));
 
     // 2) Cool-down: while in Open, reject without calling inner.
     let calls_when_opened = inner.call_count();
@@ -189,25 +199,26 @@ async fn test_full_state_lifecycle_closed_open_half_open_closed() {
     inner.set_mode(0);
 
     // 4) Open → HalfOpen probe → Closed.
-    let resp = client
-        .call_unary(make_request())
-        .await
-        .expect("probe ok closes breaker");
+    let resp = client.call_unary(make_request()).await?;
     assert_eq!(resp.body, b"ok");
-    assert_eq!(state_of(&client).await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await?, BreakerState::Closed);
+    Ok(())
 }
 
 /// @covers: state machine — half-open probe failure returns to Open.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_half_open_probe_failure_returns_to_open() {
+async fn test_half_open_probe_failure_returns_to_open() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ToggleClient::new(1));
-    let client = build(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
 
     // Trip to Open.
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
+    assert!(matches!(
+        state_of(&client).await?,
+        BreakerState::Open { .. }
+    ));
 
     // Wait past cool-down so the next call promotes to HalfOpen,
     // but keep the stub failing so the probe fails.
@@ -215,64 +226,113 @@ async fn test_half_open_probe_failure_returns_to_open() {
 
     let _ = client.call_unary(make_request()).await;
     assert!(
-        matches!(state_of(&client).await, BreakerState::Open { .. }),
+        matches!(state_of(&client).await?, BreakerState::Open { .. }),
         "failed probe must return to Open",
     );
+    Ok(())
 }
 
 /// @covers: failure_kind — auth failures do NOT trip the breaker.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_permission_denied_does_not_trip_breaker() {
+async fn test_permission_denied_does_not_trip_breaker() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ToggleClient::new(3)); // PermissionDenied
-    let client = build(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
 
     for _ in 0..10 {
         let _ = client.call_unary(make_request()).await;
     }
     assert_eq!(
-        state_of(&client).await,
+        state_of(&client).await?,
         BreakerState::Closed,
         "auth failures must not count toward the breaker threshold",
     );
     assert_eq!(inner.call_count(), 10);
+    Ok(())
+}
+
+/// @covers: failure_kind — rate limiting and the caller's own deadline do NOT trip the breaker.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_resource_exhausted_and_timeout_do_not_trip_breaker(
+) -> Result<(), Box<dyn std::error::Error>> {
+    for mode in [4, 5] {
+        let inner = Arc::new(ToggleClient::new(mode));
+        let client = build(Shared(inner.clone()), fast_cfg()?)?;
+
+        for _ in 0..10 {
+            let _ = client.call_unary(make_request()).await;
+        }
+
+        assert_eq!(
+            state_of(&client).await?,
+            BreakerState::Closed,
+            "mode {mode}"
+        );
+        assert_eq!(inner.call_count(), 10, "mode {mode}");
+    }
+    Ok(())
+}
+
+/// @covers: failure_kind — a refused connection counts as failure.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_connection_failed_counts_toward_threshold() -> Result<(), Box<dyn std::error::Error>>
+{
+    let inner = Arc::new(ToggleClient::new(6));
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
+
+    for _ in 0..3 {
+        let _ = client.call_unary(make_request()).await;
+    }
+
+    assert!(matches!(
+        state_of(&client).await?,
+        BreakerState::Open { .. }
+    ));
+    Ok(())
 }
 
 /// @covers: failure_kind — Internal status counts as failure.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_internal_counts_toward_threshold() {
+async fn test_internal_counts_toward_threshold() -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ToggleClient::new(2)); // Internal
-    let client = build(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
+    assert!(matches!(
+        state_of(&client).await?,
+        BreakerState::Open { .. }
+    ));
+    Ok(())
 }
 
 /// @covers: state — Closed reset on intermittent success.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_intermittent_success_keeps_breaker_closed() {
+async fn test_intermittent_success_keeps_breaker_closed() -> Result<(), Box<dyn std::error::Error>>
+{
     let inner = Arc::new(ToggleClient::new(1));
-    let client = build(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg()?)?;
 
     // 2 failures, then 1 success: counter resets.
     let _ = client.call_unary(make_request()).await;
     let _ = client.call_unary(make_request()).await;
     inner.set_mode(0);
     let _ = client.call_unary(make_request()).await;
-    assert_eq!(state_of(&client).await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await?, BreakerState::Closed);
 
     // Now 2 more failures: still Closed (was reset).
     inner.set_mode(1);
     let _ = client.call_unary(make_request()).await;
     let _ = client.call_unary(make_request()).await;
-    assert_eq!(state_of(&client).await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await?, BreakerState::Closed);
+    Ok(())
 }
 
 /// @covers: StdGrpcBreakerFactory::build
 #[tokio::test(flavor = "multi_thread")]
-async fn test_build_with_default_config_opens_at_the_default_threshold() {
+async fn test_build_with_default_config_opens_at_the_default_threshold(
+) -> Result<(), Box<dyn std::error::Error>> {
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = build(Shared(inner.clone()), GrpcBreakerConfig::default());
+    let client = build(Shared(inner.clone()), GrpcBreakerConfig::default())?;
     let default_cfg = GrpcBreakerConfig::default();
 
     // Drive exactly (default_cfg.failure_threshold - 1) failures: breaker
@@ -295,25 +355,28 @@ async fn test_build_with_default_config_opens_at_the_default_threshold() {
     let err = client
         .call_unary(make_request())
         .await
-        .expect_err("breaker must reject once open");
+        .err()
+        .ok_or("breaker must reject once open")?;
     assert!(matches!(err, GrpcEgressError::Unavailable(_)));
     assert_eq!(
         inner.call_count(),
         calls_at_threshold,
         "Open state must not call inner"
     );
+    Ok(())
 }
 
 /// @covers: StdGrpcBreakerFactory::build
 #[tokio::test(flavor = "multi_thread")]
-async fn test_build_with_supplied_config_opens_at_the_supplied_threshold() {
+async fn test_build_with_supplied_config_opens_at_the_supplied_threshold(
+) -> Result<(), Box<dyn std::error::Error>> {
     let cfg = GrpcBreakerConfig {
         failure_threshold: 3,
         cool_down_seconds: 5,
         half_open_probe_count: 1,
     };
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = build(Shared(inner.clone()), cfg);
+    let client = build(Shared(inner.clone()), cfg)?;
 
     // The supplied threshold is 3 — two failures must not yet trip it.
     for _ in 0..2 {
@@ -327,9 +390,11 @@ async fn test_build_with_supplied_config_opens_at_the_supplied_threshold() {
     let err = client
         .call_unary(make_request())
         .await
-        .expect_err("breaker must reject once open at the supplied threshold");
+        .err()
+        .ok_or("breaker must reject once open at the supplied threshold")?;
     assert!(matches!(err, GrpcEgressError::Unavailable(_)));
     assert_eq!(inner.call_count(), 3, "Open state must not call inner");
+    Ok(())
 }
 
 /// @covers: GrpcBreakerConfig::section_name

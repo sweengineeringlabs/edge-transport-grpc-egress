@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Coverage stub for `src/api/types/grpc/grpc_retry_config.rs`.
 
 use grpc_egress_retry::GrpcRetryConfig;
@@ -25,7 +24,8 @@ fn retry_struct_grpc_retry_config_default_passes_validation_int_test() {
 
 /// @covers: GrpcRetryConfig::from_config — parses TOML correctly
 #[test]
-fn retry_struct_grpc_retry_config_from_config_parses_full_toml_int_test() {
+fn retry_struct_grpc_retry_config_from_config_parses_full_toml_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     let toml = r#"
         max_attempts = 3
         initial_backoff_ms = 50
@@ -36,6 +36,7 @@ fn retry_struct_grpc_retry_config_from_config_parses_full_toml_int_test() {
         rate_limit_initial_backoff_ms = 100
         rate_limit_max_backoff_ms = 5000
     "#;
-    let cfg = GrpcRetryConfig::from_config(toml).expect("valid toml");
+    let cfg = GrpcRetryConfig::from_config(toml)?;
     assert_eq!(cfg.max_attempts, 3);
+    Ok(())
 }
