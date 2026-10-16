@@ -20,18 +20,15 @@ pub use client::{
 };
 pub use error::{GrpcChannelConfigError, GrpcEgressError};
 pub use traits::grpc_egress_interceptor::GrpcEgressInterceptor;
-pub use traits::resilient_grpc_client_port::ResilientGrpcClientPort;
 #[cfg(feature = "prost")]
 pub use traits::GrpcEgressProstCodec;
 pub use traits::{GrpcEgress, Processor};
 pub use types::ApplicationConfigBuilder;
 pub use types::{
-    AfterCallRequest, CallStreamRequest, CallUnaryWithContextRequest, CircuitStateRequest,
-    CircuitStateResponse, CompressionMode, ConsecutiveFailuresRequest, ConsecutiveFailuresResponse,
-    Conversions, DescribeRequest, DescribeResponse, GrpcChannelConfig, GrpcChannelConfigBuilder,
+    AfterCallRequest, CallStreamRequest, CallUnaryWithContextRequest, CompressionMode, Conversions,
+    DescribeRequest, DescribeResponse, GrpcChannelConfig, GrpcChannelConfigBuilder,
     GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
     GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest, KeepAliveConfig,
-    LastErrorRequest, LastErrorResponse, MtlsConfig, ProcessingRequest,
-    TraceContextGrpcEgressInterceptor, TraceContextSource, TransportSvc, DEFAULT_MAX_MESSAGE_BYTES,
-    DEFAULT_REQUEST_TIMEOUT_SECS,
+    MtlsConfig, ProcessingRequest, TraceContextGrpcEgressInterceptor, TraceContextSource,
+    TransportSvc, DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
