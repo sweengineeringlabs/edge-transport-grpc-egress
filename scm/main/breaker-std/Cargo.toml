@@ -19,21 +19,21 @@ application_type = "lib"
 service_type = "processor"
 
 [dependencies]
-grpc-egress-breaker = { workspace = true }
-grpc-egress-transport = { workspace = true }
-edge-transport-breaker-policy = { workspace = true }
-edge-transport-breaker        = { workspace = true }
-futures = { workspace = true }
+grpc-egress-breaker = { path = "../breaker" }
+grpc-egress-transport = { path = "../transport" }
+edge-transport-breaker-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
+edge-transport-breaker = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
+futures = "0.3"
 # `from_config` parses the policy from TOML; policy values live in `config/application.toml`
 # plus consumer overrides, never as literals in source.
-toml = { workspace = true }
-tokio = { workspace = true, features = ["sync", "time", "macros"] }
-tracing = { workspace = true }
+toml = "0.8"
+tokio = { version = "1.52", features = ["macros", "net", "rt", "sync", "time"] }
+tracing = "0.1"
 
 [dev-dependencies]
-swe-edge-configbuilder = { workspace = true }
-grpc-egress-transport-std = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "time"] }
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+grpc-egress-transport-std = { path = "../transport-std" }
+tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 
 
 [lints.rust]

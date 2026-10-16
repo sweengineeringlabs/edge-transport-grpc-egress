@@ -23,10 +23,10 @@ name = "auth_bearer"
 path = "examples/auth_bearer.rs"
 
 [dependencies]
-grpc-egress-auth-bearer = { workspace = true }
-grpc-egress-transport = { workspace = true }
-swe-edge-security = { workspace = true }
-tracing       = { workspace = true }
+grpc-egress-auth-bearer = { path = "../auth-bearer" }
+grpc-egress-transport = { path = "../transport" }
+swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22" }
+tracing = "0.1"
 # JWT sign + verify (HS256 / RS256).  Default features include
 # `use_pem` which we need for RS256 PEM-key construction.
 jsonwebtoken  = "9"
@@ -34,9 +34,9 @@ jsonwebtoken  = "9"
 subtle        = "2"
 
 [dev-dependencies]
-grpc-egress-transport-std = { workspace = true }
-serde = { workspace = true }
-tokio  = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
+grpc-egress-transport-std = { path = "../transport-std" }
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 subtle = "2"
 
 

@@ -19,17 +19,17 @@ application_type = "lib"
 service_type     = "processor"
 
 [dependencies]
-grpc-egress-resilient = { workspace = true }
-grpc-egress-transport         = { workspace = true }
-grpc-egress-retry = { workspace = true }
-grpc-egress-retry-std   = { workspace = true }
-grpc-egress-breaker = { workspace = true }
-grpc-egress-breaker-std = { workspace = true }
-toml                   = { workspace = true }
+grpc-egress-resilient = { path = "../resilient" }
+grpc-egress-transport = { path = "../transport" }
+grpc-egress-retry = { path = "../retry" }
+grpc-egress-retry-std = { path = "../retry-std" }
+grpc-egress-breaker = { path = "../breaker" }
+grpc-egress-breaker-std = { path = "../breaker-std" }
+toml = "0.8"
 [dev-dependencies]
-grpc-egress-transport-std = { workspace = true }
-tokio   = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
-futures = { workspace = true }
+grpc-egress-transport-std = { path = "../transport-std" }
+tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+futures = "0.3"
 
 
 [lints.rust]

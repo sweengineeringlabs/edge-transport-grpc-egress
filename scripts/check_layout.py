@@ -23,6 +23,10 @@ IMPLEMENTATION_LAYERS = ("std", "spi", "saf", "core")
 EXEMPT_CRATES = {"grpc-egress-test-support"}
 PACKAGE_NAME = re.compile(r"^grpc-egress-[a-z][a-z0-9-]*?(-std)?$")
 LOGIC_LINE = re.compile(r"^\s*(pub(\([a-z]+\))?\s+)?(unsafe\s+)?(async\s+)?(fn|struct|enum|trait|impl|const|static|type)\b")
+ALLOW_ATTRIBUTE = re.compile(r"#!?\[(?:cfg_attr\([^\]]*?)?allow\(")
+TEST_CONFIG = re.compile(r"#\[cfg\(test\)\]")
+INHERITED_DEPENDENCY = re.compile(r"^\s*[A-Za-z0-9_-]+\s*(?:=\s*\{\s*workspace\s*=\s*true|\.workspace\s*=\s*true)")
+PACKAGE_KEYS = ("version", "edition", "license", "rust-version", "authors", "repository", "description", "keywords", "categories")
 TYPE_DECL = re.compile(r"^\s*pub(?:\([a-z]+\))?\s+(?:struct|enum|trait|type)\s+([A-Za-z0-9_]+)")
 
 
@@ -98,6 +102,9 @@ class LayoutChecker:
         self.check_pairs(crates)
         self.check_theme_mirroring(crates)
         self.check_adapter_names(crates)
+        self.check_no_workspace_dependencies(crates)
+        for crate_dir in crates:
+            self.check_no_attributes(crate_dir)
         return self.failures
 
     def check_crate_location(self, crate_dir, main):
@@ -220,6 +227,26 @@ class LayoutChecker:
                         self.fail(layer_dir, "theme_mirroring", "files sit beside theme folders: %s" % ", ".join(sorted(files)))
                 elif folders and layer == "saf":
                     self.fail(layer_dir, "theme_mirroring", "a crate with one theme has a flat saf/")
+
+    def check_no_workspace_dependencies(self, crates):
+        root = os.path.join(self.root, "scm", "Cargo.toml")
+        if os.path.isfile(root) and "[workspace.dependencies]" in self.read_text(root):
+            self.fail(root, "no_workspace_dependencies", "each crate declares its own dependencies; the root has no [workspace.dependencies]")
+        for crate_dir in crates:
+            manifest = os.path.join(crate_dir, "Cargo.toml")
+            for number, line in enumerate(self.read_text(manifest).splitlines(), start=1):
+                if INHERITED_DEPENDENCY.match(line) and not line.strip().startswith(PACKAGE_KEYS):
+                    self.fail(manifest, "no_workspace_dependencies", "line %d inherits a dependency from the workspace: %s" % (number, line.strip()[:60]))
+
+    def check_no_attributes(self, crate_dir):
+        for path in self.list_rust_files(crate_dir):
+            in_src = os.path.relpath(path, crate_dir).replace("\\", "/").startswith("src/")
+            for number, line in enumerate(self.read_text(path).splitlines(), start=1):
+                code = line.split("//")[0]
+                if ALLOW_ATTRIBUTE.search(code):
+                    self.fail(path, "no_allow_attribute", "line %d silences a lint: fix the code instead: %s" % (number, line.strip()[:60]))
+                if in_src and TEST_CONFIG.search(code):
+                    self.fail(path, "no_test_code_in_src", "line %d puts test code in src/; tests live in tests/<theme>/" % number)
 
     def check_adapter_names(self, crates):
         scm = os.path.join(self.root, "scm", "main")
