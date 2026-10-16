@@ -1,6 +1,6 @@
 //! Error type for the resilience decorator.
 
-use edge_transport_grpc_egress_breaker::Error as BreakerDomainError;
+use grpc_egress_breaker::Error as BreakerDomainError;
 
 /// Error produced by [`crate::std::GrpcResilientFacade::apply_resilience`].
 #[derive(Debug, thiserror::Error)]

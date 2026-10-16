@@ -1,8 +1,8 @@
 //! `impl` blocks for [`ResilienceConfig`]. The type *declaration* lives in
 //! `api/`.
 
-use edge_transport_grpc_egress_breaker::GrpcBreakerConfig;
-use edge_transport_grpc_egress_retry::GrpcRetryConfig;
+use grpc_egress_breaker::GrpcBreakerConfig;
+use grpc_egress_retry::GrpcRetryConfig;
 
 use crate::api::{ResilienceConfig, ResilientTransportError};
 

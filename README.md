@@ -10,8 +10,10 @@ The workspace is `scm/`; each crate is in `scm/main/<crate>/`.
 |-------|------------|
 | `grpc-egress-transport` | the domain: the `GrpcEgress` trait, request and response types, errors and the options of a client. Plain data and traits, no `tonic`, `hyper` or `rustls` |
 | `grpc-egress-transport-std` | the implementation: the `hyper` client and its builder, the load-balanced client, interceptors, and the constructors of the domain types |
-| `edge-transport-grpc-egress-retry` | retry decorator around any `GrpcEgress` |
-| `edge-transport-grpc-egress-breaker` | circuit-breaker decorator around any `GrpcEgress` |
+| `grpc-egress-retry` | the retry domain: contracts, requests, responses, errors and the retry policy (`GrpcRetryConfig`) |
+| `grpc-egress-retry-std` | retry decorator around any `GrpcEgress` |
+| `grpc-egress-breaker` | the circuit-breaker domain: contracts, requests, responses, errors and the breaker policy (`GrpcBreakerConfig`) |
+| `grpc-egress-breaker-std` | circuit-breaker decorator around any `GrpcEgress` |
 | `edge-transport-grpc-egress-resilient` | wraps a client in retry and breaker together (`GrpcResilientFacade::apply_resilience`) |
 | `edge-transport-grpc-egress-auth-bearer` | JWT bearer interceptor: signs a token and adds `authorization: Bearer <jwt>` to each outbound request |
 

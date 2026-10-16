@@ -13,12 +13,14 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use edge_transport_grpc_egress_breaker::{BreakerState, GrpcBreakerClient, GrpcBreakerConfig};
 use edge_transport_grpc_egress_resilient::{
     GrpcResilientFacade, ResilienceConfig, ResilientTransportError,
 };
-use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig};
 use futures::future::BoxFuture;
+use grpc_egress_breaker::{BreakerState, GrpcBreakerConfig};
+use grpc_egress_breaker_std::GrpcBreakerClient;
+use grpc_egress_retry::GrpcRetryConfig;
+use grpc_egress_retry_std::GrpcRetryClient;
 use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest,

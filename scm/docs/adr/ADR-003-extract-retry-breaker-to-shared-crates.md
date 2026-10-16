@@ -9,8 +9,8 @@
 
 ## Mandate
 
-Extract this crate's `retry` (`edge-transport-grpc-egress-retry`) and `breaker`
-(`edge-transport-grpc-egress-breaker`) crates' policy/backoff/circuit-state logic into new
+Extract this crate's `retry` (`grpc-egress-retry-std`) and `breaker`
+(`grpc-egress-breaker-std`) crates' policy/backoff/circuit-state logic into new
 standalone, protocol-agnostic crates — `edge-transport-retry` and `edge-transport-breaker` —
 consumed by both this repo and `edge-transport-http-egress`. This repo's `retry`/`breaker` crates
 become thin adapters wiring the shared policy engine to `GrpcEgress`, the same shape as how
@@ -19,10 +19,10 @@ reimplemented per protocol.
 
 ## Why
 
-`edge-transport-grpc-egress-retry` and `edge-transport-http-egress-retry` are two fully
+`grpc-egress-retry-std` and `edge-transport-http-egress-retry` are two fully
 independent implementations of the same concern — backoff/jitter, attempt bookkeeping, retry
 policy configuration — with no shared dependency between them. Same for
-`edge-transport-grpc-egress-breaker` and `edge-transport-http-egress-breaker` (circuit state
+`grpc-egress-breaker-std` and `edge-transport-http-egress-breaker` (circuit state
 machine: open/half-open/closed, failure-rate tracking). Retry and circuit-breaking do not depend
 on wire format — both operate on "did this attempt succeed or fail," a judgment already reduced to
 a boolean/enum outcome by the time either decorator runs.
@@ -41,7 +41,7 @@ policy/backoff/state-machine core moves out.
 
 - New repos: `edge-transport-retry`, `edge-transport-breaker` — protocol-agnostic policy/backoff/
   circuit-state engines, with no dependency on `GrpcEgress`/`HttpEgress` or any wire-format type.
-- `edge-transport-grpc-egress-retry`/`-breaker` (this repo) and
+- `grpc-egress-retry-std`/`-breaker` (this repo) and
   `edge-transport-http-egress-retry`/`-breaker` are retargeted to depend on the new shared crates,
   keeping only their protocol-specific `ErrorClassifier` and the decorator wiring
   (`tower::Layer` around `GrpcEgress`).

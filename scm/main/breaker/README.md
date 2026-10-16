@@ -1,24 +1,7 @@
-# grpc-breaker
+# grpc-egress-breaker
 
-gRPC-aware circuit breaker decorator wrapping any
-`GrpcEgress` implementor (the trait of `grpc-egress-transport`).
+The circuit-breaker domain of the gRPC egress: the contracts (`BreakerDecorator`, `BreakerObservable`,
+...), their requests and responses, the errors and the breaker policy value (`GrpcBreakerConfig`).
+No implementation.
 
-## Build
-
-```bash
-cargo build
-```
-
-## Test
-
-```bash
-cargo test
-```
-
-## Project Structure
-
-- `src/api/` - Public types and traits (L2)
-- `src/core/` - Implementation layer (L3)
-- `src/saf/` - Public facade (L4)
-- `src/gateway/` - Public entry boundary
-- `config/application.toml` - Default breaker policy
+The decorator that wraps a `GrpcEgress` with a circuit breaker is in `grpc-egress-breaker-std`.

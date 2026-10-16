@@ -1,53 +1,29 @@
-//! `edge_transport_grpc_egress_breaker` — circuit-breaker decorator
-//! around any [`GrpcEgress`](grpc_egress_transport::GrpcEgress).
-//!
-//! ## State machine
-//!
-//! Standard three-state breaker:
-//!
-//! - **Closed**: requests pass through; consecutive
-//!   `Unavailable`/`Internal` failures are counted.  At
-//!   `failure_threshold` the breaker trips Open.
-//! - **Open**: requests short-circuit with
-//!   `GrpcEgressError::Unavailable` *without* calling the
-//!   inner client.  After `cool_down`, the next request promotes
-//!   to HalfOpen.
-//! - **HalfOpen**: a small number of probe requests are admitted.
-//!   `half_open_probe_count` consecutive successes → Closed.
-//!   Any failure during probing → back to Open.
-//!
-//! ## Failure classification
-//!
-//! Only `Unavailable` (status or transport variant) and
-//! `Internal` count as breaker failures.  `ResourceExhausted` is
-//! a rate-limit signal that the retry layer handles, not a
-//! reason to shed traffic.  `Unauthenticated` / `PermissionDenied`
-//! reflect a bad credential, not an unhealthy upstream — the
-//! upstream is fine; the call is just unauthorized.
-//!
-//! ## Observability
-//!
-//! State transitions emit `tracing` events at INFO (Open, Closed)
-//! and DEBUG (HalfOpen probe).  No internal metrics framework —
-//! consumers wire `tracing` into whatever they already use.
+//! `grpc_egress_breaker` -- the circuit-breaker domain: the contracts, requests, responses, errors and
+//! the breaker policy value. The implementation (the decorator that wraps a `GrpcEgress`) is in
+//! `grpc-egress-breaker-std`.
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-mod api;
-mod core;
-mod saf;
+mod dto;
+mod error;
+mod traits;
+mod vo;
 
-// Public contracts and value objects — all flow directly from api/.
-pub use crate::api::{
-    Admission, AdmitRequest, AdmitResponse, ApplicationConfigBuilder, BreakerDecorator,
-    BreakerObservable, BreakerState, BreakerTransition, ClassifyRequest, ClassifyResponse,
-    ConfigBuilderProvider, ConfigBuilderRequest, ConfigBuilderResponse, ConfigValidationRequest,
-    DescribeRequest, DescribeResponse, Error, FailureClassifier, GrpcBreakerClient,
-    GrpcBreakerConfig, GrpcBreakerFacade, GrpcBreakerSvc, ObserveStateRequest,
-    ObserveStateResponse, Outcome, Processor, RecordOutcomeRequest, RecordOutcomeResponse,
-    Validator, WrapBreakerRequest, WrapBreakerResponse,
+pub use dto::{
+    AdmitRequest, AdmitResponse, ClassifyRequest, ClassifyResponse, ConfigBuilderRequest,
+    ConfigBuilderResponse, ConfigValidationRequest, DescribeRequest, DescribeResponse,
+    ObserveStateRequest, ObserveStateResponse, RecordOutcomeRequest, RecordOutcomeResponse,
+    WrapBreakerRequest, WrapBreakerResponse,
 };
-pub use saf::*;
+pub use error::{BreakerDomainError, Error};
+pub use traits::{
+    BreakerDecorator, BreakerObservable, BreakerTransition, ConfigBuilderProvider,
+    FailureClassifier, Processor, Validator,
+};
+pub use vo::{
+    Admission, ApplicationConfigBuilder, BreakerState, GrpcBreakerConfig, Outcome,
+    BREAKER_DECORATOR_LABEL, BREAKER_EGRESS_LOG_PREFIX, CONFIG_BUILDER_PROVIDER_SECTION,
+    FAILURE_CLASSIFIER_LOG_TARGET, GRPC_BREAKER_CLIENT_LOG_TARGET,
+};
