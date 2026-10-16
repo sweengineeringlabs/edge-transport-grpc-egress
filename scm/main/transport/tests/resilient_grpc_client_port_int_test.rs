@@ -139,7 +139,7 @@ fn test_default_channel_config_builder_missing_endpoint_is_error() {
 #[test]
 fn test_default_channel_config_builder_with_endpoint_builds_valid_config_happy() {
     let config = <StubResilientClient as ResilientGrpcClientPort>::default_channel_config_builder()
-        .endpoint("http://127.0.0.1:50051")
+        .with_endpoint("http://127.0.0.1:50051")
         .build()
         .expect("a builder with endpoint set must build");
     assert_eq!(config.endpoint, "http://127.0.0.1:50051");

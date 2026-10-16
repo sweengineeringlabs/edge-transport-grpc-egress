@@ -94,7 +94,7 @@ impl GrpcChannelConfigBuilder {
         }
     }
     /// Set the gRPC endpoint URI.
-    pub fn endpoint(mut self, v: impl Into<String>) -> Self {
+    pub fn with_endpoint(mut self, v: impl Into<String>) -> Self {
         self.endpoint = Some(v.into());
         self
     }
@@ -104,22 +104,22 @@ impl GrpcChannelConfigBuilder {
         self
     }
     /// Configure mutual TLS.
-    pub fn mtls(mut self, v: MtlsConfig) -> Self {
+    pub fn with_mtls(mut self, v: MtlsConfig) -> Self {
         self.mtls = Some(v);
         self
     }
     /// Configure HTTP/2 keep-alive settings.
-    pub fn keep_alive(mut self, v: KeepAliveConfig) -> Self {
+    pub fn with_keep_alive(mut self, v: KeepAliveConfig) -> Self {
         self.keep_alive = Some(v);
         self
     }
     /// Set the maximum allowed message size in bytes.
-    pub fn max_message_bytes(mut self, v: usize) -> Self {
+    pub fn with_max_message_bytes(mut self, v: usize) -> Self {
         self.max_message_bytes = Some(v);
         self
     }
     /// Set the compression mode for outbound messages.
-    pub fn compression(mut self, v: CompressionMode) -> Self {
+    pub fn with_compression(mut self, v: CompressionMode) -> Self {
         self.compression = Some(v);
         self
     }
