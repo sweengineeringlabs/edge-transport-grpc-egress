@@ -18,6 +18,26 @@ pub enum GrpcChannelConfigError {
         reason: String,
     },
 
+    /// Two options that cannot be combined are both set.
+    #[error("options '{first}' and '{second}' cannot be combined: {reason}")]
+    ConflictingOptions {
+        /// One of the two options.
+        first: &'static str,
+        /// The other option.
+        second: &'static str,
+        /// Why they exclude each other.
+        reason: &'static str,
+    },
+
+    /// An option has a value the client cannot use.
+    #[error("option '{option}' has an unusable value: {reason}")]
+    InvalidOptionValue {
+        /// The option.
+        option: &'static str,
+        /// What is wrong with the value.
+        reason: String,
+    },
+
     /// A TLS option is set but the endpoint is plaintext, so the option would never be used.
     #[error("option '{option}' is set but endpoint '{endpoint}' is plaintext; use an https:// endpoint or remove the option")]
     TlsOptionOnPlaintextEndpoint {

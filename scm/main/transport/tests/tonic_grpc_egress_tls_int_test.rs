@@ -1,5 +1,5 @@
 //! Tests of the TLS options of the `hyper`-backed client against a real in-process TLS peer: the
-//! client certificate is presented, the pinned authority is the only one trusted, and a file that
+//! client certificate is presented, the configured root CA is the only one trusted, and a file that
 //! cannot be used fails when the client is built, naming its path.
 
 use std::error::Error;
@@ -16,13 +16,6 @@ use grpc_egress_test_support::{
 
 fn path_of(path: std::path::PathBuf) -> String {
     path.to_string_lossy().into_owned()
-}
-
-fn client_identity(pki: &TestPki) -> MtlsConfig {
-    MtlsConfig::new(
-        path_of(pki.get_client_cert_pem_path()),
-        path_of(pki.get_client_key_pem_path()),
-    )
 }
 
 async fn start_peer(pki: &TestPki, mode: TlsServerMode) -> Result<RunningPeer, Box<dyn Error>> {
@@ -53,7 +46,7 @@ async fn test_with_mtls_peer_demanding_a_client_certificate_answers_the_client_h
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
     let client = builder_for(&peer)
-        .with_mtls(MtlsConfig::with_pinned_ca(
+        .with_mtls(MtlsConfig::with_root_ca(
             path_of(pki.get_client_cert_pem_path()),
             path_of(pki.get_client_key_pem_path()),
             path_of(pki.get_ca_pem_path()),
@@ -64,14 +57,14 @@ async fn test_with_mtls_peer_demanding_a_client_certificate_answers_the_client_h
     Ok(())
 }
 
-/// @covers: GrpcEgressBuilder::with_pinned_ca
+/// @covers: GrpcEgressBuilder::with_root_ca
 #[tokio::test]
-async fn test_with_pinned_ca_peer_demanding_a_client_certificate_refuses_a_client_without_one_error(
+async fn test_with_root_ca_peer_demanding_a_client_certificate_refuses_a_client_without_one_error(
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
     let client = builder_for(&peer)
-        .with_pinned_ca(path_of(pki.get_ca_pem_path()))
+        .with_root_ca(path_of(pki.get_ca_pem_path()))
         .build()?;
 
     let result = call(&client).await;
@@ -84,29 +77,29 @@ async fn test_with_pinned_ca_peer_demanding_a_client_certificate_refuses_a_clien
     Ok(())
 }
 
-/// @covers: GrpcEgressBuilder::with_pinned_ca
+/// @covers: GrpcEgressBuilder::with_root_ca
 #[tokio::test]
-async fn test_with_pinned_ca_peer_proving_itself_with_that_authority_answers_the_client_happy(
+async fn test_with_root_ca_peer_proving_itself_with_that_authority_answers_the_client_happy(
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ServerAuthOnly).await?;
     let client = builder_for(&peer)
-        .with_pinned_ca(path_of(pki.get_ca_pem_path()))
+        .with_root_ca(path_of(pki.get_ca_pem_path()))
         .build()?;
 
     assert_eq!(call(&client).await?, b"secure");
     Ok(())
 }
 
-/// @covers: GrpcEgressBuilder::with_pinned_ca
+/// @covers: GrpcEgressBuilder::with_root_ca
 #[tokio::test]
-async fn test_with_pinned_ca_peer_proving_itself_with_another_authority_is_refused_error(
+async fn test_with_root_ca_peer_proving_itself_with_another_authority_is_refused_error(
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let other = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ServerAuthOnly).await?;
     let client = builder_for(&peer)
-        .with_pinned_ca(path_of(other.get_ca_pem_path()))
+        .with_root_ca(path_of(other.get_ca_pem_path()))
         .build()?;
 
     let result = call(&client).await;
@@ -118,11 +111,11 @@ async fn test_with_pinned_ca_peer_proving_itself_with_another_authority_is_refus
     Ok(())
 }
 
-/// Without a pinned CA the web PKI roots are used, and a throwaway authority is not among them.
+/// Without a root CA the web PKI roots are used, and a throwaway authority is not among them.
 ///
 /// @covers: GrpcEgressBuilder::build
 #[tokio::test]
-async fn test_build_without_a_pinned_ca_refuses_a_peer_of_an_unknown_authority_error(
+async fn test_build_without_a_root_ca_refuses_a_peer_of_an_unknown_authority_error(
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ServerAuthOnly).await?;
@@ -188,9 +181,9 @@ async fn test_with_mtls_key_file_without_a_key_fails_the_build_naming_the_path_e
     Ok(())
 }
 
-/// @covers: GrpcEgressBuilder::with_pinned_ca
+/// @covers: GrpcEgressBuilder::with_root_ca
 #[tokio::test]
-async fn test_with_pinned_ca_file_without_a_certificate_fails_the_build_error(
+async fn test_with_root_ca_file_without_a_certificate_fails_the_build_error(
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ServerAuthOnly).await?;
@@ -198,7 +191,7 @@ async fn test_with_pinned_ca_file_without_a_certificate_fails_the_build_error(
     std::fs::write(&empty, "")?;
     let empty = path_of(empty);
 
-    let result = builder_for(&peer).with_pinned_ca(empty.clone()).build();
+    let result = builder_for(&peer).with_root_ca(empty.clone()).build();
 
     match result {
         Err(GrpcChannelConfigError::UnusableTlsFile { path, .. }) => assert_eq!(path, empty),
@@ -210,24 +203,27 @@ async fn test_with_pinned_ca_file_without_a_certificate_fails_the_build_error(
     Ok(())
 }
 
-/// @covers: GrpcEgressBuilder::with_mtls
+/// @covers: GrpcEgressBuilder::with_root_ca
 #[tokio::test]
-async fn test_with_mtls_on_a_plaintext_endpoint_fails_the_build_error() -> Result<(), Box<dyn Error>>
-{
+async fn test_with_root_ca_on_a_plaintext_endpoint_fails_the_build_error(
+) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
 
     let result = TonicGrpcEgressBuilderSpiFactory::new("http://127.0.0.1:1")
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
-        .with_mtls(client_identity(&pki))
+        .with_root_ca(path_of(pki.get_ca_pem_path()))
         .build();
 
     assert!(
         matches!(
             result,
-            Err(GrpcChannelConfigError::TlsOptionOnPlaintextEndpoint { option: "mtls", .. })
+            Err(GrpcChannelConfigError::TlsOptionOnPlaintextEndpoint {
+                option: "root_ca",
+                ..
+            })
         ),
-        "an mtls option on a plaintext endpoint would be ignored, got {:?}",
+        "a root CA on a plaintext endpoint would be ignored, got {:?}",
         result.err()
     );
     Ok(())
@@ -240,7 +236,7 @@ async fn test_with_channel_config_mtls_is_applied_to_the_client_happy() -> Resul
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
     let config =
-        GrpcChannelConfig::new(peer.get_https_endpoint()).with_mtls(MtlsConfig::with_pinned_ca(
+        GrpcChannelConfig::new(peer.get_https_endpoint()).with_mtls(MtlsConfig::with_root_ca(
             path_of(pki.get_client_cert_pem_path()),
             path_of(pki.get_client_key_pem_path()),
             path_of(pki.get_ca_pem_path()),
@@ -262,7 +258,7 @@ async fn test_create_transport_from_config_mtls_is_applied_to_the_client_happy(
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
     let config =
-        GrpcChannelConfig::new(peer.get_https_endpoint()).with_mtls(MtlsConfig::with_pinned_ca(
+        GrpcChannelConfig::new(peer.get_https_endpoint()).with_mtls(MtlsConfig::with_root_ca(
             path_of(pki.get_client_cert_pem_path()),
             path_of(pki.get_client_key_pem_path()),
             path_of(pki.get_ca_pem_path()),

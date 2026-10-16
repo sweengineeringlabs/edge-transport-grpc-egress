@@ -8,22 +8,22 @@ use crate::api::{GrpcChannelConfigError, MtlsConfig};
 
 /// Builds the HTTPS connector of the client from the TLS options.
 ///
-/// Without a pinned CA the server is verified against the bundled web PKI roots; with one it is
+/// Without a root CA the server is verified against the bundled web PKI roots; with one it is
 /// verified against that CA alone. With an identity the client presents its certificate chain
 /// (mutual TLS). A file that cannot be used is an error naming its path, found when the client is
 /// built and not at the first call.
 pub(crate) struct TonicTlsConnector;
 
 impl TonicTlsConnector {
-    /// Build the connector for `identity` and `pinned_ca`.
+    /// Build the connector for `identity` and `root_ca`.
     pub(crate) fn create(
         identity: Option<&MtlsConfig>,
-        pinned_ca: Option<&str>,
+        root_ca: Option<&str>,
     ) -> Result<hyper_rustls::HttpsConnector<HttpConnector>, GrpcChannelConfigError> {
         // rustls 0.23 needs a process-wide provider before the first ClientConfig; idempotent.
         let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
-        let roots = match pinned_ca {
+        let roots = match root_ca {
             Some(path) => Self::read_roots(path)?,
             None => rustls::RootCertStore {
                 roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),

@@ -2,7 +2,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use edge_transport_grpc_egress_transport::{
-    GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressError, TransportConstruction,
+    GrpcChannelConfig, GrpcChannelConfigError, TransportConstruction,
 };
 
 /// @covers: create_tonic_client_from_config
@@ -71,48 +71,6 @@ fn test_create_transport_from_config_https_endpoint_needs_no_opt_in_edge() {
     // allow_plaintext() must still be rejected.
     let http = GrpcChannelConfig::new("http://127.0.0.1:50051");
     assert!(TransportConstruction::create_transport_from_config(&http).is_err());
-}
-
-/// @covers: create_lb_transport_from_config
-#[tokio::test]
-async fn test_create_lb_transport_from_config_one_backend_happy() {
-    let cfg = swe_edge_loadbalancer::LoadbalancerConfig {
-        strategy: swe_edge_loadbalancer::Strategy::RoundRobin,
-        backends: vec![swe_edge_loadbalancer::BackendConfig {
-            url: "http://127.0.0.1:50051".to_string(),
-            weight: 1,
-        }],
-    };
-    assert!(TransportConstruction::create_lb_transport_from_config(cfg).is_ok());
-}
-
-/// @covers: create_lb_transport_from_config
-#[test]
-fn test_create_lb_transport_from_config_rejects_empty_backends_error() {
-    let cfg = swe_edge_loadbalancer::LoadbalancerConfig {
-        strategy: swe_edge_loadbalancer::Strategy::RoundRobin,
-        backends: vec![],
-    };
-    assert!(matches!(
-        TransportConstruction::create_lb_transport_from_config(cfg),
-        Err(GrpcEgressError::Unavailable(_))
-    ));
-}
-
-/// @covers: create_lb_transport_from_config
-#[test]
-fn test_create_lb_transport_from_config_rejects_invalid_backend_url_edge() {
-    let cfg = swe_edge_loadbalancer::LoadbalancerConfig {
-        strategy: swe_edge_loadbalancer::Strategy::RoundRobin,
-        backends: vec![swe_edge_loadbalancer::BackendConfig {
-            url: "!! not a valid url !!".to_string(),
-            weight: 1,
-        }],
-    };
-    assert!(matches!(
-        TransportConstruction::create_lb_transport_from_config(cfg),
-        Err(GrpcEgressError::Unavailable(_))
-    ));
 }
 
 #[cfg(feature = "prost")]

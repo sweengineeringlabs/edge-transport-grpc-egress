@@ -14,7 +14,10 @@ mod types;
 // re-export a subset of these further as the crate's public surface --
 // the submodules themselves stay fully private, which is what satisfies
 // the "layer mod paths must be private" half of the rule.
-pub use client::{BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory};
+pub use client::{
+    BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgressBuilder,
+    GrpcEgressBuilderFactory, LoadbalancerSettings,
+};
 pub use error::{GrpcChannelConfigError, GrpcEgressError};
 pub use traits::grpc_egress_interceptor::GrpcEgressInterceptor;
 pub use traits::resilient_grpc_client_port::ResilientGrpcClientPort;
