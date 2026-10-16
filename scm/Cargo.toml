@@ -25,7 +25,8 @@ swe-edge-security      = { git = "https://github.com/sweengineeringlabs/edge-sec
 grpc-egress-transport                  = { path = "main/transport" }
 grpc-egress-transport-std              = { path = "main/transport-std" }
 edge-transport-grpc-egress-auth-bearer = { path = "main/auth-bearer" }
-edge-transport-grpc-egress-breaker     = { path = "main/breaker" }
+grpc-egress-breaker                    = { path = "main/breaker" }
+grpc-egress-breaker-std     = { path = "main/breaker-std" }
 edge-transport-grpc-egress-resilient   = { path = "main/resilient" }
 grpc-egress-retry                      = { path = "main/retry" }
 grpc-egress-retry-std                  = { path = "main/retry-std" }

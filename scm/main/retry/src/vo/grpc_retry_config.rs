@@ -3,16 +3,15 @@
 //! Policy **values** live in TOML:
 //! - crate-shipped baseline: `config/application.toml`
 //! - consumer override: whatever TOML the binary loads and
-//!   passes to [`GrpcRetryConfig::from_config`].
+//!   passes to `GrpcRetryConfig::from_config` of `grpc-egress-retry-std`.
 //!
 //! No `Default` impl — per the config-driven principle, policy
 //! is data in a file, not literals in a source tree.
 
 use serde::Deserialize;
 
-/// gRPC retry policy schema.  Construct via
-/// [`GrpcRetryConfig::from_config`] (custom TOML) or
-/// [`GrpcRetryConfig::default`] (crate baseline).
+/// gRPC retry policy schema.  Construct via `GrpcRetryConfig::from_config` of
+/// `grpc-egress-retry-std` (custom TOML) or [`GrpcRetryConfig::default`] (crate baseline).
 ///
 /// Only `Unavailable` and `ResourceExhausted` gRPC status codes trigger retries;
 /// `Unauthenticated`, `PermissionDenied`, `DeadlineExceeded`, and `Internal`
@@ -21,25 +20,16 @@ use serde::Deserialize;
 /// # Examples
 ///
 /// ```rust
-/// use grpc_egress_retry_std::GrpcRetryConfig;
-/// use std::time::Duration;
+/// use grpc_egress_retry::GrpcRetryConfig;
 ///
 /// // SWE baseline defaults.
 /// let cfg = GrpcRetryConfig::default();
 /// assert_eq!(cfg.max_attempts, 5);
-/// assert_eq!(cfg.initial_backoff(), Duration::from_millis(100));
-/// assert_eq!(cfg.max_backoff(), Duration::from_secs(5));
+/// assert_eq!(cfg.initial_backoff_ms, 100);
+/// assert_eq!(cfg.max_backoff_ms, 5000);
 ///
-/// // Custom policy from TOML.
-/// let toml = "max_attempts = 3
-/// initial_backoff_ms = 50
-/// backoff_multiplier = 2.0
-/// jitter_factor = 0.1
-/// max_backoff_ms = 2000
-/// rate_limit_max_attempts = 1
-/// rate_limit_initial_backoff_ms = 500
-/// rate_limit_max_backoff_ms = 5000";
-/// let cfg = GrpcRetryConfig::from_config(toml).unwrap();
+/// // A custom policy.
+/// let cfg = GrpcRetryConfig { max_attempts: 3, ..GrpcRetryConfig::default() };
 /// assert_eq!(cfg.max_attempts, 3);
 /// ```
 #[derive(Debug, Clone, Deserialize)]

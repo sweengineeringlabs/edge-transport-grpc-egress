@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Used by [`crate::std::GrpcResilientFacade::apply_resilience`] to compose
 /// an [`grpc_egress_retry_std::GrpcRetryClient`] and
-/// [`edge_transport_grpc_egress_breaker::GrpcBreakerClient`] around an
+/// [`grpc_egress_breaker_std::GrpcBreakerClient`] around an
 /// already-built bare [`GrpcEgress`](grpc_egress_transport::GrpcEgress)
 /// transport client.
 ///

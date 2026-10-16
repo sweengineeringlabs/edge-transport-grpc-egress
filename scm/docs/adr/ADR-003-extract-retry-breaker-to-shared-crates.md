@@ -10,7 +10,7 @@
 ## Mandate
 
 Extract this crate's `retry` (`grpc-egress-retry-std`) and `breaker`
-(`edge-transport-grpc-egress-breaker`) crates' policy/backoff/circuit-state logic into new
+(`grpc-egress-breaker-std`) crates' policy/backoff/circuit-state logic into new
 standalone, protocol-agnostic crates — `edge-transport-retry` and `edge-transport-breaker` —
 consumed by both this repo and `edge-transport-http-egress`. This repo's `retry`/`breaker` crates
 become thin adapters wiring the shared policy engine to `GrpcEgress`, the same shape as how
@@ -22,7 +22,7 @@ reimplemented per protocol.
 `grpc-egress-retry-std` and `edge-transport-http-egress-retry` are two fully
 independent implementations of the same concern — backoff/jitter, attempt bookkeeping, retry
 policy configuration — with no shared dependency between them. Same for
-`edge-transport-grpc-egress-breaker` and `edge-transport-http-egress-breaker` (circuit state
+`grpc-egress-breaker-std` and `edge-transport-http-egress-breaker` (circuit state
 machine: open/half-open/closed, failure-rate tracking). Retry and circuit-breaking do not depend
 on wire format — both operate on "did this attempt succeed or fail," a judgment already reduced to
 a boolean/enum outcome by the time either decorator runs.
