@@ -14,18 +14,47 @@ use std::sync::{
 use std::time::Duration;
 
 use futures::future::BoxFuture;
-use grpc_egress_breaker::{BreakerState, GrpcBreakerConfig};
-use grpc_egress_breaker_std::GrpcBreakerClient;
+use grpc_egress_breaker::{
+    BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
+    GrpcBreakerFactory, ObserveStateRequest,
+};
+use grpc_egress_breaker_std::StdGrpcBreakerFactory;
+use grpc_egress_resilient::{BuildGrpcResilientRequest, GrpcResilientFactory};
 use grpc_egress_resilient::{ResilienceConfig, ResilientTransportError};
-use grpc_egress_resilient_std::GrpcResilientFacade;
+use grpc_egress_resilient_std::StdGrpcResilientFactory;
 use grpc_egress_retry::GrpcRetryConfig;
-use grpc_egress_retry_std::GrpcRetryClient;
+use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest,
 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+fn guard<T: GrpcEgress + Send + Sync + 'static>(
+    inner: T,
+    config: GrpcBreakerConfig,
+) -> impl GrpcEgress + BreakerObservable {
+    StdGrpcBreakerFactory::new(config)
+        .build(BuildGrpcBreakerRequest { inner })
+        .expect("the test policies are valid")
+}
+
+fn apply_resilience<T: GrpcEgress + Send + Sync + 'static>(
+    inner: T,
+    config: ResilienceConfig,
+) -> Result<impl GrpcEgress + BreakerObservable, ResilientTransportError> {
+    StdGrpcResilientFactory::new(config).build(BuildGrpcResilientRequest { inner })
+}
+
+async fn state_of(client: &impl BreakerObservable) -> BreakerState {
+    client
+        .state(ObserveStateRequest)
+        .await
+        .expect("observing the state is infallible")
+        .state
+}
 
 fn ok_response() -> GrpcEgressResult<GrpcResponse> {
     Ok(GrpcResponse {
@@ -143,7 +172,7 @@ fn fast_retry(max_attempts: u32) -> GrpcRetryConfig {
 async fn test_apply_resilience_default_config_wraps_and_delegates_happy() {
     let hits = Arc::new(AtomicUsize::new(0));
     let mock = CountingMock::with_responses(Arc::clone(&hits), vec![ok_response()]);
-    let wrapped = GrpcResilientFacade::apply_resilience(mock, ResilienceConfig::default())
+    let wrapped = apply_resilience(mock, ResilienceConfig::default())
         .expect("apply_resilience must succeed for the default config");
     let result = wrapped.call_unary(req()).await;
     assert!(result.is_ok(), "the wrapped client must delegate through");
@@ -155,7 +184,7 @@ async fn test_apply_resilience_default_config_wraps_and_delegates_happy() {
 async fn test_apply_resilience_retries_a_transient_failure_happy() {
     let hits = Arc::new(AtomicUsize::new(0));
     let mock = CountingMock::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
-    let wrapped = GrpcResilientFacade::apply_resilience(mock, valid_resilience())
+    let wrapped = apply_resilience(mock, valid_resilience())
         .expect("apply_resilience must succeed for a valid config");
     let result = wrapped.call_unary(req()).await;
     assert!(result.is_ok(), "must succeed on the retried attempt");
@@ -174,7 +203,7 @@ fn test_apply_resilience_invalid_resilience_returns_error_edge() {
     let mut r = valid_resilience();
     r.max_attempts = 0;
     assert!(matches!(
-        GrpcResilientFacade::apply_resilience(mock, r),
+        apply_resilience(mock, r),
         Err(ResilientTransportError::InvalidResilience(_))
     ));
 }
@@ -215,7 +244,10 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times() 
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(3)), breaker_cfg);
+    let client = guard(
+        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     for _ in 0..10_usize {
         let _ = client.call_unary(req()).await;
@@ -246,7 +278,10 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(3)), breaker_cfg);
+    let client = guard(
+        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     let result = client.call_unary(req()).await;
     assert!(
@@ -276,7 +311,10 @@ async fn test_hard_quota_resource_exhausted_is_not_retried() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(3)), breaker_cfg);
+    let client = guard(
+        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     let result = client.call_unary(req()).await;
     assert!(result.is_err(), "expected quota error");
@@ -321,7 +359,10 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, retry_cfg), breaker_cfg);
+    let client = guard(
+        StdGrpcRetryFactory::new(retry_cfg).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     let result = client.call_unary(req()).await;
     assert!(result.is_err());
@@ -350,7 +391,10 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
         cool_down_seconds: 60,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(1)), breaker_cfg);
+    let client = guard(
+        StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     for _ in 0..3 {
         let _ = client.call_unary(req()).await;
@@ -362,7 +406,7 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold() {
         "expected 3 server hits to trip the breaker"
     );
     assert!(
-        matches!(client.state().await, BreakerState::Open { .. }),
+        matches!(state_of(&client).await, BreakerState::Open { .. }),
         "breaker must be Open after threshold failures",
     );
 
@@ -403,13 +447,16 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open() {
         cool_down_seconds: 1,
         half_open_probe_count: 1,
     };
-    let client = GrpcBreakerClient::new(GrpcRetryClient::new(mock, fast_retry(1)), breaker_cfg);
+    let client = guard(
+        StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
+        breaker_cfg,
+    );
 
     // Trip the breaker.
     for _ in 0..3 {
         let _ = client.call_unary(req()).await;
     }
-    assert!(matches!(client.state().await, BreakerState::Open { .. }));
+    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
 
     // Wait for cool-down to expire.
     tokio::time::sleep(Duration::from_millis(1100)).await;
@@ -418,7 +465,7 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open() {
     let probe = client.call_unary(req()).await;
     assert!(probe.is_ok(), "probe should succeed");
     assert_eq!(
-        client.state().await,
+        state_of(&client).await,
         BreakerState::Closed,
         "breaker must be Closed after probe"
     );

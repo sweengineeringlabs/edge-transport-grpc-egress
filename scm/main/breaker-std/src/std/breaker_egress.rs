@@ -13,7 +13,7 @@ use edge_transport_breaker_policy::{
     Admission, AdmitRequest, BreakerTransition, RecordOutcomeRequest,
 };
 
-use crate::std::failure_classifier::DefaultFailureClassifier;
+use crate::std::failure_classifier::StdFailureClassifier;
 use grpc_egress_breaker::BREAKER_EGRESS_LOG_PREFIX;
 
 impl<T: GrpcEgress + Send + Sync + 'static> GrpcEgress for GrpcBreakerClient<T> {
@@ -49,18 +49,7 @@ impl<T: GrpcEgress + Send + Sync + 'static> GrpcEgress for GrpcBreakerClient<T> 
                 ))),
                 Admission::Proceed => {
                     let result = self.inner.call_unary(request).await;
-                    let outcome = match DefaultFailureClassifier::classify_result(&result) {
-                        Ok(outcome) => outcome,
-                        // BreakerDomainError is never actually constructed by
-                        // classify(); this branch exists only because the
-                        // trait's signature is honest about the general
-                        // Result contract.
-                        Err(e) => {
-                            return Err(GrpcEgressError::Internal(format!(
-                                "{BREAKER_EGRESS_LOG_PREFIX}: classify failed unexpectedly: {e}"
-                            )))
-                        }
-                    };
+                    let outcome = StdFailureClassifier::classify_result(&result);
                     let node_snapshot = *self.node.lock().await;
                     let record_resp = match DefaultBreakerTransition.record(RecordOutcomeRequest {
                         state: node_snapshot.state,

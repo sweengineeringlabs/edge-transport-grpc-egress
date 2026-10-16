@@ -1,23 +1,18 @@
-# grpc-resilient
+# grpc-egress-resilient-std
 
-Resilience decorator for gRPC egress: wraps an already-built `GrpcEgress` client in the retry and circuit-breaker decorators (`GrpcResilientFacade::apply_resilience`). It does not build the client.
+The implementation of the resilience domain `grpc-egress-resilient`: `StdGrpcResilientFactory::new(config)`
+wraps an already-built `GrpcEgress` client in retry and then a circuit breaker. It does not build the
+client.
 
-## Build
+## Build and test
 
 ```bash
 cargo build
-```
-
-## Test
-
-```bash
 cargo test
 ```
 
-## Project Structure
+## Project structure
 
-- `src/api/` - Public types and traits (L2)
-- `src/core/` - Implementation layer (L3)
-- `src/saf/` - Public facade (L4)
-- `src/gateway/` - Public entry boundary
-- `config/application.toml` - Default resilience policy
+- `src/std/` - the resilience policy and its conversions
+- `src/saf/` - the factory
+- `config/application.toml` - default resilience policy

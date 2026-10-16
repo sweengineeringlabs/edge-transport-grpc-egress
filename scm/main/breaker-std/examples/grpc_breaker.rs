@@ -1,9 +1,9 @@
-//! Reusable example: drive real calls through [`GrpcBreakerClient`] so the
+//! Reusable example: drive real calls through [`StdGrpcBreakerFactory`] so the
 //! circuit-breaker state machine (`DefaultBreakerTransition`, moved to the
 //! shared `edge-transport-breaker` crate) actually executes — not just
 //! constructs.
 //!
-//! [`GrpcBreakerClient`]: grpc_egress_breaker_std::GrpcBreakerClient
+//! [`StdGrpcBreakerFactory`]: grpc_egress_breaker_std::StdGrpcBreakerFactory
 #![allow(
     clippy::expect_used,
     reason = "example code, not production library code"
@@ -18,7 +18,8 @@ use std::time::Duration;
 
 use futures::future::BoxFuture;
 use grpc_egress_breaker::GrpcBreakerConfig;
-use grpc_egress_breaker_std::GrpcBreakerFacade;
+use grpc_egress_breaker::{BuildGrpcBreakerRequest, GrpcBreakerFactory};
+use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcResponse, HealthCheckRequest,
@@ -73,15 +74,13 @@ async fn main() {
         calls: calls.clone(),
         should_fail: should_fail.clone(),
     };
-    let client = GrpcBreakerFacade::wrap_breaker(
-        upstream,
-        GrpcBreakerConfig {
-            failure_threshold: 2,
-            cool_down_seconds: 1,
-            half_open_probe_count: 1,
-        },
-    )
-    .expect("wrap_breaker must succeed for a valid config");
+    let client = StdGrpcBreakerFactory::new(GrpcBreakerConfig {
+        failure_threshold: 2,
+        cool_down_seconds: 1,
+        half_open_probe_count: 1,
+    })
+    .build(BuildGrpcBreakerRequest { inner: upstream })
+    .expect("build must succeed for a valid config");
 
     // Two real failures reach the upstream and trip the breaker.
     for attempt in 1..=2 {

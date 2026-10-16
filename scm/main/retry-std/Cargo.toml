@@ -21,21 +21,16 @@ service_type = "processor"
 [dependencies]
 grpc-egress-retry = { workspace = true }
 grpc-egress-transport = { workspace = true }
-edge-transport-retry-policy = { workspace = true }
 edge-transport-retry        = { workspace = true }
-thiserror = { workspace = true }
 futures = { workspace = true }
-# `from_config` loads policy from TOML. `serde` derives the
-# schema; `toml` parses it. Policy values live in
-# `config/application.toml` + consumer overrides — never as
-# hardcoded literals in source.
-serde = { workspace = true }
+# `from_config` parses the policy from TOML; policy values live in `config/application.toml`
+# plus consumer overrides, never as literals in source.
 toml = { workspace = true }
-swe-edge-configbuilder.workspace = true
 tokio = { workspace = true, features = ["time", "sync", "macros"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
+swe-edge-configbuilder = { workspace = true }
 grpc-egress-transport-std = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "time"] }
 

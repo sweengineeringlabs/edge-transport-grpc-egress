@@ -1,24 +1,18 @@
-# grpc-retry
+# grpc-egress-retry-std
 
-gRPC-aware retry decorator wrapping any
-`GrpcEgress` implementor (the trait of `grpc-egress-transport`).
+The implementation of the retry domain `grpc-egress-retry`: `StdGrpcRetryFactory::new(config)` wraps any
+`GrpcEgress` (the trait of `grpc-egress-transport`) so that unary calls are retried with exponential
+backoff and jitter on `Unavailable` and `ResourceExhausted`, within the caller's deadline.
 
-## Build
+## Build and test
 
 ```bash
 cargo build
-```
-
-## Test
-
-```bash
 cargo test
 ```
 
-## Project Structure
+## Project structure
 
-- `src/api/` - Public types and traits (L2)
-- `src/core/` - Implementation layer (L3)
-- `src/saf/` - Public facade (L4)
-- `src/gateway/` - Public entry boundary
-- `config/application.toml` - Default retry policy
+- `src/std/` - the retry client and the types that carry behaviour
+- `src/saf/` - the factory
+- `config/application.toml` - default retry policy

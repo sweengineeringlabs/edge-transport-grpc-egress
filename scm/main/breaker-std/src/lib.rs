@@ -39,8 +39,5 @@
 mod saf;
 mod std;
 
-pub use crate::std::{
-    ApplicationConfigBuilderProvider, GrpcBreakerClient, GrpcBreakerConfigProvider,
-    GrpcBreakerFacade, GrpcBreakerSvc,
-};
-pub use saf::*;
+pub use crate::std::GrpcBreakerConfigProvider;
+pub use saf::StdGrpcBreakerFactory;

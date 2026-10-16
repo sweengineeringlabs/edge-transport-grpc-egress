@@ -2,10 +2,10 @@
 //! Integration tests for the gRPC retry decorator.
 //!
 //! These exercise the public API end-to-end: a stub
-//! [`GrpcEgress`] is wrapped with [`GrpcRetryClient`] and the
+//! [`GrpcEgress`] is wrapped with the retry client and the
 //! retry loop is observed via call counters and elapsed time.
 
-use grpc_egress_retry_std::{ApplicationConfigBuilderProvider, GrpcRetryConfigProvider};
+use grpc_egress_retry_std::GrpcRetryConfigProvider;
 use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -13,8 +13,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures::future::BoxFuture;
-use grpc_egress_retry::GrpcRetryConfig;
-use grpc_egress_retry_std::{GrpcRetryClient, GrpcRetryFacade};
+use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest,
@@ -112,11 +112,15 @@ fn make_request(deadline: Duration) -> GrpcRequest {
     GrpcRequest::new("svc.Test/Method", b"hello".to_vec(), deadline)
 }
 
-fn wrap(
-    inner: Arc<ScriptedClient>,
+fn wrap(inner: Arc<ScriptedClient>, config: GrpcRetryConfig) -> impl GrpcEgress {
+    wrap_with(SharedClient::new(inner), config)
+}
+
+fn wrap_with<T: GrpcEgress + Send + Sync + 'static>(
+    inner: T,
     config: GrpcRetryConfig,
-) -> GrpcRetryClient<SharedClient<ScriptedClient>> {
-    GrpcRetryFacade::wrap_retry(SharedClient::new(inner), config)
+) -> impl GrpcEgress {
+    StdGrpcRetryFactory::new(config).build(BuildGrpcRetryRequest { inner })
 }
 
 /// @covers: GrpcRetryConfig::default — SWE default has positive max_attempts.
@@ -291,7 +295,7 @@ async fn test_resource_exhausted_rate_limit_retries_on_rate_limit_track() {
         "#,
     )
     .unwrap();
-    let client = GrpcRetryClient::new(SharedClient::new(inner.clone()), cfg);
+    let client = wrap_with(SharedClient::new(inner.clone()), cfg);
     let resp = client
         .call_unary(make_request(Duration::from_secs(5)))
         .await
@@ -383,7 +387,7 @@ async fn test_retry_honors_caller_deadline_as_total_budget() {
         "#,
     )
     .unwrap();
-    let client = GrpcRetryClient::new(SharedSlow(stats.clone()), cfg);
+    let client = wrap_with(SharedSlow(stats.clone()), cfg);
 
     let total_budget = Duration::from_millis(200);
     let started = Instant::now();
@@ -406,59 +410,6 @@ async fn test_retry_honors_caller_deadline_as_total_budget() {
     assert!(
         elapsed < total_budget * 3,
         "retry loop ran for {elapsed:?}, far past budget {total_budget:?}",
-    );
-}
-
-/// @covers: GrpcRetryFacade::create_retry_client
-#[test]
-fn test_create_retry_client_wraps_inner_with_default_config() {
-    let inner = SharedClient::new(Arc::new(ScriptedClient::new(vec![Outcome::Ok])));
-    let client = GrpcRetryFacade::create_retry_client(inner);
-    let default_cfg = GrpcRetryConfig::default();
-    assert_eq!(client.config().max_attempts, default_cfg.max_attempts);
-    assert_eq!(
-        client.config().initial_backoff_ms,
-        default_cfg.initial_backoff_ms
-    );
-    assert_eq!(
-        client.config().backoff_multiplier,
-        default_cfg.backoff_multiplier
-    );
-}
-
-/// @covers: GrpcRetryFacade::wrap_retry
-#[test]
-fn test_wrap_retry_produces_retry_client_with_supplied_config() {
-    let inner = SharedClient::new(Arc::new(ScriptedClient::new(vec![Outcome::Ok])));
-    let cfg = fast_config();
-    let max = cfg.max_attempts;
-    let client = GrpcRetryFacade::wrap_retry(inner, cfg);
-    drop(client);
-    assert!(max >= 1);
-}
-
-#[derive(serde::Deserialize, Default, PartialEq, Debug)]
-struct AbsentSectionProbe {
-    marker: bool,
-}
-
-/// @covers: GrpcRetryFacade::create_config_builder
-#[test]
-fn test_create_config_builder_builds_loader() {
-    let loader = GrpcRetryFacade::create_config_builder()
-        .expect("infallible")
-        .build_loader()
-        .expect("a builder pre-seeded with name and version must build a valid loader");
-    // In a test environment there is no application.toml at any configured
-    // directory, so querying any section must fail with NotFound — proves
-    // the loader is genuinely wired to the filesystem, not a no-op stub.
-    let err = loader
-        .load_section::<AbsentSectionProbe>("retry_test_probe_section_that_does_not_exist")
-        .expect_err("no config directory exists in the test environment");
-    assert!(
-        err.to_string()
-            .contains("retry_test_probe_section_that_does_not_exist"),
-        "error must name the missing section, got: {err}"
     );
 }
 

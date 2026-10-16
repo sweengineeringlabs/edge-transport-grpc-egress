@@ -1,12 +1,12 @@
 //! Reusable example: wrap an already-built client in retry and circuit breaker with
-//! [`GrpcResilientFacade::apply_resilience`].
+//! [`StdGrpcResilientFactory`].
 //!
 //! The decorator never builds the client: the composition root does that and applies the decorator
 //! on top. A `GrpcEgress` test double stands in for the client, so no server is needed. The double
 //! fails its first two calls and then succeeds; the retry layer inside the decorator must call it
 //! again after a real backoff until it does.
 //!
-//! [`GrpcResilientFacade::apply_resilience`]: grpc_egress_resilient_std::GrpcResilientFacade::apply_resilience
+//! [`StdGrpcResilientFactory`]: grpc_egress_resilient_std::StdGrpcResilientFactory
 
 use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
@@ -16,7 +16,8 @@ use std::time::Duration;
 
 use futures::future::BoxFuture;
 use grpc_egress_resilient::ResilienceConfig;
-use grpc_egress_resilient_std::GrpcResilientFacade;
+use grpc_egress_resilient::{BuildGrpcResilientRequest, GrpcResilientFactory};
+use grpc_egress_resilient_std::StdGrpcResilientFactory;
 use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, HealthCheckRequest,
 };
@@ -71,7 +72,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cool_down_seconds: 1,
         half_open_probe_count: 1,
     };
-    let client = GrpcResilientFacade::apply_resilience(upstream, config)?;
+    let client = StdGrpcResilientFactory::new(config)
+        .build(BuildGrpcResilientRequest { inner: upstream })?;
 
     let request = GrpcRequest::new("example.Service/Method", vec![], Duration::from_secs(3));
     let started = std::time::Instant::now();

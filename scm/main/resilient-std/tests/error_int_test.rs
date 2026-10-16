@@ -1,12 +1,12 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for `ResilientTransportError`, produced by
-//! [`GrpcResilientFacade::apply_resilience`].
+//! [`StdGrpcResilientFactory::build`].
 
 use std::collections::HashMap;
 
 use futures::future::BoxFuture;
-use grpc_egress_resilient::ResilienceConfig;
-use grpc_egress_resilient_std::GrpcResilientFacade;
+use grpc_egress_resilient::{BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig};
+use grpc_egress_resilient_std::StdGrpcResilientFactory;
 use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressResult, GrpcMessageStreamResponse, GrpcResponse,
     HealthCheckRequest,
@@ -43,8 +43,10 @@ fn test_error_invalid_resilience_variant_produced_on_bad_config() {
         max_attempts: 0,
         ..ResilienceConfig::default()
     };
-    let Err(err) = GrpcResilientFacade::apply_resilience(AlwaysOk, cfg) else {
-        panic!("expected apply_resilience to reject max_attempts = 0");
+    let Err(err) =
+        StdGrpcResilientFactory::new(cfg).build(BuildGrpcResilientRequest { inner: AlwaysOk })
+    else {
+        panic!("expected build to reject max_attempts = 0");
     };
     assert!(matches!(
         err,
@@ -53,10 +55,11 @@ fn test_error_invalid_resilience_variant_produced_on_bad_config() {
     assert!(err.to_string().contains("invalid resilience config"));
 }
 
-/// @covers: apply_resilience — a valid config wraps the inner client without error
+/// @covers: StdGrpcResilientFactory::build — a valid config wraps the inner client without error
 #[test]
-fn test_apply_resilience_valid_config_returns_ok() {
-    let result = GrpcResilientFacade::apply_resilience(AlwaysOk, ResilienceConfig::default());
+fn test_build_valid_config_returns_ok() {
+    let result = StdGrpcResilientFactory::new(ResilienceConfig::default())
+        .build(BuildGrpcResilientRequest { inner: AlwaysOk });
     assert!(
         result.is_ok(),
         "a genuinely valid config must wrap successfully"

@@ -21,7 +21,6 @@ service_type = "processor"
 [dependencies]
 grpc-egress-transport = { workspace = true }
 edge-transport-breaker-policy = { workspace = true }
-thiserror = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
 swe-edge-configbuilder.workspace = true

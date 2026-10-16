@@ -1,24 +1,19 @@
-# grpc-breaker
+# grpc-egress-breaker-std
 
-gRPC-aware circuit breaker decorator wrapping any
-`GrpcEgress` implementor (the trait of `grpc-egress-transport`).
+The implementation of the breaker domain `grpc-egress-breaker`: `StdGrpcBreakerFactory::new(config)` wraps
+any `GrpcEgress` (the trait of `grpc-egress-transport`) with a circuit breaker. After
+`failure_threshold` consecutive failures the circuit opens and calls fail fast, until the cool-down has
+passed and probe calls close it again. The built client is also a `BreakerObservable`.
 
-## Build
+## Build and test
 
 ```bash
 cargo build
-```
-
-## Test
-
-```bash
 cargo test
 ```
 
-## Project Structure
+## Project structure
 
-- `src/api/` - Public types and traits (L2)
-- `src/core/` - Implementation layer (L3)
-- `src/saf/` - Public facade (L4)
-- `src/gateway/` - Public entry boundary
-- `config/application.toml` - Default breaker policy
+- `src/std/` - the breaker client and the types that carry behaviour
+- `src/saf/` - the factory
+- `config/application.toml` - default breaker policy

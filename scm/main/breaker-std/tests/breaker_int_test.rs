@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for the gRPC circuit-breaker decorator.
 
-use grpc_egress_breaker_std::{ApplicationConfigBuilderProvider, GrpcBreakerConfigProvider};
+use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
 use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -9,8 +9,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::future::BoxFuture;
-use grpc_egress_breaker::{BreakerState, GrpcBreakerConfig};
-use grpc_egress_breaker_std::{GrpcBreakerClient, GrpcBreakerFacade};
+use grpc_egress_breaker::{
+    BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
+    GrpcBreakerFactory, ObserveStateRequest,
+};
+use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_transport::{
     GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
     HealthCheckRequest,
@@ -85,6 +88,23 @@ fn fast_cfg() -> GrpcBreakerConfig {
     .unwrap()
 }
 
+fn build<T: GrpcEgress + Send + Sync + 'static>(
+    inner: T,
+    config: GrpcBreakerConfig,
+) -> impl GrpcEgress + BreakerObservable {
+    StdGrpcBreakerFactory::new(config)
+        .build(BuildGrpcBreakerRequest { inner })
+        .expect("the test policies are valid")
+}
+
+async fn state_of(client: &impl BreakerObservable) -> BreakerState {
+    client
+        .state(ObserveStateRequest)
+        .await
+        .expect("observing the state is infallible")
+        .state
+}
+
 fn make_request() -> GrpcRequest {
     GrpcRequest::new("svc.Test/Method", b"hi".to_vec(), Duration::from_secs(5))
 }
@@ -96,15 +116,15 @@ fn test_grpc_breaker_config_default_has_positive_failure_threshold() {
     assert!(cfg.failure_threshold >= 1);
 }
 
-/// @covers: GrpcBreakerClient — passes through when Closed.
+/// @covers: StdGrpcBreakerFactory::build — passes through when Closed.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_closed_state_passes_through_success() {
     let inner = Arc::new(ToggleClient::new(0));
-    let client = GrpcBreakerClient::new(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg());
     let resp = client.call_unary(make_request()).await.expect("ok");
     assert_eq!(resp.body, b"ok");
     assert_eq!(inner.call_count(), 1);
-    assert_eq!(client.state().await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await, BreakerState::Closed);
 }
 
 /// @covers: state machine — N failures trip Open; Open
@@ -115,13 +135,13 @@ async fn test_closed_state_passes_through_success() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_open_state_short_circuits_without_calling_inner() {
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = GrpcBreakerClient::new(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg());
 
     // Trip it.
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(client.state().await, BreakerState::Open { .. }));
+    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
     assert_eq!(inner.call_count(), 3, "exactly the threshold trips it");
 
     // Subsequent calls must NOT reach inner.
@@ -145,14 +165,14 @@ async fn test_open_state_short_circuits_without_calling_inner() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_full_state_lifecycle_closed_open_half_open_closed() {
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = GrpcBreakerClient::new(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg());
 
     // 1) Closed → Open after 3 failures.
-    assert_eq!(client.state().await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await, BreakerState::Closed);
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(client.state().await, BreakerState::Open { .. }));
+    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
 
     // 2) Cool-down: while in Open, reject without calling inner.
     let calls_when_opened = inner.call_count();
@@ -174,20 +194,20 @@ async fn test_full_state_lifecycle_closed_open_half_open_closed() {
         .await
         .expect("probe ok closes breaker");
     assert_eq!(resp.body, b"ok");
-    assert_eq!(client.state().await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await, BreakerState::Closed);
 }
 
 /// @covers: state machine — half-open probe failure returns to Open.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_half_open_probe_failure_returns_to_open() {
     let inner = Arc::new(ToggleClient::new(1));
-    let client = GrpcBreakerClient::new(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg());
 
     // Trip to Open.
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(client.state().await, BreakerState::Open { .. }));
+    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
 
     // Wait past cool-down so the next call promotes to HalfOpen,
     // but keep the stub failing so the probe fails.
@@ -195,7 +215,7 @@ async fn test_half_open_probe_failure_returns_to_open() {
 
     let _ = client.call_unary(make_request()).await;
     assert!(
-        matches!(client.state().await, BreakerState::Open { .. }),
+        matches!(state_of(&client).await, BreakerState::Open { .. }),
         "failed probe must return to Open",
     );
 }
@@ -204,13 +224,13 @@ async fn test_half_open_probe_failure_returns_to_open() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_permission_denied_does_not_trip_breaker() {
     let inner = Arc::new(ToggleClient::new(3)); // PermissionDenied
-    let client = GrpcBreakerClient::new(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg());
 
     for _ in 0..10 {
         let _ = client.call_unary(make_request()).await;
     }
     assert_eq!(
-        client.state().await,
+        state_of(&client).await,
         BreakerState::Closed,
         "auth failures must not count toward the breaker threshold",
     );
@@ -221,39 +241,38 @@ async fn test_permission_denied_does_not_trip_breaker() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_internal_counts_toward_threshold() {
     let inner = Arc::new(ToggleClient::new(2)); // Internal
-    let client = GrpcBreakerClient::new(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg());
     for _ in 0..3 {
         let _ = client.call_unary(make_request()).await;
     }
-    assert!(matches!(client.state().await, BreakerState::Open { .. }));
+    assert!(matches!(state_of(&client).await, BreakerState::Open { .. }));
 }
 
 /// @covers: state — Closed reset on intermittent success.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_intermittent_success_keeps_breaker_closed() {
     let inner = Arc::new(ToggleClient::new(1));
-    let client = GrpcBreakerClient::new(Shared(inner.clone()), fast_cfg());
+    let client = build(Shared(inner.clone()), fast_cfg());
 
     // 2 failures, then 1 success: counter resets.
     let _ = client.call_unary(make_request()).await;
     let _ = client.call_unary(make_request()).await;
     inner.set_mode(0);
     let _ = client.call_unary(make_request()).await;
-    assert_eq!(client.state().await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await, BreakerState::Closed);
 
     // Now 2 more failures: still Closed (was reset).
     inner.set_mode(1);
     let _ = client.call_unary(make_request()).await;
     let _ = client.call_unary(make_request()).await;
-    assert_eq!(client.state().await, BreakerState::Closed);
+    assert_eq!(state_of(&client).await, BreakerState::Closed);
 }
 
-/// @covers: GrpcBreakerFacade::create_breaker_client
+/// @covers: StdGrpcBreakerFactory::build
 #[tokio::test(flavor = "multi_thread")]
-async fn test_create_breaker_client_wraps_inner_with_default_config() {
+async fn test_build_with_default_config_opens_at_the_default_threshold() {
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = GrpcBreakerFacade::create_breaker_client(Shared(inner.clone()))
-        .expect("create_breaker_client is infallible");
+    let client = build(Shared(inner.clone()), GrpcBreakerConfig::default());
     let default_cfg = GrpcBreakerConfig::default();
 
     // Drive exactly (default_cfg.failure_threshold - 1) failures: breaker
@@ -285,17 +304,16 @@ async fn test_create_breaker_client_wraps_inner_with_default_config() {
     );
 }
 
-/// @covers: GrpcBreakerFacade::wrap_breaker
+/// @covers: StdGrpcBreakerFactory::build
 #[tokio::test(flavor = "multi_thread")]
-async fn test_wrap_breaker_produces_client_with_supplied_config() {
+async fn test_build_with_supplied_config_opens_at_the_supplied_threshold() {
     let cfg = GrpcBreakerConfig {
         failure_threshold: 3,
         cool_down_seconds: 5,
         half_open_probe_count: 1,
     };
     let inner = Arc::new(ToggleClient::new(1)); // Unavailable
-    let client = GrpcBreakerFacade::wrap_breaker(Shared(inner.clone()), cfg)
-        .expect("wrap_breaker is infallible");
+    let client = build(Shared(inner.clone()), cfg);
 
     // The supplied threshold is 3 — two failures must not yet trip it.
     for _ in 0..2 {
@@ -312,31 +330,6 @@ async fn test_wrap_breaker_produces_client_with_supplied_config() {
         .expect_err("breaker must reject once open at the supplied threshold");
     assert!(matches!(err, GrpcEgressError::Unavailable(_)));
     assert_eq!(inner.call_count(), 3, "Open state must not call inner");
-}
-
-#[derive(serde::Deserialize, Default, PartialEq, Debug)]
-struct AbsentSectionProbe {
-    marker: bool,
-}
-
-/// @covers: GrpcBreakerFacade::create_config_builder
-#[test]
-fn test_create_config_builder_builds_loader() {
-    let loader = GrpcBreakerFacade::create_config_builder()
-        .expect("create_config_builder is infallible")
-        .build_loader()
-        .expect("a builder pre-seeded with name and version must build a valid loader");
-    // In a test environment there is no application.toml at any configured
-    // directory, so querying any section must fail with NotFound — proves
-    // the loader is genuinely wired to the filesystem, not a no-op stub.
-    let err = loader
-        .load_section::<AbsentSectionProbe>("breaker_test_probe_section_that_does_not_exist")
-        .expect_err("no config directory exists in the test environment");
-    assert!(
-        err.to_string()
-            .contains("breaker_test_probe_section_that_does_not_exist"),
-        "error must name the missing section, got: {err}"
-    );
 }
 
 /// @covers: GrpcBreakerConfig::section_name

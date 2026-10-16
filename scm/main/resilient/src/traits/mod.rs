@@ -1,9 +1,5 @@
-//! Trait contracts of the resilient domain.
+//! Trait contracts of the resilience domain.
 
-pub mod config_builder_provider;
-pub mod processor;
-pub mod validator;
+pub mod grpc_resilient_factory;
 
-pub use config_builder_provider::ConfigBuilderProvider;
-pub use processor::Processor;
-pub use validator::Validator;
+pub use grpc_resilient_factory::GrpcResilientFactory;

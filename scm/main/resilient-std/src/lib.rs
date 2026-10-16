@@ -3,14 +3,14 @@
 //! This crate is a **decorator only** — it never builds a base transport
 //! client. A composition root builds the bare client (e.g. via
 //! `grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory`)
-//! and calls [`GrpcResilientFacade::apply_resilience`] to wrap it in a
-//! [`grpc_egress_retry_std::GrpcRetryClient`] then a
-//! [`grpc_egress_breaker_std::GrpcBreakerClient`].
+//! and wraps it with [`StdGrpcResilientFactory`]: retry first
+//! ([`grpc_egress_retry_std::StdGrpcRetryFactory`]), then a circuit breaker
+//! ([`grpc_egress_breaker_std::StdGrpcBreakerFactory`]).
 //!
 //! Call-stack once wrapped:
 //! ```text
-//! GrpcBreakerClient   ← fast-fail when circuit is open
-//!   └─ GrpcRetryClient ← exponential-backoff retry
+//! circuit breaker     ← fast-fail when circuit is open
+//!   └─ retry          ← exponential-backoff retry
 //!        └─ (caller-supplied bare client) ← hyper HTTP/2 transport
 //! ```
 
@@ -21,8 +21,5 @@
 mod saf;
 mod std;
 
-pub use crate::std::{
-    ApplicationConfigBuilderProvider, GrpcResilientFacade, GrpcResilientSvcProcessor,
-    ResilienceConfigProvider,
-};
-pub use saf::*;
+pub use crate::std::ResilienceConfigProvider;
+pub use saf::StdGrpcResilientFactory;

@@ -557,7 +557,6 @@ dependencies = [
  "grpc-egress-transport",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
- "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -570,9 +569,7 @@ dependencies = [
  "grpc-egress-breaker",
  "grpc-egress-transport",
  "grpc-egress-transport-std",
- "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
- "thiserror 2.0.19",
  "tokio",
  "toml",
  "tracing",
@@ -584,6 +581,7 @@ version = "0.5.0"
 dependencies = [
  "grpc-egress-breaker",
  "grpc-egress-retry",
+ "grpc-egress-transport",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
  "thiserror 2.0.19",
@@ -601,9 +599,6 @@ dependencies = [
  "grpc-egress-retry-std",
  "grpc-egress-transport",
  "grpc-egress-transport-std",
- "serde",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
- "thiserror 2.0.19",
  "tokio",
  "toml",
 ]
@@ -613,9 +608,9 @@ name = "grpc-egress-retry"
 version = "0.5.0"
 dependencies = [
  "edge-transport-retry-policy",
+ "grpc-egress-transport",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
- "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -623,14 +618,11 @@ name = "grpc-egress-retry-std"
 version = "0.5.0"
 dependencies = [
  "edge-transport-retry",
- "edge-transport-retry-policy",
  "futures",
  "grpc-egress-retry",
  "grpc-egress-transport",
  "grpc-egress-transport-std",
- "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
- "thiserror 2.0.19",
  "tokio",
  "toml",
  "tracing",

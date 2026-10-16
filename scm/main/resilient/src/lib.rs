@@ -10,10 +10,7 @@ mod error;
 mod traits;
 mod vo;
 
-pub use dto::{
-    ConfigBuilderRequest, ConfigBuilderResponse, ConfigValidationRequest, DescribeRequest,
-    DescribeResponse,
-};
+pub use dto::BuildGrpcResilientRequest;
 pub use error::ResilientTransportError;
-pub use traits::{ConfigBuilderProvider, Processor, Validator};
-pub use vo::{ApplicationConfigBuilder, ResilienceConfig};
+pub use traits::GrpcResilientFactory;
+pub use vo::ResilienceConfig;
