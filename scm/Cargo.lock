@@ -331,22 +331,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "edge-transport-grpc-egress-auth-bearer"
-version = "0.5.0"
-dependencies = [
- "edge-security-transport-egress-grpc",
- "grpc-egress-transport",
- "grpc-egress-transport-std",
- "jsonwebtoken",
- "serde",
- "subtle",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
- "thiserror 2.0.19",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "edge-transport-retry"
 version = "0.1.0"
 source = "git+https://github.com/sweengineeringlabs/edge-transport-retry.git?tag=v0.1.0#7e72740e59aaf825e575a3ef485385c0fd91918c"
@@ -538,6 +522,30 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
+]
+
+[[package]]
+name = "grpc-egress-auth-bearer"
+version = "0.5.0"
+dependencies = [
+ "edge-security-transport-egress-grpc",
+ "serde",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "grpc-egress-auth-bearer-std"
+version = "0.5.0"
+dependencies = [
+ "edge-security-transport-egress-grpc",
+ "grpc-egress-auth-bearer",
+ "grpc-egress-transport",
+ "grpc-egress-transport-std",
+ "jsonwebtoken",
+ "serde",
+ "subtle",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -1,45 +1,27 @@
 [package]
-name = "edge-transport-grpc-egress-auth-bearer"
+name = "grpc-egress-auth-bearer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "JWT bearer GrpcEgressInterceptor — signs and injects Bearer tokens into outgoing gRPC requests"
-keywords = ["grpc", "jwt", "bearer", "auth", "interceptor"]
+description = "gRPC egress bearer-auth domain: the outbound config, secret, claims, errors and validation contract. No implementation."
+keywords = ["grpc", "jwt", "bearer", "auth", "domain"]
 categories = ["network-programming", "authentication"]
 
 [package.metadata.struct-engine]
-application_type = "lib"
+application_type = "port"
 service_type = "processor"
 
 [package.metadata.arch]
-application_type = "lib"
+application_type = "port"
 service_type = "processor"
 
-[[example]]
-name = "auth_bearer"
-path = "examples/auth_bearer.rs"
-
 [dependencies]
-grpc-egress-transport = { workspace = true }
 swe-edge-security = { workspace = true }
-thiserror    = { workspace = true }
-serde         = { workspace = true }
-tracing       = { workspace = true }
-# JWT sign + verify (HS256 / RS256).  Default features include
-# `use_pem` which we need for RS256 PEM-key construction.
-swe-edge-configbuilder = { workspace = true }
-jsonwebtoken  = "9"
-# Constant-time comparisons for symmetric-secret material.
-subtle        = "2"
-
-[dev-dependencies]
-grpc-egress-transport-std = { workspace = true }
-tokio  = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
-subtle = "2"
-
+thiserror = { workspace = true }
+serde = { workspace = true }
 
 [lints.rust]
 unsafe_code  = "deny"
