@@ -5,14 +5,15 @@
 //! The outcome drives the `record` side of the transition logic.
 //! This stub verifies the public surface that depends on it compiles.
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use edge_transport_grpc_egress::{
-    GrpcEgress, GrpcEgressResult, GrpcRequest, GrpcResponse, HealthCheckRequest,
-};
 use edge_transport_grpc_egress_breaker::{BreakerState, GrpcBreakerClient, GrpcBreakerConfig};
 use futures::future::BoxFuture;
+use grpc_egress_transport::{
+    GrpcEgress, GrpcEgressResult, GrpcRequest, GrpcResponse, HealthCheckRequest,
+};
 
 /// Always-succeeding inner client so a real `Outcome::Success` is recorded.
 struct AlwaysOk;

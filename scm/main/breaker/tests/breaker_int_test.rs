@@ -1,19 +1,20 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for the gRPC circuit-breaker decorator.
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use edge_transport_grpc_egress::{
-    GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
-    HealthCheckRequest,
-};
 use edge_transport_grpc_egress_breaker::{
     BreakerState, GrpcBreakerClient, GrpcBreakerConfig, GrpcBreakerFacade,
 };
 use futures::future::BoxFuture;
+use grpc_egress_transport::{
+    GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    HealthCheckRequest,
+};
 
 /// Stub `GrpcEgress` whose outcome the test toggles at runtime.
 ///

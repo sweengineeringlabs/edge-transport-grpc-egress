@@ -15,9 +15,9 @@ OUT = os.environ.get("MUTATION_LOG", os.path.join(os.environ.get("TMPDIR", os.en
 ENV = dict(os.environ)
 ENV.update({"CARGO_BUILD_JOBS": "1",
             "CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_PROFILE_TEST_DEBUG": "0", "CARGO_INCREMENTAL": "0"})
-ARGS = ["-p", "edge-transport-grpc-egress-transport", "--test", "tonic_grpc_egress_loadbalancer_int_test", "--test", "tonic_grpc_egress_builder_validation_int_test"]
-L = "main/transport/src/spi/loadbalancer/tonic/lb_grpc_egress.rs"
-B = "main/transport/src/spi/client/tonic/tonic_grpc_egress_builder.rs"
+ARGS = ["-p", "grpc-egress-transport-std", "--test", "tonic_grpc_egress_loadbalancer_int_test", "--test", "tonic_grpc_egress_builder_validation_int_test"]
+L = "main/transport-std/src/spi/loadbalancer/tonic/lb_grpc_egress.rs"
+B = "main/transport-std/src/spi/client/tonic/tonic_grpc_egress_builder.rs"
 
 MUTANTS = [
     ("L01 balanced call not retargeted to the backend", L, "call(self.template.retarget(&backend.url)).await", "call(self.template.clone()).await",

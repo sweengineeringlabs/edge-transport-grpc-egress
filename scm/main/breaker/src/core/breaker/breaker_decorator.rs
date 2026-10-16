@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use edge_transport_grpc_egress::GrpcEgress;
+use grpc_egress_transport::GrpcEgress;
 use tracing::debug;
 
 use crate::api::{
@@ -40,11 +40,12 @@ mod tests {
 
     use super::*;
     use crate::api::GrpcBreakerConfig;
-    use edge_transport_grpc_egress::{
+    use futures::future::BoxFuture;
+    use grpc_egress_transport::{
         CallStreamRequest, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse,
         HealthCheckRequest,
     };
-    use futures::future::BoxFuture;
+    use grpc_egress_transport_std::GrpcRequestFactory;
 
     struct DefaultBreakerDecoratorNoopEgress;
     impl GrpcEgress for DefaultBreakerDecoratorNoopEgress {

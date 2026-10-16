@@ -3,7 +3,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use edge_transport_grpc_egress::{
+use grpc_egress_transport::{
     AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor, GrpcRequest, GrpcStatusCode,
 };
 use jsonwebtoken::{Algorithm, EncodingKey, Header};

@@ -5,6 +5,7 @@
 //! [`GrpcEgress`] so the retry and circuit-breaker logic runs against
 //! configurable response sequences without a real network connection.
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -12,16 +13,16 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use edge_transport_grpc_egress::{
-    GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
-    HealthCheckRequest,
-};
 use edge_transport_grpc_egress_breaker::{BreakerState, GrpcBreakerClient, GrpcBreakerConfig};
 use edge_transport_grpc_egress_resilient::{
     GrpcResilientFacade, ResilienceConfig, ResilientTransportError,
 };
 use edge_transport_grpc_egress_retry::{GrpcRetryClient, GrpcRetryConfig};
 use futures::future::BoxFuture;
+use grpc_egress_transport::{
+    GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    HealthCheckRequest,
+};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

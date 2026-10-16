@@ -8,16 +8,17 @@
 //!
 //! [`GrpcResilientFacade::apply_resilience`]: edge_transport_grpc_egress_resilient::GrpcResilientFacade::apply_resilience
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use edge_transport_grpc_egress::{
-    GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, HealthCheckRequest,
-};
 use edge_transport_grpc_egress_resilient::{GrpcResilientFacade, ResilienceConfig};
 use futures::future::BoxFuture;
+use grpc_egress_transport::{
+    GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcRequest, GrpcResponse, HealthCheckRequest,
+};
 
 /// An upstream that fails its first `fail_until` calls with `Unavailable`, then succeeds.
 struct FlakyUpstream {

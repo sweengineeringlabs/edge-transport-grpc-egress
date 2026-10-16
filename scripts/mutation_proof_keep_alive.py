@@ -15,10 +15,10 @@ OUT = os.environ.get("MUTATION_LOG", os.path.join(os.environ.get("TMPDIR", os.en
 ENV = dict(os.environ)
 ENV.update({"CARGO_BUILD_JOBS": "1",
             "CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_PROFILE_TEST_DEBUG": "0", "CARGO_INCREMENTAL": "0"})
-ARGS = ["-p", "edge-transport-grpc-egress-transport", "--test", "tonic_grpc_egress_keep_alive_int_test"]
-G = "main/transport/src/spi/client/tonic/tonic_grpc_egress.rs"
-B = "main/transport/src/spi/client/tonic/tonic_grpc_egress_builder.rs"
-F = "main/transport/src/saf/transport_construction_svc_factory.rs"
+ARGS = ["-p", "grpc-egress-transport-std", "--test", "tonic_grpc_egress_keep_alive_int_test"]
+G = "main/transport-std/src/spi/client/tonic/tonic_grpc_egress.rs"
+B = "main/transport-std/src/spi/client/tonic/tonic_grpc_egress_builder.rs"
+F = "main/transport-std/src/saf/client/transport_construction_svc_factory.rs"
 
 MUTANTS = [
     ("K01 builder drops the keep-alive at build", B, "            client = client.with_keep_alive(keep_alive);", "            let _ = keep_alive;",

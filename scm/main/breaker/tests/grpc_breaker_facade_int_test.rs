@@ -1,15 +1,16 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Integration tests for [`GrpcBreakerFacade`].
 
+use grpc_egress_transport_std::GrpcRequestFactory;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-use edge_transport_grpc_egress::{
+use edge_transport_grpc_egress_breaker::{BreakerDecorator, GrpcBreakerConfig, GrpcBreakerFacade};
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcResponse, HealthCheckRequest,
 };
-use edge_transport_grpc_egress_breaker::{BreakerDecorator, GrpcBreakerConfig, GrpcBreakerFacade};
-use futures::future::BoxFuture;
 
 struct CountingEgress(Arc<AtomicU32>);
 impl GrpcEgress for CountingEgress {

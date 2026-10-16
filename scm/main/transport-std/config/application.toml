@@ -1,0 +1,9 @@
+# grpc-egress-transport-std: no section is shipped as a baseline.
+#
+# A channel needs an endpoint, so there is no default to ship. The keys of a channel are the
+# fields of `GrpcChannelConfig` (see its documentation): the endpoint, whether TLS is required,
+# the message size cap, the compression mode, the request timeout, and the `mtls` and
+# `keep_alive` tables.
+#
+# Resilience settings are not part of the transport (ADR-004). They live in the
+# `[grpc_resilient]` section of the resilient crate's own config/application.toml.

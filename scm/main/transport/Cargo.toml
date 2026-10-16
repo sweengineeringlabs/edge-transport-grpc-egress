@@ -1,67 +1,35 @@
 [package]
-name         = "edge-transport-grpc-egress-transport"
+name         = "grpc-egress-transport"
 version.workspace      = true
 edition.workspace      = true
 license.workspace      = true
 rust-version.workspace = true
 authors.workspace      = true
 repository.workspace   = true
-description  = "edge — egress gRPC outbound domain: request/response types and outbound trait."
-keywords     = ["gateway", "egress", "grpc", "sea", "swe"]
+description  = "gRPC egress domain: the GrpcEgress trait, its requests, responses, errors and options. No implementation."
+keywords     = ["grpc", "egress", "domain", "swe"]
 categories   = ["network-programming"]
 
 [package.metadata.struct-engine]
-application_type = "lib"
+application_type = "port"
 service_type     = "processor"
 
 [package.metadata.arch]
-application_type = "lib"
+application_type = "port"
 service_type     = "processor"
 
 [features]
 default = []
-# Opt-in prost codec ergonomics (ADR-026). Default off — the byte core stays
-# codec-agnostic and the default build gains no `prost` dependency.
-prost = ["dep:prost"]
-
-[[example]]
-name = "basic_transport"
-path = "examples/basic_transport.rs"
+# Exposes the `GrpcEgressProstCodec` marker trait. The trait needs no dependency; the codec
+# itself (the `prost` crate) is a dependency of the implementation crate.
+prost = []
 
 [dependencies]
 serde.workspace       = true
 thiserror.workspace   = true
 futures.workspace     = true
-bytes            = "1"
-flate2           = "1"
-webpki-roots     = "1"
-zstd             = "0.14"
-http             = { workspace = true }
-http-body-util   = "0.1"
-hyper-util       = { version = "0.1", features = ["client-legacy", "tokio", "http2"] }
-hyper-rustls     = { version = "0.27", features = ["http2", "webpki-tokio"] }
-rustls           = { version = "0.23", features = ["aws-lc-rs"] }
-tokio                  = { version = "1", features = ["rt", "net", "time", "macros"] }
-swe-edge-configbuilder = { workspace = true }
-tokio-util       = { version = "0.7", default-features = false }
-tonic            = { version = "0.12", default-features = false }
-prost            = { version = "0.13", optional = true }
-swe-edge-loadbalancer  = { workspace = true }
+tokio-util            = { version = "0.7", default-features = false }
 edge-security-runtime = { workspace = true }
-tracing          = { workspace = true }
-
-[dev-dependencies]
-grpc-egress-test-support = { path = "../test-support" }
-toml       = "0.8"
-prost      = "0.13"
-tokio      = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
-hyper      = { version = "1", features = ["http2", "server"] }
-hyper-util = { version = "0.1", features = ["tokio"] }
-bytes      = "1"
-http-body      = "1"
-http-body-util = "0.1"
-futures    = "0.3"
-tonic      = { version = "0.12", default-features = false }
 
 [lints.rust]
 unsafe_code  = "deny"

@@ -2,7 +2,7 @@
 
 JWT bearer interceptor for the gRPC egress stack.
 
-`BearerEgressInterceptor` implements `edge_transport_grpc_egress_transport::GrpcEgressInterceptor`: it
+`BearerEgressInterceptor` implements `grpc_egress_transport::GrpcEgressInterceptor`: it
 signs a JWT from the configured claims and adds `authorization: Bearer <jwt>` to every outbound
 request. Validating the token on the receiving side is not part of this crate; that is the ingress
 side's job (`edge-transport-grpc-ingress-auth-bearer`).

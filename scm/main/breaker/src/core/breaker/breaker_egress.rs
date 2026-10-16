@@ -1,10 +1,10 @@
 //! [`GrpcEgress`] impl for [`GrpcBreakerClient`].
 
-use edge_transport_grpc_egress::{
+use futures::future::BoxFuture;
+use grpc_egress_transport::{
     CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
     GrpcRequest, GrpcResponse, HealthCheckRequest,
 };
-use futures::future::BoxFuture;
 
 use edge_transport_breaker::DefaultBreakerTransition;
 use edge_transport_breaker_policy::{
