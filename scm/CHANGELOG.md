@@ -5,9 +5,9 @@ All notable changes to the workspace are documented here. The per-crate `CHANGEL
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and the workspace
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A tag is cut only on the owner's
-word; 0.8.0 is prepared, not tagged.
+word.
 
-## [0.8.0] - not yet tagged
+## [0.8.0] - 2026-10-16
 
 The restructuring of issues #16 and #17. Breaking throughout: package names, crate layout, the way a
 client is built.

@@ -1,6 +1,6 @@
 # ADR-007: Decorators wrap a built client; one factory per theme
 
-**Status:** Proposed, implemented on `dev`; the owner's acceptance is requested (issue 16 task 13 asks for the ruling to be recorded before the decorator options, issue 17 acceptance criterion 4 for an accepted ADR)
+**Status:** Accepted (the owner, 2026-10-16); implemented on `dev`
 **Date:** 2026-10-16
 **Tracking:** [#16](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/16) tasks 7, 13, 14, 16; [#17](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/17) tasks 8, 20
 **See also:** [ADR-004](ADR-004-remove-resilience-config-from-transport-primitive.md) (the transport knows nothing of retry and breaker), [ADR-006](ADR-006-domain-first.md) (domain crate and implementation crate)

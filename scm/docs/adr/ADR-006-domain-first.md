@@ -1,6 +1,6 @@
 # ADR-006: Domain first: the transport splits into a domain crate and an implementation crate
 
-**Status:** Proposed, implemented on branch `refactor/17-task5-split-transport-domain-std`; the owner's acceptance is requested (issue 17 acceptance criterion 4 asks for an accepted ADR)
+**Status:** Accepted (the owner, 2026-10-16); implemented on `dev`
 **Date:** 2026-10-16
 **Tracking:** [#17](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/17) tasks 3, 4, 5, 7
 **See also:** [ADR-004](ADR-004-remove-resilience-config-from-transport-primitive.md) (the transport knows nothing of retry and breaker)
