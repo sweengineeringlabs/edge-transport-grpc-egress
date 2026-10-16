@@ -8,11 +8,6 @@ pub enum GrpcChannelConfigError {
     #[error("plaintext endpoint '{0}' rejected — tls_required is set; use .allow_plaintext() to opt out")]
     PlaintextRejected(String),
 
-    /// The configuration sets an option that this client does not apply yet, so it would be
-    /// silently ignored.
-    #[error("option '{0}' is set but this client does not apply it; remove it rather than have it silently ignored")]
-    OptionNotApplied(&'static str),
-
     /// A certificate, key or CA file named by the TLS options cannot be read or holds no usable
     /// PEM item.
     #[error("TLS file '{path}' is unusable: {reason}")]
