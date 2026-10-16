@@ -1,12 +1,7 @@
 //! gRPC retry policy schema.
 //!
-//! Policy **values** live in TOML:
-//! - crate-shipped baseline: `config/application.toml`
-//! - consumer override: whatever TOML the binary loads and
-//!   passes to `GrpcRetryConfig::from_config` of `grpc-egress-retry-std`.
-//!
-//! No `Default` impl — per the config-driven principle, policy
-//! is data in a file, not literals in a source tree.
+//! Policy **values**: the baseline is [`GrpcRetryConfig::default`]; a consumer's own TOML goes through
+//! `GrpcRetryConfig::from_config` of `grpc-egress-retry-std`.
 
 use serde::Deserialize;
 
@@ -86,7 +81,6 @@ impl Default for GrpcRetryConfig {
 
 impl swe_edge_configbuilder::ConfigSection for GrpcRetryConfig {
     fn section_name() -> &'static str {
-        // @allow: no_stub_fn_bodies
         "grpc_retry"
     }
 }

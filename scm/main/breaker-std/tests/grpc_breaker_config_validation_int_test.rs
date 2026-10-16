@@ -14,7 +14,16 @@ fn valid() -> GrpcBreakerConfig {
 /// @covers: GrpcBreakerConfigProvider::validate
 #[test]
 fn test_validate_valid_config_returns_ok() {
+    let invalid = GrpcBreakerConfig {
+        failure_threshold: 0,
+        ..valid()
+    };
+
     assert!(valid().validate().is_ok());
+    assert!(
+        invalid.validate().is_err(),
+        "the same policy with no threshold must not"
+    );
 }
 
 /// @covers: GrpcBreakerConfigProvider::validate

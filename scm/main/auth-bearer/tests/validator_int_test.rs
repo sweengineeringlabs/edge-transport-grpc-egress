@@ -21,9 +21,16 @@ fn make_valid_config() -> BearerEgressConfig {
 fn test_validate_valid_config_returns_ok() {
     use grpc_egress_auth_bearer::Validator;
     let config = make_valid_config();
+    let mut invalid = make_valid_config();
+    invalid.audience = String::new();
+
     assert!(
         config.validate().is_ok(),
         "valid config must pass validation"
+    );
+    assert!(
+        invalid.validate().is_err(),
+        "the same config with an empty audience must not"
     );
 }
 

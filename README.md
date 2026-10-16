@@ -79,7 +79,7 @@ scm/
   Cargo.toml                    the workspace (members listed one by one)
   CHANGELOG.md
   main/<theme>/                 domain crate: src/<theme folder>/{dto,vo,error,traits}/, tests/
-  main/<theme>-std/             implementation crate: src/{std,spi,saf}/, tests/, examples/, config/
+  main/<theme>-std/             implementation crate: src/{std,spi,saf}/, tests/, examples/
   main/examples/composition-root/
   docs/                         architecture and ADRs
 scripts/                        check_layout.py, rename_crate.py, mutation_proof_*.py

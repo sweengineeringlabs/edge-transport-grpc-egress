@@ -5,12 +5,9 @@
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 
-mod dto;
-mod error;
-mod traits;
-mod vo;
+mod api;
 
-pub use dto::BuildGrpcResilientRequest;
-pub use error::ResilientTransportError;
-pub use traits::GrpcResilientFactory;
-pub use vo::ResilienceConfig;
+pub use api::dto::BuildGrpcResilientRequest;
+pub use api::error::ResilientTransportError;
+pub use api::traits::GrpcResilientFactory;
+pub use api::vo::ResilienceConfig;

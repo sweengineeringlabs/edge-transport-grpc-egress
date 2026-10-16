@@ -12,9 +12,6 @@
 //! Classification inspects the `grpc-message` string for well-known
 //! keywords. `Capacity` is the safe default — it triggers a retry,
 //! which is always better than silently dropping the request.
-//!
-//! Per SEA rule 160, the type *declaration* lives in api/. The
-//! `classify` method lives in `core/`.
 
 /// Discriminates the cause of a `RESOURCE_EXHAUSTED` (gRPC 8) error.
 ///
@@ -29,4 +26,21 @@ pub enum ResourceExhaustedContext {
     RateLimit,
     /// Billing / quota hard cap — retry will not help.
     HardQuota,
+}
+
+impl ResourceExhaustedContext {
+    /// Classify a `RESOURCE_EXHAUSTED` grpc-message into a context.
+    pub fn classify(message: &str) -> Self {
+        let msg = message.to_ascii_lowercase();
+        if msg.contains("quota") || msg.contains("billing") || msg.contains("plan limit") {
+            ResourceExhaustedContext::HardQuota
+        } else if msg.contains("rate")
+            || msg.contains("too many requests")
+            || msg.contains("throttl")
+        {
+            ResourceExhaustedContext::RateLimit
+        } else {
+            ResourceExhaustedContext::Capacity
+        }
+    }
 }

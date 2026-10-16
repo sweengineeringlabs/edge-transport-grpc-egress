@@ -353,14 +353,14 @@ async fn test_call_stream_multiple_frames_happy() -> Result<(), Box<dyn std::err
 /// @covers: call_stream
 #[tokio::test]
 async fn test_call_stream_default_impl_unimplemented_error() {
-    // `StubEgress` does not override `call_stream`, so this exercises the
+    // `MinimalEgress` does not override `call_stream`, so this exercises the
     // trait's own default body — proving it fails closed with `Unimplemented`
     // rather than panicking or hanging when a `GrpcEgress` impl opts out of
     // streaming support.
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(Vec::<Result<Vec<u8>, GrpcEgressError>>::new())),
     };
-    let result = StubEgress
+    let result = MinimalEgress
         .call_stream(CallStreamRequest {
             method: "echo/Echo".into(),
             metadata: HashMap::new(),
@@ -972,14 +972,14 @@ async fn test_call_server_stream_single_request_happy() -> Result<(), Box<dyn st
 /// @covers: call_server_stream
 #[tokio::test]
 async fn test_call_server_stream_default_impl_unimplemented_error() {
-    // `StubEgress` does not override `call_server_stream`, exercising the
+    // `MinimalEgress` does not override `call_server_stream`, exercising the
     // trait's own default body.
     let req = GrpcRequest::new(
         "svc/ServerStream",
         b"hello".to_vec(),
         Duration::from_secs(5),
     );
-    let result = StubEgress.call_server_stream(req).await;
+    let result = MinimalEgress.call_server_stream(req).await;
     assert!(
         matches!(
             &result,
@@ -1080,12 +1080,12 @@ async fn test_call_client_stream_peer_replying_with_two_messages_returns_interna
 /// @covers: call_client_stream
 #[tokio::test]
 async fn test_call_client_stream_default_impl_unimplemented_error() {
-    // `StubEgress` does not override `call_client_stream`, exercising the
+    // `MinimalEgress` does not override `call_client_stream`, exercising the
     // trait's own default body.
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(vec![Ok(b"frame".to_vec())])),
     };
-    let result = StubEgress
+    let result = MinimalEgress
         .call_client_stream(CallStreamRequest {
             method: "svc/ClientStream".into(),
             metadata: HashMap::new(),
@@ -1172,13 +1172,13 @@ async fn test_call_bidi_stream_multiple_frames_happy() -> Result<(), Box<dyn std
 /// @covers: call_bidi_stream
 #[tokio::test]
 async fn test_call_bidi_stream_default_impl_unimplemented_error() {
-    // `StubEgress` does not override `call_bidi_stream` or `call_stream` (the
+    // `MinimalEgress` does not override `call_bidi_stream` or `call_stream` (the
     // default `call_bidi_stream` body delegates to `call_stream`), so this
     // exercises both defaults chained together.
     let messages = GrpcMessageStreamResponse {
         stream: Box::pin(stream::iter(Vec::<Result<Vec<u8>, GrpcEgressError>>::new())),
     };
-    let result = StubEgress
+    let result = MinimalEgress
         .call_bidi_stream(CallStreamRequest {
             method: "svc/Bidi".into(),
             metadata: HashMap::new(),
@@ -1225,10 +1225,9 @@ async fn test_call_bidi_stream_empty_frame_list_edge() -> Result<(), Box<dyn std
 
 // ── a minimal GrpcEgress implementor: exercises the default streaming methods ──
 
-// @allow: no_mocks_in_integration — hand-rolled test double, not a mock library.
-struct StubEgress;
+struct MinimalEgress;
 
-impl GrpcEgress for StubEgress {
+impl GrpcEgress for MinimalEgress {
     fn call_unary(
         &self,
         _request: GrpcRequest,

@@ -20,11 +20,15 @@ service_type     = "processor"
 
 [dependencies]
 grpc-egress-transport = { path = "../transport" }
-grpc-egress-retry = { path = "../retry" }
 grpc-egress-breaker = { path = "../breaker" }
 thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+
+[dev-dependencies]
+futures = "0.3"
+tokio = { version = "1.52", features = ["macros", "rt"] }
+toml = "0.8"
 
 [lints.rust]
 unsafe_code  = "deny"

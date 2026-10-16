@@ -437,3 +437,45 @@ fn test_grpc_retry_config_section_name_is_grpc_retry() {
     use swe_edge_configbuilder::ConfigSection as _;
     assert_eq!(GrpcRetryConfig::section_name(), "grpc_retry");
 }
+
+/// @covers: StdGrpcRetryFactory::build — the pause between attempts is the one the shared backoff
+/// scheduler of `edge-transport-retry` computes for the policy.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_unavailable_throughout_pauses_at_least_the_backoff_of_the_shared_scheduler(
+) -> Result<(), Box<dyn std::error::Error>> {
+    use edge_transport_retry::BackoffScheduler;
+
+    let cfg = GrpcRetryConfig::from_config(
+        r#"
+            max_attempts = 3
+            initial_backoff_ms = 40
+            backoff_multiplier = 2.0
+            jitter_factor = 0.0
+            max_backoff_ms = 1000
+            rate_limit_max_attempts = 2
+            rate_limit_initial_backoff_ms = 1
+            rate_limit_max_backoff_ms = 1
+        "#,
+    )?;
+    let expected =
+        BackoffScheduler::next_backoff(&cfg, 0, 0.0) + BackoffScheduler::next_backoff(&cfg, 1, 0.0);
+    let inner = Arc::new(ScriptedClient::new(vec![Outcome::Unavailable("down")]));
+    let client = wrap(inner.clone(), cfg);
+
+    let started = Instant::now();
+    let _ = client
+        .call_unary(make_request(Duration::from_secs(5)))
+        .await;
+    let elapsed = started.elapsed();
+
+    assert_eq!(inner.call_count(), 3, "every attempt reaches the client");
+    assert!(
+        elapsed >= expected,
+        "paused {elapsed:?}, the scheduler says at least {expected:?}"
+    );
+    assert!(
+        elapsed < expected + Duration::from_millis(1000),
+        "paused {elapsed:?}, far more than the {expected:?} of the scheduler"
+    );
+    Ok(())
+}

@@ -1,7 +1,6 @@
 //! `client` theme: behaviour of the request envelope and the status-code conversions.
 
 pub(crate) mod conversions;
-pub(crate) mod conversions_impl;
 pub(crate) mod grpc_request_builder;
 pub(crate) mod request;
 

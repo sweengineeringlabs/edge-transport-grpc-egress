@@ -23,8 +23,7 @@ grpc-egress-retry = { path = "../retry" }
 grpc-egress-transport = { path = "../transport" }
 edge-transport-retry = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
 futures = "0.3"
-# `from_config` parses the policy from TOML; policy values live in `config/application.toml`
-# plus consumer overrides, never as literals in source.
+# `from_config` parses the policy from the TOML text a consumer passes in.
 toml = "0.8"
 tokio = { version = "1.52", features = ["macros", "net", "rt", "sync", "time"] }
 tracing = "0.1"

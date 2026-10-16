@@ -1,9 +1,7 @@
 //! gRPC circuit-breaker policy schema.
 //!
-//! Policy **values** live in TOML:
-//! - crate-shipped baseline: `config/application.toml`
-//! - consumer override: whatever TOML the binary loads and
-//!   passes to `GrpcBreakerConfig::from_config` of `grpc-egress-breaker-std`.
+//! Policy **values**: the baseline is [`GrpcBreakerConfig::default`]; a consumer's own TOML goes through
+//! `GrpcBreakerConfig::from_config` of `grpc-egress-breaker-std`.
 
 use serde::Deserialize;
 
@@ -55,7 +53,6 @@ impl Default for GrpcBreakerConfig {
 
 impl swe_edge_configbuilder::ConfigSection for GrpcBreakerConfig {
     fn section_name() -> &'static str {
-        // @allow: no_stub_fn_bodies
         "grpc_breaker"
     }
 }

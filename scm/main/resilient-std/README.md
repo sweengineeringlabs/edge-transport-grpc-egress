@@ -15,4 +15,3 @@ cargo test
 
 - `src/std/` - the resilience policy and its conversions
 - `src/saf/` - the factory
-- `config/application.toml` - default resilience policy

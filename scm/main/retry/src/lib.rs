@@ -6,12 +6,9 @@
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 
-mod dto;
-mod error;
-mod traits;
-mod vo;
+mod api;
 
-pub use dto::BuildGrpcRetryRequest;
-pub use error::Error;
-pub use traits::GrpcRetryFactory;
-pub use vo::GrpcRetryConfig;
+pub use api::dto::BuildGrpcRetryRequest;
+pub use api::error::Error;
+pub use api::traits::GrpcRetryFactory;
+pub use api::vo::GrpcRetryConfig;

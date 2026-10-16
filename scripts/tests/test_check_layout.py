@@ -15,9 +15,9 @@ def manifest(name, extra=""):
 GOOD = {
     "scm/main/foo/Cargo.toml": manifest("grpc-egress-foo"),
     "scm/main/foo/src/lib.rs": "mod client;\npub use client::FooRequest;\n",
-    "scm/main/foo/src/client/mod.rs": "pub mod dto;\npub use dto::FooRequest;\n",
-    "scm/main/foo/src/client/dto/mod.rs": "pub mod foo_request;\npub use foo_request::FooRequest;\n",
-    "scm/main/foo/src/client/dto/foo_request.rs": "pub struct FooRequest;\n",
+    "scm/main/foo/src/api/client/mod.rs": "pub mod dto;\npub use dto::FooRequest;\n",
+    "scm/main/foo/src/api/client/dto/mod.rs": "pub mod foo_request;\npub use foo_request::FooRequest;\n",
+    "scm/main/foo/src/api/client/dto/foo_request.rs": "pub struct FooRequest;\n",
     "scm/main/foo-std/Cargo.toml": manifest("grpc-egress-foo-std", 'grpc-egress-foo = { path = "../foo" }\n'),
     "scm/main/foo-std/src/lib.rs": "mod std;\nmod saf;\n",
     "scm/main/foo-std/src/std/mod.rs": "pub(crate) mod client;\n",
@@ -103,27 +103,27 @@ class LayoutCheckerTest(unittest.TestCase):
 
     def test_check_all_types_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/client/types/mod.rs"] = ""
+        files["scm/main/foo/src/api/client/types/mod.rs"] = ""
         self.assertIn("no_types_folder", self.rules(files))
 
     def test_check_all_request_declared_outside_a_dto_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/client/vo/bar_request.rs"] = "pub struct BarRequest;\n"
+        files["scm/main/foo/src/api/client/vo/bar_request.rs"] = "pub struct BarRequest;\n"
         self.assertIn("dto_placement", self.rules(files))
 
     def test_check_all_response_with_generics_outside_a_dto_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/client/vo/bar_response.rs"] = "pub struct BarResponse<T>(T);\n"
+        files["scm/main/foo/src/api/client/vo/bar_response.rs"] = "pub struct BarResponse<T>(T);\n"
         self.assertIn("dto_placement", self.rules(files))
 
     def test_check_all_error_declared_outside_an_error_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/client/vo/bar_error.rs"] = "pub enum BarError {}\n"
+        files["scm/main/foo/src/api/client/vo/bar_error.rs"] = "pub enum BarError {}\n"
         self.assertIn("error_placement", self.rules(files))
 
     def test_check_all_error_in_an_error_folder_passes(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/client/error/bar_error.rs"] = "pub enum BarError {}\n"
+        files["scm/main/foo/src/api/client/error/bar_error.rs"] = "pub enum BarError {}\n"
         self.assertEqual(self.rules(files), set())
 
     def test_check_all_lib_rs_with_a_function_fails(self):
@@ -164,7 +164,7 @@ class LayoutCheckerTest(unittest.TestCase):
     def test_check_all_single_theme_crate_with_a_themed_saf_fails(self):
         files = {k: v for k, v in GOOD.items() if "/client/" not in k}
         files["scm/main/foo/src/lib.rs"] = "mod dto;\n"
-        files["scm/main/foo/src/dto/mod.rs"] = ""
+        files["scm/main/foo/src/api/dto/mod.rs"] = ""
         files["scm/main/foo-std/src/saf/sub/mod.rs"] = ""
         self.assertIn("theme_mirroring", self.rules(files))
 
@@ -222,9 +222,18 @@ class LayoutCheckerTest(unittest.TestCase):
         files["scm/Cargo.toml"] = '[workspace]\nmembers = [\n  "main/foo",\n  "main/foo-std",\n]\n'
         self.assertEqual(self.rules(files), set())
 
+    def test_check_all_domain_crate_without_an_api_folder_fails(self):
+        files = {k: v for k, v in GOOD.items() if "/foo/src/api/" not in k}
+        self.assertIn("domain_has_api", self.rules(files))
+
+    def test_check_all_domain_crate_with_a_folder_beside_api_fails(self):
+        files = dict(GOOD)
+        files["scm/main/foo/src/client/mod.rs"] = ""
+        self.assertIn("domain_has_api", self.rules(files))
+
     def test_check_all_every_failure_line_names_the_path_and_the_rule(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/client/types/mod.rs"] = ""
+        files["scm/main/foo/src/api/client/types/mod.rs"] = ""
         tree = Tree(files)
         self.addCleanup(tree.close)
 

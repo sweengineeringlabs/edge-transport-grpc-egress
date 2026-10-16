@@ -396,9 +396,16 @@ fn test_build_http_scheme_in_any_case_is_a_plaintext_endpoint_and_is_refused(
 fn test_build_https_scheme_is_not_a_plaintext_endpoint() {
     Fixture::ensure_tls_provider();
 
-    let result = TonicGrpcEgressBuilderSpiFactory::new("https://service.example:443")
+    let https = TonicGrpcEgressBuilderSpiFactory::new("https://service.example:443")
+        .build(BuildGrpcEgressBuilderRequest)
+        .build();
+    let http = TonicGrpcEgressBuilderSpiFactory::new("http://service.example:80")
         .build(BuildGrpcEgressBuilderRequest)
         .build();
 
-    assert!(result.is_ok());
+    assert!(https.is_ok());
+    assert!(
+        matches!(http, Err(GrpcChannelConfigError::PlaintextRejected(_))),
+        "the same host over http must need the plaintext opt-in"
+    );
 }

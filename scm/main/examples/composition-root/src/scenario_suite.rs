@@ -1,6 +1,7 @@
 //! `ScenarioSuite` -- runs the seven scenarios.
 
 use std::error::Error;
+use std::io::Write;
 use std::process::ExitCode;
 
 use crate::{
@@ -34,39 +35,48 @@ impl ScenarioSuite {
         ])
     }
 
-    /// Run every scenario, print one line each, and exit with success only when every effect of every
-    /// scenario was observed.
+    /// Run every scenario, write one line each to standard output, and exit with success only when
+    /// every effect of every scenario was observed.
     pub async fn run(&self) -> ExitCode {
+        self.run_to(&mut std::io::stdout()).await
+    }
+
+    /// Run every scenario, write one line each to `out`, and exit with success only when every effect
+    /// of every scenario was observed.
+    pub async fn run_to(&self, out: &mut impl Write) -> ExitCode {
         match self.run_all().await {
-            Ok(reports) => {
-                let mut all_complete = true;
-                for report in &reports {
-                    let observed = report
-                        .effects
-                        .iter()
-                        .filter(|effect| effect.observed)
-                        .count();
-                    println!(
-                        "{}: {observed}/{} effects observed",
-                        report.name,
-                        report.effects.len()
-                    );
-                    for effect in report.effects.iter().filter(|effect| !effect.observed) {
-                        println!("  missing: {}", effect.description);
-                    }
-                    all_complete &= report.is_complete();
-                }
-                if all_complete {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::FAILURE
-                }
-            }
+            Ok(reports) => match Self::write_reports(out, &reports) {
+                Ok(true) => ExitCode::SUCCESS,
+                Ok(false) | Err(_) => ExitCode::FAILURE,
+            },
             Err(error) => {
-                eprintln!("a scenario could not run: {error}");
+                let _ = writeln!(out, "a scenario could not run: {error}");
                 ExitCode::FAILURE
             }
         }
+    }
+
+    /// Write the line of each report; whether every effect of every report was observed.
+    fn write_reports(out: &mut impl Write, reports: &[ScenarioReport]) -> std::io::Result<bool> {
+        let mut all_complete = true;
+        for report in reports {
+            let observed = report
+                .effects
+                .iter()
+                .filter(|effect| effect.observed)
+                .count();
+            writeln!(
+                out,
+                "{}: {observed}/{} effects observed",
+                report.name,
+                report.effects.len()
+            )?;
+            for effect in report.effects.iter().filter(|effect| !effect.observed) {
+                writeln!(out, "  missing: {}", effect.description)?;
+            }
+            all_complete &= report.is_complete();
+        }
+        Ok(all_complete)
     }
 }
 
