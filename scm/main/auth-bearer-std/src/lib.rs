@@ -2,7 +2,7 @@
 //! [`GrpcEgressInterceptor`](grpc_egress_transport::GrpcEgressInterceptor)
 //! for the gRPC egress stack.
 //!
-//! [`BearerEgressInterceptor`] signs a JWT from configured claims
+//! [`StdBearerInterceptorFactory`] signs a JWT from configured claims
 //! (or accepts a pre-minted token) and injects it into the
 //! `authorization` request metadata on every outgoing call.
 //!
@@ -16,8 +16,9 @@
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 
+mod saf;
 mod spi;
 mod std;
 
-pub use crate::spi::jsonwebtoken::BearerEgressInterceptor;
+pub use crate::saf::StdBearerInterceptorFactory;
 pub use crate::std::{BearerEgressConfigBuilder, BearerSecretGuard, JwtClaimsBuilder};

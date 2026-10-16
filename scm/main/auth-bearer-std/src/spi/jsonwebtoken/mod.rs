@@ -2,4 +2,4 @@
 
 pub(crate) mod bearer_egress_interceptor;
 
-pub use bearer_egress_interceptor::BearerEgressInterceptor;
+pub(crate) use bearer_egress_interceptor::BearerEgressInterceptor;

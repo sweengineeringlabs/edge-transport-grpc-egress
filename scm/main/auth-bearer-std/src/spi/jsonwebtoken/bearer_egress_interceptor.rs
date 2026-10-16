@@ -14,13 +14,13 @@ use grpc_egress_auth_bearer::{
 use swe_edge_security::JwtClaims;
 
 /// `GrpcEgressInterceptor` that signs and attaches a JWT bearer token.
-pub struct BearerEgressInterceptor {
+pub(crate) struct BearerEgressInterceptor {
     pub(crate) config: BearerEgressConfig,
 }
 
 impl BearerEgressInterceptor {
     /// Construct from config.
-    pub fn from_config(config: BearerEgressConfig) -> Self {
+    pub(crate) fn from_config(config: BearerEgressConfig) -> Self {
         Self { config }
     }
 }

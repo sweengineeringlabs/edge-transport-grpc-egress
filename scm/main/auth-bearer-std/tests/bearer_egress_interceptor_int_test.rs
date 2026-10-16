@@ -1,12 +1,15 @@
-//! Integration tests for [`BearerEgressInterceptor`].
+//! Integration tests for the bearer interceptor.
 
 use grpc_egress_auth_bearer_std::BearerSecretGuard;
 use grpc_egress_transport_std::GrpcRequestFactory;
 use std::time::Duration;
 
 use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret, AUTHORIZATION_HEADER};
-use grpc_egress_auth_bearer_std::BearerEgressInterceptor;
-use grpc_egress_transport::GrpcRequest;
+use grpc_egress_auth_bearer_std::StdBearerInterceptorFactory;
+use grpc_egress_transport::{
+    BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
+    GrpcRequest,
+};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
 fn hs256_config(secret: &[u8]) -> BearerEgressConfig {
@@ -21,19 +24,15 @@ fn hs256_config(secret: &[u8]) -> BearerEgressConfig {
     }
 }
 
-/// @covers: BearerEgressInterceptor::from_config
-#[test]
-fn test_from_config_constructs_interceptor() {
-    let _ = BearerEgressInterceptor::from_config(hs256_config(b"sec"));
+fn interceptor(config: BearerEgressConfig) -> impl GrpcEgressInterceptor {
+    StdBearerInterceptorFactory::new(config).build(BuildGrpcEgressInterceptorRequest)
 }
 
-/// @covers: BearerEgressInterceptor::before_call
+/// @covers: StdBearerInterceptorFactory::build — before_call
 #[test]
 fn test_before_call_injects_bearer_authorization_header() -> Result<(), Box<dyn std::error::Error>>
 {
-    use grpc_egress_transport::GrpcEgressInterceptor;
-
-    let interceptor = BearerEgressInterceptor::from_config(hs256_config(b"sec"));
+    let interceptor = interceptor(hs256_config(b"sec"));
     let mut req = GrpcRequest::new("/svc/M", vec![], Duration::from_secs(1));
     interceptor.before_call(&mut req)?;
     let auth = req
@@ -54,7 +53,7 @@ fn test_before_call_injects_bearer_authorization_header() -> Result<(), Box<dyn 
     Ok(())
 }
 
-/// @covers: BearerEgressInterceptor::sign_token (via before_call round-trip with swe-edge-configbuilder and jsonwebtoken)
+/// @covers: StdBearerInterceptorFactory::build — sign_token (via before_call round-trip with swe-edge-configbuilder and jsonwebtoken)
 #[test]
 fn test_sign_token_round_trips_through_jsonwebtoken_verifier(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -70,7 +69,7 @@ fn test_sign_token_round_trips_through_jsonwebtoken_verifier(
         iat: u64,
     }
 
-    let interceptor = BearerEgressInterceptor::from_config(hs256_config(b"sec"));
+    let interceptor = interceptor(hs256_config(b"sec"));
     let mut req = GrpcRequest::new("/svc/M", vec![], Duration::from_secs(1));
     interceptor.before_call(&mut req)?;
     let auth = req
