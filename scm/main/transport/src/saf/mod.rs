@@ -1,15 +1,13 @@
-//! SAF layer — gRPC public facade.
+//! Factories, one folder per theme.
 
 mod client;
-mod grpc;
-mod processor_svc_factory;
-mod transport_construction_svc_factory;
-
-pub use client::TonicGrpcEgressBuilderSpiFactory;
-pub use grpc::GrpcEgressFactory;
-pub use grpc::GrpcEgressInterceptorFactory;
-pub use processor_svc_factory::ProcessorFactory;
-pub use transport_construction_svc_factory::TransportConstruction;
-
 #[cfg(feature = "prost")]
-pub use grpc::GrpcEgressProstCodecFactory;
+mod codec;
+mod interceptor;
+
+pub use client::{
+    GrpcEgressFactory, ProcessorFactory, TonicGrpcEgressBuilderSpiFactory, TransportConstruction,
+};
+#[cfg(feature = "prost")]
+pub use codec::GrpcEgressProstCodecFactory;
+pub use interceptor::GrpcEgressInterceptorFactory;

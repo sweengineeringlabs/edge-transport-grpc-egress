@@ -4,6 +4,7 @@
 //! [`crate::saf::TonicGrpcEgressBuilderSpiFactory`] and uses it through the
 //! [`GrpcEgressBuilder`] trait.
 
+use crate::std::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,9 +12,8 @@ use crate::spi::loadbalancer::tonic::TonicLbGrpcEgress;
 
 use crate::api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressInterceptor, GrpcEgressInterceptorChain, KeepAliveConfig, LoadbalancerSettings,
-    MtlsConfig, TraceContextGrpcEgressInterceptor, TraceContextSource, DEFAULT_MAX_MESSAGE_BYTES,
-    DEFAULT_REQUEST_TIMEOUT_SECS,
+    GrpcEgressInterceptor, KeepAliveConfig, LoadbalancerSettings, MtlsConfig, TraceContextSource,
+    DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 
 use super::tonic_grpc_egress::TonicGrpcEgress;

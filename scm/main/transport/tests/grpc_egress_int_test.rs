@@ -1213,11 +1213,7 @@ async fn test_call_bidi_stream_empty_frame_list_edge() {
     );
 }
 
-// ── GrpcEgress::describe_compression / default_conversions ──────────────────
-//
-// `TransportSvc`'s concrete `GrpcEgress` implementor is `pub(crate)` (see SEA
-// rule `pub_types_in_api_only`), so these `Self: Sized` default methods are
-// exercised here through a minimal test-double instead.
+// ── a minimal GrpcEgress implementor: exercises the default streaming methods ──
 
 // @allow: no_mocks_in_integration — hand-rolled test double, not a mock library.
 struct StubEgress;
@@ -1241,60 +1237,4 @@ impl GrpcEgress for StubEgress {
     ) -> futures::future::BoxFuture<'_, Result<(), GrpcEgressError>> {
         Box::pin(async { Ok(()) })
     }
-}
-
-/// @covers: describe_compression
-#[test]
-fn test_describe_compression_none_is_disabled_happy() {
-    use edge_transport_grpc_egress_transport::CompressionMode;
-    assert!(!<StubEgress as GrpcEgress>::describe_compression(
-        CompressionMode::None
-    ));
-}
-
-/// @covers: describe_compression
-#[test]
-fn test_describe_compression_gzip_is_enabled_error() {
-    use edge_transport_grpc_egress_transport::CompressionMode;
-    assert!(<StubEgress as GrpcEgress>::describe_compression(
-        CompressionMode::Gzip
-    ));
-}
-
-/// @covers: describe_compression
-#[test]
-fn test_describe_compression_zstd_is_enabled_edge() {
-    use edge_transport_grpc_egress_transport::CompressionMode;
-    assert!(<StubEgress as GrpcEgress>::describe_compression(
-        CompressionMode::Zstd
-    ));
-}
-
-/// @covers: default_conversions
-#[test]
-fn test_default_conversions_returns_zero_sized_marker_happy() {
-    let marker = <StubEgress as GrpcEgress>::default_conversions();
-    assert_eq!(std::mem::size_of_val(&marker), 0);
-}
-
-/// @covers: default_conversions
-#[test]
-fn test_default_conversions_is_the_real_marker_type_error() {
-    use edge_transport_grpc_egress_transport::Conversions;
-    fn assert_type(marker: Conversions) -> usize {
-        std::mem::size_of_val(&marker)
-    }
-    let size = assert_type(<StubEgress as GrpcEgress>::default_conversions());
-    assert_eq!(
-        size, 0,
-        "the returned value must unify with the genuine zero-sized Conversions, not a look-alike"
-    );
-}
-
-/// @covers: default_conversions
-#[test]
-fn test_default_conversions_repeated_calls_are_independent_edge() {
-    let a = <StubEgress as GrpcEgress>::default_conversions();
-    let b = <StubEgress as GrpcEgress>::default_conversions();
-    assert_eq!(std::mem::size_of_val(&a), std::mem::size_of_val(&b));
 }

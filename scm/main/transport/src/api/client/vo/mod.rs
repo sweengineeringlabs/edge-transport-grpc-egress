@@ -1,9 +1,5 @@
-//! Value objects of the `client` theme: the options that are values, not behaviour.
+//! `vo` of the `client` theme.
 
-pub mod backend_target;
-pub mod balancing_strategy;
-pub mod loadbalancer_settings;
+pub mod grpc_status_code;
 
-pub use backend_target::BackendTarget;
-pub use balancing_strategy::BalancingStrategy;
-pub use loadbalancer_settings::LoadbalancerSettings;
+pub use grpc_status_code::GrpcStatusCode;

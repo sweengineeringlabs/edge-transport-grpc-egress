@@ -1,34 +1,26 @@
-//! gRPC egress API — ports, interceptors, and value objects.
+//! gRPC egress API: one folder per theme, each with `dto/`, `vo/`, `error/` and `traits/` as needed.
 
+mod channel;
 mod client;
-mod config;
-mod error;
-mod traits;
-mod types;
-
-// Flat re-export surface: core/, spi/, saf/, and lib.rs may only reach
-// api/ items via `crate::api::TypeName` -- never by traversing into a
-// submodule (`crate::api::types::TypeName`). This is the one place that
-// boundary is crossed; every item any other layer or lib.rs needs must
-// be named here exactly once. `pub` (not `pub(crate)`) so lib.rs can
-// re-export a subset of these further as the crate's public surface --
-// the submodules themselves stay fully private, which is what satisfies
-// the "layer mod paths must be private" half of the rule.
-pub use client::{
-    BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, LoadbalancerSettings,
-};
-pub use error::{GrpcChannelConfigError, GrpcEgressError};
-pub use traits::grpc_egress_interceptor::GrpcEgressInterceptor;
 #[cfg(feature = "prost")]
-pub use traits::GrpcEgressProstCodec;
-pub use traits::{GrpcEgress, Processor};
-pub use types::ApplicationConfigBuilder;
-pub use types::{
-    AfterCallRequest, CallStreamRequest, CallUnaryWithContextRequest, CompressionMode, Conversions,
-    DescribeRequest, DescribeResponse, GrpcChannelConfig, GrpcChannelConfigBuilder,
-    GrpcEgressInterceptorChain, GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest,
-    GrpcRequestBuilder, GrpcResponse, GrpcStatusCode, HealthCheckRequest, KeepAliveConfig,
-    MtlsConfig, ProcessingRequest, TraceContextGrpcEgressInterceptor, TraceContextSource,
-    TransportSvc, DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
+mod codec;
+mod interceptor;
+mod loadbalancer;
+
+// Flat re-export surface: the other layers and lib.rs reach api/ items only as `crate::api::TypeName`,
+// never through a theme folder. `pub` so that lib.rs can re-export a subset as the public surface;
+// the theme modules themselves stay private.
+pub use channel::{
+    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, KeepAliveConfig, MtlsConfig,
+    DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
+pub use client::{
+    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest, DescribeRequest,
+    DescribeResponse, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError,
+    GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    HealthCheckRequest, ProcessingRequest, Processor,
+};
+#[cfg(feature = "prost")]
+pub use codec::GrpcEgressProstCodec;
+pub use interceptor::{AfterCallRequest, GrpcEgressInterceptor, TraceContextSource};
+pub use loadbalancer::{BackendTarget, BalancingStrategy, LoadbalancerSettings};

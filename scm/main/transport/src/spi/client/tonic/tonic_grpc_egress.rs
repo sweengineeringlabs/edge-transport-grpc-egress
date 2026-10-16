@@ -1,5 +1,6 @@
 //! `TonicGrpcEgress` struct declaration, type alias, and constructor.
 
+use crate::std::GrpcEgressInterceptorChain;
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -8,8 +9,7 @@ use hyper_util::client::legacy::connect::HttpConnector;
 
 use super::tonic_tls_connector::TonicTlsConnector;
 use crate::api::{
-    CompressionMode, GrpcChannelConfigError, GrpcEgressInterceptorChain, KeepAliveConfig,
-    MtlsConfig, DEFAULT_MAX_MESSAGE_BYTES,
+    CompressionMode, GrpcChannelConfigError, KeepAliveConfig, MtlsConfig, DEFAULT_MAX_MESSAGE_BYTES,
 };
 
 /// Hyper HTTP/2 client type alias used by [`TonicGrpcEgress`].
