@@ -168,6 +168,50 @@ class LayoutCheckerTest(unittest.TestCase):
         files["scm/main/foo-std/src/saf/sub/mod.rs"] = ""
         self.assertIn("theme_mirroring", self.rules(files))
 
+    def test_check_all_allow_attribute_in_a_test_file_fails(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/tests/a_test.rs"] = "#![allow(clippy::unwrap_used)]\nfn x() {}\n"
+        self.assertIn("no_allow_attribute", self.rules(files))
+
+    def test_check_all_cfg_attr_allow_fails(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/src/std/client/impl.rs"] = "#![cfg_attr(test, allow(clippy::unwrap_used))]\n"
+        self.assertIn("no_allow_attribute", self.rules(files))
+
+    def test_check_all_allow_mentioned_in_a_comment_passes(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/src/std/client/impl.rs"] = "// never #[allow(x)] a lint\n"
+        self.assertEqual(self.rules(files), set())
+
+    def test_check_all_cfg_test_in_src_fails(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/src/std/client/impl.rs"] = "#[cfg(test)]\nmod tests {}\n"
+        self.assertIn("no_test_code_in_src", self.rules(files))
+
+    def test_check_all_cfg_test_in_tests_folder_passes(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/tests/a_test.rs"] = "#[cfg(test)]\nfn x() {}\n"
+        self.assertEqual(self.rules(files), set())
+
+    def test_check_all_workspace_dependencies_table_fails(self):
+        files = dict(GOOD)
+        files["scm/Cargo.toml"] = '[workspace]\n[workspace.dependencies]\nserde = "1"\n'
+        self.assertIn("no_workspace_dependencies", self.rules(files))
+
+    def test_check_all_inherited_dependency_fails(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/Cargo.toml"] = manifest(
+            "grpc-egress-foo-std", 'grpc-egress-foo = { path = "../foo" }\nserde = { workspace = true }\n'
+        )
+        self.assertIn("no_workspace_dependencies", self.rules(files))
+
+    def test_check_all_inherited_package_key_passes(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/Cargo.toml"] = manifest(
+            "grpc-egress-foo-std", 'version.workspace = true\ngrpc-egress-foo = { path = "../foo" }\n'
+        )
+        self.assertEqual(self.rules(files), set())
+
     def test_check_all_every_failure_line_names_the_path_and_the_rule(self):
         files = dict(GOOD)
         files["scm/main/foo/src/client/types/mod.rs"] = ""

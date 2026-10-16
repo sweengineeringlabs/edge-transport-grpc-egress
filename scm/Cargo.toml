@@ -17,30 +17,3 @@ missing_docs = "warn"
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
-
-[workspace.dependencies]
-edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
-swe-edge-security      = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22", package = "edge-security-transport-egress-grpc" }
-grpc-egress-transport                  = { path = "main/transport" }
-grpc-egress-transport-std              = { path = "main/transport-std" }
-grpc-egress-auth-bearer                = { path = "main/auth-bearer" }
-grpc-egress-auth-bearer-std            = { path = "main/auth-bearer-std" }
-grpc-egress-breaker                    = { path = "main/breaker" }
-grpc-egress-breaker-std     = { path = "main/breaker-std" }
-grpc-egress-resilient                  = { path = "main/resilient" }
-grpc-egress-resilient-std              = { path = "main/resilient-std" }
-grpc-egress-retry                      = { path = "main/retry" }
-grpc-egress-retry-std                  = { path = "main/retry-std" }
-edge-transport-breaker-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
-edge-transport-breaker        = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
-edge-transport-retry-policy   = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
-edge-transport-retry          = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
-swe-edge-loadbalancer  = { git = "https://github.com/sweengineeringlabs/edge-loadbalancer.git", tag = "v0.4.0" }
-serde       = { version = "1.0", features = ["derive"] }
-thiserror   = "2"
-futures     = "0.3"
-tokio       = { version = "1.52", features = ["rt", "sync", "time", "macros", "net"] }
-tracing     = "0.1"
-toml        = "0.8"
-http        = "1"

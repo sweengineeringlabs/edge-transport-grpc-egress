@@ -30,12 +30,12 @@ path = "examples/basic_transport.rs"
 
 [dependencies]
 grpc-egress-transport = { path = "../transport" }
-futures.workspace     = true
+futures = "0.3"
 bytes            = "1"
 flate2           = "1"
 webpki-roots     = "1"
 zstd             = "0.14"
-http             = { workspace = true }
+http = "1"
 http-body-util   = "0.1"
 hyper-util       = { version = "0.1", features = ["client-legacy", "tokio", "http2"] }
 hyper-rustls     = { version = "0.27", features = ["http2", "webpki-tokio"] }
@@ -44,12 +44,12 @@ tokio                  = { version = "1", features = ["rt", "net", "time", "macr
 tokio-util       = { version = "0.7", default-features = false }
 tonic            = { version = "0.12", default-features = false }
 prost            = { version = "0.13", optional = true }
-swe-edge-loadbalancer  = { workspace = true }
-tracing          = { workspace = true }
+swe-edge-loadbalancer = { git = "https://github.com/sweengineeringlabs/edge-loadbalancer.git", tag = "v0.4.0" }
+tracing = "0.1"
 
 [dev-dependencies]
 grpc-egress-test-support = { path = "../test-support" }
-edge-security-runtime = { workspace = true }
+edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
 toml       = "0.8"
 prost      = "0.13"
 tokio      = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }

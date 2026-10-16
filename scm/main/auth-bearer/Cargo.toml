@@ -19,9 +19,9 @@ application_type = "port"
 service_type = "processor"
 
 [dependencies]
-swe-edge-security = { workspace = true }
-thiserror = { workspace = true }
-serde = { workspace = true }
+swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22" }
+thiserror = "2"
+serde = { version = "1.0", features = ["derive"] }
 
 [lints.rust]
 unsafe_code  = "deny"

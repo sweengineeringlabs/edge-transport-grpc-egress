@@ -16,8 +16,8 @@ application_type = "lib"
 service_type     = "tester"
 
 [dependencies]
-grpc-egress-transport     = { workspace = true }
-grpc-egress-transport-std = { workspace = true }
+grpc-egress-transport = { path = "../transport" }
+grpc-egress-transport-std = { path = "../transport-std" }
 bytes          = "1"
 http           = "1"
 http-body-util = "0.1"
