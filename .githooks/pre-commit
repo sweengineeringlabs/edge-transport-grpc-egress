@@ -23,5 +23,4 @@ python -m unittest discover -s "$REPO_ROOT/scripts/tests" -q
 echo "  7/7 examples..."
 cargo build --workspace --examples
 cargo run -q -p grpc-egress-example-composition-root
-cargo run -q -p grpc-egress-example-composition-root
 echo "pre-commit: all checks passed."
