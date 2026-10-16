@@ -3,9 +3,7 @@
 pub mod grpc_egress;
 pub mod grpc_egress_builder;
 pub mod grpc_egress_builder_factory;
-pub mod processor;
 
 pub use grpc_egress::GrpcEgress;
 pub use grpc_egress_builder::GrpcEgressBuilder;
 pub use grpc_egress_builder_factory::GrpcEgressBuilderFactory;
-pub use processor::Processor;

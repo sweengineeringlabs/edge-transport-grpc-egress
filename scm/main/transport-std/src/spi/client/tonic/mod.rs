@@ -11,4 +11,3 @@ pub(crate) mod tonic_tls_connector;
 
 pub(crate) use tonic_grpc_egress::TonicGrpcEgress;
 pub(crate) use tonic_grpc_egress_builder::TonicGrpcEgressBuilder;
-pub(crate) use tonic_grpc_egress_protocol::TonicGrpcEgressProtocol;

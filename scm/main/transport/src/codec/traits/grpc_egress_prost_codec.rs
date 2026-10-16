@@ -34,3 +34,5 @@ pub trait GrpcEgressProstCodec: GrpcEgress {
         self.call_unary(request)
     }
 }
+
+impl<T: GrpcEgress + ?Sized> GrpcEgressProstCodec for T {}

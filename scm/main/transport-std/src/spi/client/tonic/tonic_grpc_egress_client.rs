@@ -74,6 +74,3 @@ impl GrpcEgress for TonicGrpcEgressClient {
         }
     }
 }
-
-#[cfg(feature = "prost")]
-impl grpc_egress_transport::GrpcEgressProstCodec for TonicGrpcEgressClient {}

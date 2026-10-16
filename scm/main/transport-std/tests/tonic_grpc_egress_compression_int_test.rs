@@ -2,6 +2,7 @@
 //! compressed message is really compressed on the way out, a compressed answer is really
 //! decompressed on the way in, and an answer that cannot be trusted is refused.
 
+use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::collections::HashMap;
 use std::error::Error;
@@ -15,7 +16,7 @@ use grpc_egress_transport::{
     GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError,
     GrpcMessageStreamResponse, GrpcRequest, GrpcStatusCode,
 };
-use grpc_egress_transport_std::{TonicGrpcEgressBuilderSpiFactory, TransportConstruction};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 
 fn gzip(payload: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
@@ -49,7 +50,7 @@ async fn send_with(
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
         .with_compression(mode);
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
     client.call_unary(request(payload.clone())).await?;
     Ok((peer, payload))
 }
@@ -308,7 +309,7 @@ async fn test_call_stream_with_gzip_sends_every_message_compressed_happy(
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
         .with_compression(CompressionMode::Gzip);
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
     let messages: Vec<Result<Vec<u8>, GrpcEgressError>> =
         vec![Ok(vec![b'a'; 1024]), Ok(vec![b'b'; 1024])];
 

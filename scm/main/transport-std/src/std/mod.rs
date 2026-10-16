@@ -3,12 +3,14 @@
 
 pub(crate) mod channel;
 pub(crate) mod client;
+#[cfg(feature = "prost")]
+pub(crate) mod codec;
 pub(crate) mod interceptor;
 
 pub use channel::{
     CompressionModeProvider, GrpcChannelConfigBuilder, GrpcChannelConfigFactory, MtlsConfigFactory,
 };
-pub use client::{
-    ApplicationConfigBuilder, Conversions, GrpcRequestBuilder, GrpcRequestFactory, TransportSvc,
-};
+pub use client::{Conversions, GrpcRequestBuilder, GrpcRequestFactory};
+#[cfg(feature = "prost")]
+pub use codec::ProstUnaryCaller;
 pub use interceptor::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};

@@ -641,6 +641,8 @@ name = "grpc-egress-test-support"
 version = "0.5.0"
 dependencies = [
  "bytes",
+ "grpc-egress-transport",
+ "grpc-egress-transport-std",
  "http",
  "http-body-util",
  "hyper",
@@ -682,10 +684,7 @@ dependencies = [
  "hyper-util",
  "prost",
  "rustls",
- "serde",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
  "swe-edge-loadbalancer",
- "thiserror 2.0.19",
  "tokio",
  "tokio-util",
  "toml",

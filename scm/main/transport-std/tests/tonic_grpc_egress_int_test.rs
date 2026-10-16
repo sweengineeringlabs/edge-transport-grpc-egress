@@ -5,6 +5,7 @@
 //! Where today's behaviour is a defect (an option that is accepted and has no effect) the test
 //! name and the doc comment say so, and the fix replaces the test on purpose.
 
+use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::error::Error;
 use std::time::{Duration, Instant};
@@ -13,7 +14,6 @@ use grpc_egress_test_support::{Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::{
     CompressionMode, GrpcChannelConfig, GrpcEgressError, GrpcRequest, GrpcStatusCode,
 };
-use grpc_egress_transport_std::TransportConstruction;
 
 /// @covers: GrpcChannelConfig::with_max_message_bytes
 #[tokio::test]
@@ -24,7 +24,7 @@ async fn test_call_response_at_max_message_bytes_returns_the_message() -> Result
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
         .with_max_message_bytes(1024);
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let response = client
         .call_unary(GrpcRequest::new(
@@ -47,7 +47,7 @@ async fn test_call_response_one_byte_over_max_message_bytes_returns_resource_exh
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
         .with_max_message_bytes(1024);
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let result = client
         .call_unary(GrpcRequest::new(
@@ -77,7 +77,7 @@ async fn test_call_slower_than_the_deadline_returns_timeout_at_the_deadline(
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_secs(3))).await?;
     let config = GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext();
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let started = Instant::now();
     let result = client
@@ -111,7 +111,7 @@ async fn test_call_unary_request_timeout_shorter_than_the_deadline_returns_timeo
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
         .with_request_timeout(Duration::from_millis(300));
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let started = Instant::now();
     let result = client
@@ -145,7 +145,7 @@ async fn test_call_unary_request_timeout_longer_than_the_deadline_keeps_the_dead
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
         .with_request_timeout(Duration::from_secs(30));
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let started = Instant::now();
     let result = client
@@ -177,7 +177,7 @@ async fn test_call_without_compression_sends_no_encoding_header_and_the_message_
     let config = GrpcChannelConfig::new(peer.get_endpoint())
         .allow_plaintext()
         .with_compression(CompressionMode::None);
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
     let payload = vec![b'a'; 4096];
 
     client
@@ -207,7 +207,7 @@ async fn test_call_sends_the_request_to_the_endpoint_of_the_config_with_a_leadin
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Echo).await?;
     let config = GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext();
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     client
         .call_unary(GrpcRequest::new(
@@ -229,7 +229,7 @@ async fn test_call_to_a_closed_endpoint_returns_connection_failed() -> Result<()
     Fixture::ensure_tls_provider();
     let closed = Fixture::reserve_closed_port()?;
     let config = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let result = client
         .call_unary(GrpcRequest::new(

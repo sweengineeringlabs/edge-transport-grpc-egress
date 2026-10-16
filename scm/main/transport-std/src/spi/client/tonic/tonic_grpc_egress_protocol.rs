@@ -340,24 +340,6 @@ impl TonicGrpcEgressProtocol {
 
 // ── Processor impl ───────────────────────────────────────────────────────────
 
-impl grpc_egress_transport::Processor for TonicGrpcEgress {
-    fn process(
-        &self,
-        _req: grpc_egress_transport::ProcessingRequest,
-    ) -> futures::future::BoxFuture<'_, Result<(), GrpcEgressError>> {
-        // Default: verify the endpoint is reachable — a no-op health probe.
-        Box::pin(self.health_check(grpc_egress_transport::HealthCheckRequest))
-    }
-
-    fn describe(
-        &self,
-        _req: grpc_egress_transport::DescribeRequest,
-    ) -> Result<grpc_egress_transport::DescribeResponse, GrpcEgressError> {
-        const LABEL: &str = "tonic-grpc-client";
-        Ok(grpc_egress_transport::DescribeResponse { label: LABEL })
-    }
-}
-
 // ── GrpcEgress impl ─────────────────────────────────────────────────────────
 
 impl GrpcEgress for TonicGrpcEgress {
@@ -744,9 +726,6 @@ impl GrpcEgress for TonicGrpcEgress {
         })
     }
 }
-
-#[cfg(feature = "prost")]
-impl grpc_egress_transport::GrpcEgressProstCodec for TonicGrpcEgress {}
 
 // ── unit tests ────────────────────────────────────────────────────────────────
 

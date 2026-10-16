@@ -17,10 +17,9 @@ pub use channel::{
     DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 pub use client::{
-    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest, DescribeRequest,
-    DescribeResponse, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError,
-    GrpcEgressResult, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode,
-    HealthCheckRequest, ProcessingRequest, Processor,
+    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest, GrpcEgress,
+    GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError, GrpcEgressResult,
+    GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
 };
 #[cfg(feature = "prost")]
 pub use codec::GrpcEgressProstCodec;
