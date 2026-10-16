@@ -31,6 +31,7 @@ pub(crate) struct TonicGrpcEgress {
     pub(crate) interceptors: GrpcEgressInterceptorChain,
     pub(crate) max_message_bytes: usize,
     pub(crate) compression: CompressionMode,
+    pub(crate) content_type: &'static str,
 }
 
 impl TonicGrpcEgress {
@@ -56,6 +57,7 @@ impl TonicGrpcEgress {
             interceptors: GrpcEgressInterceptorChain::new(),
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
             compression: CompressionMode::None,
+            content_type: "application/grpc",
         }
     }
 
@@ -76,6 +78,12 @@ impl TonicGrpcEgress {
         self.connector = TonicTlsConnector::create(identity, root_ca)?;
         self.client = Self::create_client(self.connector.clone(), self.keep_alive.as_ref());
         Ok(self)
+    }
+
+    /// Declare the messages prost-encoded: calls carry the content type `application/grpc+proto`.
+    pub(crate) fn with_prost_codec(mut self) -> Self {
+        self.content_type = "application/grpc+proto";
+        self
     }
 
     /// The same client, sending to `base_uri`: one engine for every backend of a balanced client.

@@ -3,6 +3,7 @@
 //!
 //! Tests spin up a minimal in-process HTTP/2 echo server using `hyper_util`.
 
+use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -21,13 +22,10 @@ use grpc_egress_transport::{
     CallStreamRequest, CallUnaryWithContextRequest, GrpcChannelConfig, GrpcEgress, GrpcEgressError,
     GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, GrpcStatusCode, HealthCheckRequest,
 };
-use grpc_egress_transport_std::TransportConstruction;
 
 fn make_client(addr: SocketAddr) -> Arc<dyn GrpcEgress> {
-    TransportConstruction::create_transport_from_config(
-        &GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext(),
-    )
-    .expect("create_transport_from_config")
+    ClientFixture::from_config(&GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext())
+        .expect("create_transport_from_config")
 }
 
 // ── gRPC frame helpers (duplicated here to keep test self-contained) ─────────

@@ -30,8 +30,6 @@ path = "examples/basic_transport.rs"
 
 [dependencies]
 grpc-egress-transport = { path = "../transport" }
-serde.workspace       = true
-thiserror.workspace   = true
 futures.workspace     = true
 bytes            = "1"
 flate2           = "1"
@@ -43,12 +41,10 @@ hyper-util       = { version = "0.1", features = ["client-legacy", "tokio", "htt
 hyper-rustls     = { version = "0.27", features = ["http2", "webpki-tokio"] }
 rustls           = { version = "0.23", features = ["aws-lc-rs"] }
 tokio                  = { version = "1", features = ["rt", "net", "time", "macros"] }
-swe-edge-configbuilder = { workspace = true }
 tokio-util       = { version = "0.7", default-features = false }
 tonic            = { version = "0.12", default-features = false }
 prost            = { version = "0.13", optional = true }
 swe-edge-loadbalancer  = { workspace = true }
-edge-security-runtime = { workspace = true }
 tracing          = { workspace = true }
 
 [dev-dependencies]

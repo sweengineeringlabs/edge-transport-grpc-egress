@@ -2,6 +2,7 @@
 //! client certificate is presented, the configured root CA is the only one trusted, and a file that
 //! cannot be used fails when the client is built, naming its path.
 
+use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory, MtlsConfigFactory};
 use std::error::Error;
 use std::time::Duration;
@@ -13,7 +14,7 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress,
     GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError, GrpcRequest, MtlsConfig,
 };
-use grpc_egress_transport_std::{TonicGrpcEgressBuilderSpiFactory, TransportConstruction};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 
 fn path_of(path: std::path::PathBuf) -> String {
     path.to_string_lossy().into_owned()
@@ -264,7 +265,7 @@ async fn test_create_transport_from_config_mtls_is_applied_to_the_client_happy(
             path_of(pki.get_client_key_pem_path()),
             path_of(pki.get_ca_pem_path()),
         ));
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let response = client
         .call_unary(GrpcRequest::new(
@@ -289,7 +290,7 @@ async fn test_create_transport_from_config_unusable_mtls_file_fails_at_construct
         path_of(pki.get_client_key_pem_path()),
     ));
 
-    let result = TransportConstruction::create_transport_from_config(&config);
+    let result = ClientFixture::from_config(&config);
 
     match result {
         Err(GrpcChannelConfigError::UnusableTlsFile { path, .. }) => assert_eq!(path, missing),

@@ -20,5 +20,5 @@ mod tls;
 pub use frame::{DecodedFrame, GrpcFrame};
 pub use peer::{PeerBehaviour, PeerServer, RecordedRequest, RunningPeer};
 pub use proxy::{FreezableProxy, RunningProxy};
-pub use setup::{ClosedPort, Fixture};
+pub use setup::{ClientFixture, ClosedPort, Fixture};
 pub use tls::{TestPki, TlsServerMode};

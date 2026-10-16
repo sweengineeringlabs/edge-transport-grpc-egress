@@ -6,10 +6,9 @@ pub mod traits;
 pub mod vo;
 
 pub use dto::{
-    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest, DescribeRequest,
-    DescribeResponse, GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, HealthCheckRequest,
-    ProcessingRequest,
+    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest,
+    GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, HealthCheckRequest,
 };
 pub use error::{GrpcEgressError, GrpcEgressResult};
-pub use traits::{GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory, Processor};
+pub use traits::{GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory};
 pub use vo::GrpcStatusCode;

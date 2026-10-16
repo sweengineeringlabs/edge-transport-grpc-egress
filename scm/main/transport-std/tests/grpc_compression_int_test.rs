@@ -5,6 +5,7 @@
 //! incoming `grpc-encoding` header and the egress client advertises
 //! it correctly when compression is configured.
 
+use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
@@ -15,7 +16,6 @@ use http_body::Frame;
 use http_body_util::{BodyExt as _, StreamBody};
 
 use grpc_egress_transport::{CompressionMode, GrpcChannelConfig, GrpcRequest};
-use grpc_egress_transport_std::TransportConstruction;
 
 /// Install rustls's aws-lc-rs CryptoProvider exactly once per process.
 /// See `grpc_egress_int_test::ensure_rustls_provider` for context.
@@ -78,7 +78,7 @@ async fn tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_tes
     });
     tokio::time::sleep(Duration::from_millis(20)).await;
 
-    let client = TransportConstruction::create_transport_from_config(
+    let client = ClientFixture::from_config(
         &GrpcChannelConfig::new(format!("http://{addr}"))
             .allow_plaintext()
             .with_compression(CompressionMode::Gzip),
@@ -138,7 +138,7 @@ async fn tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test(
     });
     tokio::time::sleep(Duration::from_millis(20)).await;
 
-    let client = TransportConstruction::create_transport_from_config(
+    let client = ClientFixture::from_config(
         &GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext(),
     )
     .expect("transport");

@@ -1,14 +1,15 @@
-//! Minimal example: create a gRPC transport from config.
+//! Minimal example: build a gRPC client for an endpoint, with one option.
 
-use grpc_egress_transport::{GrpcChannelConfig, GrpcEgress};
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use grpc_egress_transport_std::TransportConstruction;
-use std::sync::Arc;
+use grpc_egress_transport::{
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = GrpcChannelConfig::new("https://localhost:50051");
-    let _transport: Arc<dyn GrpcEgress> =
-        TransportConstruction::create_transport_from_config(&config)?;
-    println!("transport created");
+    let _client = TonicGrpcEgressBuilderSpiFactory::new("https://localhost:50051")
+        .build(BuildGrpcEgressBuilderRequest)
+        .with_max_message_bytes(8 * 1024 * 1024)
+        .build()?;
+    println!("client built");
     Ok(())
 }

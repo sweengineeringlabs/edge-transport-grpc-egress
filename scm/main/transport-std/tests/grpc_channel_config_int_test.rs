@@ -4,6 +4,7 @@
 //! Verifies the **fail-closed TLS-by-default invariant** at the
 //! public-facade boundary via the `create_transport_from_config` factory.
 
+use grpc_egress_test_support::ClientFixture;
 use grpc_egress_test_support::Fixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::sync::Arc;
@@ -12,9 +13,7 @@ use grpc_egress_transport::{
     AfterCallRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress,
     GrpcEgressError, GrpcEgressInterceptor, GrpcRequest, GrpcResponse, GrpcStatusCode,
 };
-use grpc_egress_transport_std::{
-    GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor, TransportConstruction,
-};
+use grpc_egress_transport_std::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
 
 fn ensure_rustls_provider() {
     use std::sync::Once;
@@ -36,7 +35,7 @@ fn transport_struct_channel_config_default_requires_tls_int_test() {
 fn transport_struct_channel_config_from_config_rejects_plaintext_int_test() {
     ensure_rustls_provider();
     let cfg = GrpcChannelConfig::new("http://localhost:50051");
-    let result = TransportConstruction::create_transport_from_config(&cfg);
+    let result = ClientFixture::from_config(&cfg);
     match result {
         Err(GrpcChannelConfigError::PlaintextRejected(endpoint)) => {
             assert!(
@@ -55,8 +54,8 @@ async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_
     Fixture::ensure_tls_provider();
     let closed = Fixture::reserve_closed_port().expect("a closed port");
     let cfg = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
-    let transport = TransportConstruction::create_transport_from_config(&cfg)
-        .expect("plaintext accepted with allow_plaintext()");
+    let transport =
+        ClientFixture::from_config(&cfg).expect("plaintext accepted with allow_plaintext()");
     // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
     let health = transport
@@ -74,12 +73,12 @@ async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_
 fn transport_struct_channel_config_from_config_accepts_https_int_test() {
     ensure_rustls_provider();
     let https_cfg = GrpcChannelConfig::new("https://example.com:443");
-    assert!(TransportConstruction::create_transport_from_config(&https_cfg).is_ok());
+    assert!(ClientFixture::from_config(&https_cfg).is_ok());
 
     let plaintext_cfg = GrpcChannelConfig::new("http://example.com:80");
     assert!(
         matches!(
-            TransportConstruction::create_transport_from_config(&plaintext_cfg),
+            ClientFixture::from_config(&plaintext_cfg),
             Err(GrpcChannelConfigError::PlaintextRejected(_))
         ),
         "same construction path must still reject plaintext without allow_plaintext()"
@@ -115,7 +114,7 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test() {
     }
 
     let cfg = GrpcChannelConfig::new("http://127.0.0.1:1").allow_plaintext();
-    let base = TransportConstruction::create_transport_from_config(&cfg).expect("transport");
+    let base = ClientFixture::from_config(&cfg).expect("transport");
     let chain = GrpcEgressInterceptorChain::new().push(Arc::new(Deny));
 
     struct WithChain {

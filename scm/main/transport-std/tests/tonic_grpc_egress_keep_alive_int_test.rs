@@ -2,6 +2,7 @@
 //! healthy peer is frozen, so the peer stops answering without closing anything: the only way the
 //! client can notice is by a PING that is not answered, and the proxy sees the client close.
 
+use grpc_egress_test_support::ClientFixture;
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::error::Error;
 use std::sync::Arc;
@@ -14,7 +15,7 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgress, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, GrpcEgressError, GrpcRequest, KeepAliveConfig,
 };
-use grpc_egress_transport_std::{TonicGrpcEgressBuilderSpiFactory, TransportConstruction};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 
 const PING_INTERVAL: Duration = Duration::from_millis(200);
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
@@ -185,7 +186,7 @@ async fn test_create_transport_from_config_keep_alive_is_applied_to_the_client_h
     let config = GrpcChannelConfig::new(proxy.get_endpoint())
         .allow_plaintext()
         .with_keep_alive(keep_alive(false));
-    let client = TransportConstruction::create_transport_from_config(&config)?;
+    let client = ClientFixture::from_config(&config)?;
 
     let (result, elapsed) = freeze_during_a_call(client, &proxy, Duration::from_secs(20)).await;
 

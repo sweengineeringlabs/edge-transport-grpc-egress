@@ -7,15 +7,11 @@ mod saf;
 mod spi;
 mod std;
 
-pub use crate::std::{
-    ApplicationConfigBuilder, CompressionModeProvider, Conversions, GrpcChannelConfigBuilder,
-    GrpcChannelConfigFactory, GrpcEgressInterceptorChain, GrpcRequestBuilder, GrpcRequestFactory,
-    MtlsConfigFactory, TraceContextGrpcEgressInterceptor, TransportSvc,
-};
-pub use saf::{
-    GrpcEgressFactory, GrpcEgressInterceptorFactory, ProcessorFactory,
-    TonicGrpcEgressBuilderSpiFactory, TransportConstruction,
-};
-
 #[cfg(feature = "prost")]
-pub use saf::GrpcEgressProstCodecFactory;
+pub use crate::std::ProstUnaryCaller;
+pub use crate::std::{
+    CompressionModeProvider, Conversions, GrpcChannelConfigBuilder, GrpcChannelConfigFactory,
+    GrpcEgressInterceptorChain, GrpcRequestBuilder, GrpcRequestFactory, MtlsConfigFactory,
+    TraceContextGrpcEgressInterceptor,
+};
+pub use saf::{StdGrpcEgressInterceptorFactory, TonicGrpcEgressBuilderSpiFactory};
