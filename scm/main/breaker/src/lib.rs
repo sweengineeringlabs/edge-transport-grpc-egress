@@ -11,19 +11,10 @@ mod error;
 mod traits;
 mod vo;
 
-pub use dto::{
-    AdmitRequest, AdmitResponse, ClassifyRequest, ClassifyResponse, ConfigBuilderRequest,
-    ConfigBuilderResponse, ConfigValidationRequest, DescribeRequest, DescribeResponse,
-    ObserveStateRequest, ObserveStateResponse, RecordOutcomeRequest, RecordOutcomeResponse,
-    WrapBreakerRequest, WrapBreakerResponse,
-};
+pub use dto::{BuildGrpcBreakerRequest, ObserveStateRequest, ObserveStateResponse};
 pub use error::{BreakerDomainError, Error};
-pub use traits::{
-    BreakerDecorator, BreakerObservable, BreakerTransition, ConfigBuilderProvider,
-    FailureClassifier, Processor, Validator,
-};
+pub use traits::{BreakerObservable, GrpcBreakerFactory};
 pub use vo::{
-    Admission, ApplicationConfigBuilder, BreakerState, GrpcBreakerConfig, Outcome,
-    BREAKER_DECORATOR_LABEL, BREAKER_EGRESS_LOG_PREFIX, CONFIG_BUILDER_PROVIDER_SECTION,
-    FAILURE_CLASSIFIER_LOG_TARGET, GRPC_BREAKER_CLIENT_LOG_TARGET,
+    BreakerState, GrpcBreakerConfig, BREAKER_EGRESS_LOG_PREFIX, FAILURE_CLASSIFIER_LOG_TARGET,
+    GRPC_BREAKER_CLIENT_LOG_TARGET,
 };

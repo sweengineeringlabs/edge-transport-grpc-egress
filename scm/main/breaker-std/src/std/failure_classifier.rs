@@ -28,39 +28,16 @@
 use grpc_egress_transport::{GrpcEgressError, GrpcStatusCode};
 use tracing::trace;
 
-use grpc_egress_breaker::{
-    BreakerDomainError, ClassifyRequest, ClassifyResponse, FailureClassifier, Outcome,
-    FAILURE_CLASSIFIER_LOG_TARGET,
-};
+use edge_transport_breaker_policy::Outcome;
+use grpc_egress_breaker::FAILURE_CLASSIFIER_LOG_TARGET;
 
-/// Default [`FailureClassifier`] — inspects the foreign `GrpcEgressError`/
-/// `GrpcStatusCode` taxonomy (kept out of the api/ trait boundary) and
-/// reduces it to the boolean [`ClassifyRequest::is_breaker_failure`] signal
-/// before delegating to the trait.
-pub(crate) struct DefaultFailureClassifier;
+/// Classifies the result of an outbound call into the breaker's outcome, from the `GrpcEgressError` /
+/// `GrpcStatusCode` taxonomy of the transport domain.
+pub(crate) struct StdFailureClassifier;
 
-impl FailureClassifier for DefaultFailureClassifier {
-    fn classify(&self, req: ClassifyRequest) -> Result<ClassifyResponse, BreakerDomainError> {
-        trace!(
-            target: FAILURE_CLASSIFIER_LOG_TARGET,
-            is_breaker_failure = req.is_breaker_failure,
-            "grpc-breaker: classifying outcome",
-        );
-        Ok(ClassifyResponse {
-            outcome: if req.is_breaker_failure {
-                Outcome::Failure
-            } else {
-                Outcome::Success
-            },
-        })
-    }
-}
-
-impl DefaultFailureClassifier {
+impl StdFailureClassifier {
     /// Classify an outbound result into the breaker's outcome.
-    pub(crate) fn classify_result<T>(
-        result: &Result<T, GrpcEgressError>,
-    ) -> Result<Outcome, BreakerDomainError> {
+    pub(crate) fn classify_result<T>(result: &Result<T, GrpcEgressError>) -> Outcome {
         let is_breaker_failure = match result {
             Ok(_) => false,
             Err(GrpcEgressError::Unavailable(_))
@@ -71,9 +48,16 @@ impl DefaultFailureClassifier {
             }
             Err(GrpcEgressError::Timeout(_)) | Err(GrpcEgressError::Cancelled(_)) => false,
         };
-        Ok(Self
-            .classify(ClassifyRequest { is_breaker_failure })?
-            .outcome)
+        trace!(
+            target: FAILURE_CLASSIFIER_LOG_TARGET,
+            is_breaker_failure,
+            "grpc-breaker: classifying outcome",
+        );
+        if is_breaker_failure {
+            Outcome::Failure
+        } else {
+            Outcome::Success
+        }
     }
 }
 
@@ -82,36 +66,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_classify_request_failure_returns_outcome_failure() {
-        assert_eq!(
-            DefaultFailureClassifier
-                .classify(ClassifyRequest {
-                    is_breaker_failure: true
-                })
-                .expect("infallible")
-                .outcome,
-            Outcome::Failure
-        );
-    }
-
-    #[test]
-    fn test_classify_request_non_failure_returns_outcome_success() {
-        assert_eq!(
-            DefaultFailureClassifier
-                .classify(ClassifyRequest {
-                    is_breaker_failure: false
-                })
-                .expect("infallible")
-                .outcome,
-            Outcome::Success
-        );
-    }
-
-    #[test]
     fn test_classify_result_ok_is_success() {
         let result: Result<(), GrpcEgressError> = Ok(());
         assert_eq!(
-            DefaultFailureClassifier::classify_result(&result).expect("infallible"),
+            StdFailureClassifier::classify_result(&result),
             Outcome::Success
         );
     }
@@ -120,7 +78,7 @@ mod tests {
     fn test_classify_result_unavailable_is_failure() {
         let result: Result<(), GrpcEgressError> = Err(GrpcEgressError::Unavailable("down".into()));
         assert_eq!(
-            DefaultFailureClassifier::classify_result(&result).expect("infallible"),
+            StdFailureClassifier::classify_result(&result),
             Outcome::Failure
         );
     }
@@ -132,7 +90,7 @@ mod tests {
             "no".into(),
         ));
         assert_eq!(
-            DefaultFailureClassifier::classify_result(&result).expect("infallible"),
+            StdFailureClassifier::classify_result(&result),
             Outcome::Success
         );
     }
@@ -141,8 +99,20 @@ mod tests {
     fn test_classify_result_timeout_is_success() {
         let result: Result<(), GrpcEgressError> = Err(GrpcEgressError::Timeout("slow".into()));
         assert_eq!(
-            DefaultFailureClassifier::classify_result(&result).expect("infallible"),
+            StdFailureClassifier::classify_result(&result),
             Outcome::Success
+        );
+    }
+
+    #[test]
+    fn test_classify_result_internal_status_is_failure() {
+        let result: Result<(), GrpcEgressError> = Err(GrpcEgressError::Status(
+            GrpcStatusCode::Internal,
+            "bug".into(),
+        ));
+        assert_eq!(
+            StdFailureClassifier::classify_result(&result),
+            Outcome::Failure
         );
     }
 }

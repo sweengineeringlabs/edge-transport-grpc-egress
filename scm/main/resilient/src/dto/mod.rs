@@ -1,13 +1,5 @@
-//! Request and response envelopes of the resilient domain.
+//! Request values of the resilience domain.
 
-pub mod config_builder_request;
-pub mod config_builder_response;
-pub mod config_validation_request;
-pub mod describe_request;
-pub mod describe_response;
+pub mod build_grpc_resilient_request;
 
-pub use config_builder_request::ConfigBuilderRequest;
-pub use config_builder_response::ConfigBuilderResponse;
-pub use config_validation_request::ConfigValidationRequest;
-pub use describe_request::DescribeRequest;
-pub use describe_response::DescribeResponse;
+pub use build_grpc_resilient_request::BuildGrpcResilientRequest;

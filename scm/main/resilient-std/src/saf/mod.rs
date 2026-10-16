@@ -1,9 +1,5 @@
-//! SAF layer — public facade.
+//! Factories of the resilient crate.
 
-mod config_builder_provider_svc_factory;
-mod processor_svc_factory;
-mod validator_svc_factory;
+mod std_grpc_resilient_factory;
 
-pub use config_builder_provider_svc_factory::ConfigBuilderProviderFactory;
-pub use processor_svc_factory::ProcessorFactory;
-pub use validator_svc_factory::ValidatorFactory;
+pub use std_grpc_resilient_factory::StdGrpcResilientFactory;
