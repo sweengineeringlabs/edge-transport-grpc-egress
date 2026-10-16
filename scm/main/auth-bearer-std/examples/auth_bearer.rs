@@ -12,8 +12,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use grpc_egress_auth_bearer::{BearerSecret, AUTHORIZATION_HEADER};
-use grpc_egress_auth_bearer_std::{BearerEgressConfigBuilder, BearerEgressInterceptor};
-use grpc_egress_transport::GrpcRequest;
+use grpc_egress_auth_bearer_std::{BearerEgressConfigBuilder, StdBearerInterceptorFactory};
+use grpc_egress_transport::{
+    BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, GrpcRequest,
+};
 use grpc_egress_transport_std::GrpcEgressInterceptorChain;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,8 +29,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lifetime_seconds(60)
         .build()?;
 
-    let chain = GrpcEgressInterceptorChain::new()
-        .push(Arc::new(BearerEgressInterceptor::from_config(config)));
+    let chain = GrpcEgressInterceptorChain::new().push(Arc::new(
+        StdBearerInterceptorFactory::new(config).build(BuildGrpcEgressInterceptorRequest),
+    ));
 
     let mut request = GrpcRequest::new("example.Service/Method", vec![], Duration::from_secs(3));
     chain.run_before(&mut request)?;
