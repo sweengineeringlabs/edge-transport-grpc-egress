@@ -38,4 +38,6 @@ allow-git = [
     "https://github.com/sweengineeringlabs/edge-loadbalancer.git",
     "https://github.com/sweengineeringlabs/edge-transport-breaker.git",
     "https://github.com/sweengineeringlabs/edge-transport-retry.git",
+    "https://github.com/sweengineeringlabs/proto-pattern.git",
+    "https://github.com/sweengineeringlabs/proto-svc.git",
 ]
