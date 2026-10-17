@@ -3,7 +3,38 @@
 use std::time::Duration;
 
 use grpc_egress_retry_std::{ResourceExhaustedContext, RetryDecision};
-use grpc_egress_transport::{GrpcEgressError, GrpcStatusCode};
+use proto_pattern::{CallError, DecodeError, EncodeError, Metadata, MetadataEntry, StatusCode};
+
+/// A status the peer answered with, carrying `trailers`.
+fn status_with(code: StatusCode, message: &str, trailers: Metadata) -> CallError {
+    CallError::Status {
+        path: "/pkg.Service/Method".into(),
+        code,
+        message: message.to_string(),
+        details: Vec::new(),
+        trailers,
+    }
+}
+
+fn status(code: StatusCode, message: &str) -> Result<(), CallError> {
+    Err(status_with(code, message, Metadata::default()))
+}
+
+fn transport(code: StatusCode) -> Result<(), CallError> {
+    Err(CallError::Transport {
+        path: "/pkg.Service/Method".into(),
+        code,
+        reason: "the call did not complete".to_string(),
+    })
+}
+
+fn trailers_of(entries: &[(&str, &str)]) -> Result<Metadata, Box<dyn std::error::Error>> {
+    let entries = entries
+        .iter()
+        .map(|(key, value)| MetadataEntry::create(*key, *value))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Metadata::create(entries))
+}
 
 // ── ResourceExhaustedContext::classify ──────────────────────────────────────
 
@@ -83,25 +114,108 @@ fn test_parse_retry_after_hint_returns_none_when_absent() {
     assert_eq!(RetryDecision::parse_retry_after_hint(""), None);
 }
 
+// ── RetryDecision::read_retry_after ─────────────────────────────────────────
+
+/// @covers: RetryDecision::read_retry_after
+#[test]
+fn test_read_retry_after_trailer_is_the_hint() -> Result<(), Box<dyn std::error::Error>> {
+    let error = status_with(
+        StatusCode::ResourceExhausted,
+        "rate limit exceeded",
+        trailers_of(&[("retry-after", "7")])?,
+    );
+    assert_eq!(
+        RetryDecision::read_retry_after(&error),
+        Some(Duration::from_secs(7))
+    );
+    Ok(())
+}
+
+/// @covers: RetryDecision::read_retry_after
+#[test]
+fn test_read_retry_after_ratelimit_reset_trailer_is_the_hint(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let error = status_with(
+        StatusCode::ResourceExhausted,
+        "rate limit exceeded",
+        trailers_of(&[("x-ratelimit-reset-requests", "3")])?,
+    );
+    assert_eq!(
+        RetryDecision::read_retry_after(&error),
+        Some(Duration::from_secs(3))
+    );
+    Ok(())
+}
+
+/// @covers: RetryDecision::read_retry_after
+#[test]
+fn test_read_retry_after_trailer_wins_over_the_message_hint(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let error = status_with(
+        StatusCode::ResourceExhausted,
+        "rate limit exceeded [retry-after=30s]",
+        trailers_of(&[("retry-after", "2")])?,
+    );
+    assert_eq!(
+        RetryDecision::read_retry_after(&error),
+        Some(Duration::from_secs(2))
+    );
+    Ok(())
+}
+
+/// @covers: RetryDecision::read_retry_after
+#[test]
+fn test_read_retry_after_unusable_trailer_falls_back_to_the_message_hint(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let error = status_with(
+        StatusCode::ResourceExhausted,
+        "rate limit exceeded [retry-after=30s]",
+        trailers_of(&[("retry-after", "Wed, 21 Oct 2026 07:28:00 GMT")])?,
+    );
+    assert_eq!(
+        RetryDecision::read_retry_after(&error),
+        Some(Duration::from_secs(30))
+    );
+    Ok(())
+}
+
+/// @covers: RetryDecision::read_retry_after
+#[test]
+fn test_read_retry_after_no_hint_anywhere_returns_none() {
+    let error = status_with(
+        StatusCode::ResourceExhausted,
+        "rate limit exceeded",
+        Metadata::default(),
+    );
+    assert_eq!(RetryDecision::read_retry_after(&error), None);
+}
+
+/// @covers: RetryDecision::read_retry_after
+#[test]
+fn test_read_retry_after_failure_that_is_not_a_status_returns_none() {
+    let error = CallError::Transport {
+        path: "/pkg.Service/Method".into(),
+        code: StatusCode::Unavailable,
+        reason: "refused [retry-after=9s]".to_string(),
+    };
+    assert_eq!(RetryDecision::read_retry_after(&error), None);
+}
+
 // ── RetryDecision::classify ─────────────────────────────────────────────────
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_unavailable_returns_retry() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::Unavailable,
-        "lb".into(),
-    ));
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Retry);
+    assert_eq!(
+        RetryDecision::classify(&status(StatusCode::Unavailable, "lb")),
+        RetryDecision::Retry
+    );
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_resource_exhausted_rate_limit_returns_retry_rate_limit() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::ResourceExhausted,
-        "rate limit exceeded".into(),
-    ));
+    let r = status(StatusCode::ResourceExhausted, "rate limit exceeded");
     assert_eq!(RetryDecision::classify(&r), RetryDecision::RetryRateLimit);
     assert!(RetryDecision::classify(&r).is_rate_limit());
     assert!(RetryDecision::classify(&r).should_retry());
@@ -110,10 +224,7 @@ fn test_classify_resource_exhausted_rate_limit_returns_retry_rate_limit() {
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_resource_exhausted_capacity_returns_retry() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::ResourceExhausted,
-        "server overloaded".into(),
-    ));
+    let r = status(StatusCode::ResourceExhausted, "server overloaded");
     assert_eq!(RetryDecision::classify(&r), RetryDecision::Retry);
     assert!(!RetryDecision::classify(&r).is_rate_limit());
 }
@@ -121,10 +232,7 @@ fn test_classify_resource_exhausted_capacity_returns_retry() {
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_resource_exhausted_hard_quota_is_terminal() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::ResourceExhausted,
-        "quota exceeded".into(),
-    ));
+    let r = status(StatusCode::ResourceExhausted, "quota exceeded");
     assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
     assert!(!RetryDecision::classify(&r).should_retry());
 }
@@ -132,10 +240,7 @@ fn test_classify_resource_exhausted_hard_quota_is_terminal() {
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_permission_denied_is_terminal() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::PermissionDenied,
-        "no".into(),
-    ));
+    let r = status(StatusCode::PermissionDenied, "no");
     assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
     assert!(!RetryDecision::classify(&r).should_retry());
 }
@@ -143,10 +248,7 @@ fn test_classify_status_permission_denied_is_terminal() {
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_unauthenticated_is_terminal() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::Unauthenticated,
-        "bad token".into(),
-    ));
+    let r = status(StatusCode::Unauthenticated, "bad token");
     assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
     assert!(!RetryDecision::classify(&r).should_retry());
 }
@@ -154,48 +256,95 @@ fn test_classify_status_unauthenticated_is_terminal() {
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_deadline_exceeded_is_terminal() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::DeadlineExceeded,
-        "tick".into(),
-    ));
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
+    assert_eq!(
+        RetryDecision::classify(&status(StatusCode::DeadlineExceeded, "tick")),
+        RetryDecision::Terminal
+    );
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_internal_is_terminal() {
-    let r: Result<(), _> = Err(GrpcEgressError::Status(
-        GrpcStatusCode::Internal,
-        "bug".into(),
-    ));
+    assert_eq!(
+        RetryDecision::classify(&status(StatusCode::Internal, "bug")),
+        RetryDecision::Terminal
+    );
+}
+
+/// A call that did not reach the peer is what the old `ConnectionFailed` was: it retries.
+///
+/// @covers: RetryDecision::classify
+#[test]
+fn test_classify_transport_unavailable_retries() {
+    assert_eq!(
+        RetryDecision::classify(&transport(StatusCode::Unavailable)),
+        RetryDecision::Retry
+    );
+}
+
+/// The engine reports a connect or handshake failure as a transport failure of code `Unknown`.
+///
+/// @covers: RetryDecision::classify
+#[test]
+fn test_classify_transport_unknown_retries() {
+    assert_eq!(
+        RetryDecision::classify(&transport(StatusCode::Unknown)),
+        RetryDecision::Retry
+    );
+}
+
+/// The same code in a status the peer sent is the peer's own answer, and terminal: only the transport variant means
+/// the call did not reach the peer.
+///
+/// @covers: RetryDecision::classify
+#[test]
+fn test_classify_status_unknown_is_terminal_while_transport_unknown_retries() {
+    assert_eq!(
+        RetryDecision::classify(&status(StatusCode::Unknown, "x")),
+        RetryDecision::Terminal
+    );
+    assert_eq!(
+        RetryDecision::classify(&transport(StatusCode::Unknown)),
+        RetryDecision::Retry
+    );
+}
+
+/// @covers: RetryDecision::classify
+#[test]
+fn test_classify_transport_failure_of_any_other_code_is_terminal() {
+    for code in [
+        StatusCode::Cancelled,
+        StatusCode::InvalidArgument,
+        StatusCode::DeadlineExceeded,
+        StatusCode::ResourceExhausted,
+        StatusCode::Internal,
+    ] {
+        assert_eq!(
+            RetryDecision::classify(&transport(code)),
+            RetryDecision::Terminal,
+            "expected a transport failure of {code:?} to be Terminal",
+        );
+    }
+}
+
+/// @covers: RetryDecision::classify
+#[test]
+fn test_classify_encode_failure_is_terminal() {
+    let r: Result<(), CallError> = Err(CallError::Encode(EncodeError::create("t.Message", "x")));
     assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
 }
 
 /// @covers: RetryDecision::classify
 #[test]
-fn test_classify_connection_failed_retries() {
-    let r: Result<(), _> = Err(GrpcEgressError::ConnectionFailed("rst".into()));
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Retry);
-}
-
-/// @covers: RetryDecision::classify
-#[test]
-fn test_classify_timeout_is_terminal() {
-    let r: Result<(), _> = Err(GrpcEgressError::Timeout("deadline".into()));
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
-}
-
-/// @covers: RetryDecision::classify
-#[test]
-fn test_classify_cancelled_is_terminal() {
-    let r: Result<(), _> = Err(GrpcEgressError::Cancelled("token".into()));
+fn test_classify_decode_failure_is_terminal() {
+    let r: Result<(), CallError> = Err(CallError::Decode(DecodeError::create("t.Message", "x")));
     assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_ok_returns_success() {
-    let r: Result<i32, GrpcEgressError> = Ok(42);
+    let r: Result<i32, CallError> = Ok(42);
     assert_eq!(RetryDecision::classify(&r), RetryDecision::Success);
     assert!(!RetryDecision::classify(&r).should_retry());
 }
@@ -226,20 +375,19 @@ fn test_is_rate_limit_only_true_for_rate_limit_variant() {
 #[test]
 fn test_classify_non_retry_status_codes_all_terminal() {
     for code in [
-        GrpcStatusCode::Cancelled,
-        GrpcStatusCode::Unknown,
-        GrpcStatusCode::InvalidArgument,
-        GrpcStatusCode::NotFound,
-        GrpcStatusCode::AlreadyExists,
-        GrpcStatusCode::FailedPrecondition,
-        GrpcStatusCode::Aborted,
-        GrpcStatusCode::OutOfRange,
-        GrpcStatusCode::Unimplemented,
-        GrpcStatusCode::DataLoss,
+        StatusCode::Cancelled,
+        StatusCode::Unknown,
+        StatusCode::InvalidArgument,
+        StatusCode::NotFound,
+        StatusCode::AlreadyExists,
+        StatusCode::FailedPrecondition,
+        StatusCode::Aborted,
+        StatusCode::OutOfRange,
+        StatusCode::Unimplemented,
+        StatusCode::DataLoss,
     ] {
-        let r: Result<(), _> = Err(GrpcEgressError::Status(code, "x".into()));
         assert_eq!(
-            RetryDecision::classify(&r),
+            RetryDecision::classify(&status(code, "x")),
             RetryDecision::Terminal,
             "expected {code:?} to be Terminal",
         );

@@ -3,12 +3,13 @@
 use std::error::Error;
 use std::time::Duration;
 
-use grpc_egress_test_support::{ClosedPort, PeerBehaviour};
+use grpc_egress_test_support::{CallFixture, ClosedPort, PeerBehaviour};
 use grpc_egress_transport::{
-    BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcRequest, LoadbalancerSettings,
+    BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgressBuilder,
+    GrpcEgressBuilderFactory, LoadbalancerSettings,
 };
-use grpc_egress_transport_std::{GrpcRequestFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallRequest, RawTransport, Transport};
 
 use crate::{EchoServer, ScenarioReport};
 
@@ -27,7 +28,9 @@ impl LoadbalancerScenario {
         let two = EchoServer::start_with(PeerBehaviour::Reply(b"two".to_vec())).await?;
         let client = Self::balanced(&[one.get_endpoint(), two.get_endpoint()])?;
         for _ in 0..6 {
-            let _ = client.call_unary(Self::request()).await;
+            let _ = client
+                .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+                .await;
         }
         report.record(
             "calls reach both backends",
@@ -39,7 +42,11 @@ impl LoadbalancerScenario {
         let client = Self::balanced(&[dead.get_endpoint(), live.get_endpoint()])?;
         let mut answered = 0;
         for _ in 0..8 {
-            if client.call_unary(Self::request()).await.is_ok() {
+            if client
+                .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+                .await
+                .is_ok()
+            {
                 answered += 1;
             }
         }
@@ -47,7 +54,7 @@ impl LoadbalancerScenario {
         Ok(report)
     }
 
-    fn balanced(urls: &[String]) -> Result<impl GrpcEgress, Box<dyn Error>> {
+    fn balanced(urls: &[String]) -> Result<impl Transport + RawTransport, Box<dyn Error>> {
         Ok(TonicGrpcEgressBuilderSpiFactory::new("")
             .build(BuildGrpcEgressBuilderRequest)
             .with_plaintext_allowed()
@@ -64,11 +71,7 @@ impl LoadbalancerScenario {
             .build()?)
     }
 
-    fn request() -> GrpcRequest {
-        GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        )
+    fn request() -> CallRequest<Vec<u8>> {
+        CallFixture::request(b"ping", Duration::from_secs(5))
     }
 }

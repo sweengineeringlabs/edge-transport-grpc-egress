@@ -1,7 +1,7 @@
 # grpc-egress-breaker-std
 
 The implementation of the breaker domain `grpc-egress-breaker`: `StdGrpcBreakerFactory::new(config)` wraps
-any `GrpcEgress` (the trait of `grpc-egress-transport`) with a circuit breaker. After
+any client that is a `Transport` and a `RawTransport` (the traits of `proto-pattern`) with a circuit breaker. After
 `failure_threshold` consecutive failures the circuit opens and calls fail fast, until the cool-down has
 passed and probe calls close it again. The built client is also a `BreakerObservable`.
 

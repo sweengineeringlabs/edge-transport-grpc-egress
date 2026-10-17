@@ -1,15 +1,19 @@
 //! Integration tests for `StdGrpcEgressInterceptorFactory`.
 
-use std::time::Duration;
-
+use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
-    GrpcRequest, TraceContextSource,
+    OutboundCall, TraceContextSource,
 };
-use grpc_egress_transport_std::{GrpcRequestFactory, StdGrpcEgressInterceptorFactory};
+use grpc_egress_transport_std::StdGrpcEgressInterceptorFactory;
+use proto_pattern::Metadata;
 
-fn bare_request() -> GrpcRequest {
-    GrpcRequest::new("svc/Method", Vec::new(), Duration::from_secs(1))
+const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+
+fn bare_call() -> OutboundCallFixture {
+    OutboundCallFixture::create("/svc/Method")
+        .with_timeout(None)
+        .with_metadata(Metadata::default())
 }
 
 /// @covers: build
@@ -17,14 +21,15 @@ fn bare_request() -> GrpcRequest {
 fn test_build_pass_through_source_injects_nothing() -> Result<(), Box<dyn std::error::Error>> {
     let factory = StdGrpcEgressInterceptorFactory::new(TraceContextSource::PassThrough);
     let interceptor = factory.build(BuildGrpcEgressInterceptorRequest);
-    let mut req = bare_request();
+    let mut call = bare_call();
 
-    interceptor.before_call(&mut req)?;
+    interceptor.before_call(&mut call)?;
 
     assert!(
-        !req.metadata.contains_key("traceparent"),
+        !call.has_header("traceparent"),
         "pass-through must not inject traceparent metadata"
     );
+    assert_eq!(call.get_metadata().get_count(), 0);
     Ok(())
 }
 
@@ -33,22 +38,16 @@ fn test_build_pass_through_source_injects_nothing() -> Result<(), Box<dyn std::e
 fn test_build_static_source_injects_traceparent_and_tracestate(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let factory = StdGrpcEgressInterceptorFactory::new(TraceContextSource::Static {
-        traceparent: "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01".to_string(),
+        traceparent: TRACEPARENT.to_string(),
         tracestate: Some("vendor=1".to_string()),
     });
     let interceptor = factory.build(BuildGrpcEgressInterceptorRequest);
-    let mut req = bare_request();
+    let mut call = bare_call();
 
-    interceptor.before_call(&mut req)?;
+    interceptor.before_call(&mut call)?;
 
-    assert_eq!(
-        req.metadata.get("traceparent").map(String::as_str),
-        Some("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01")
-    );
-    assert_eq!(
-        req.metadata.get("tracestate").map(String::as_str),
-        Some("vendor=1")
-    );
+    assert_eq!(call.get_header_values("traceparent"), [TRACEPARENT]);
+    assert_eq!(call.get_header_values("tracestate"), ["vendor=1"]);
     Ok(())
 }
 
@@ -60,16 +59,15 @@ fn test_build_static_source_keeps_upstream_traceparent() -> Result<(), Box<dyn s
         tracestate: None,
     });
     let interceptor = factory.build(BuildGrpcEgressInterceptorRequest);
-    let mut req = bare_request();
-    req.metadata
-        .insert("traceparent".to_string(), "existing-value".to_string());
+    let mut call = bare_call();
+    call.add_header("traceparent", "existing-value")?;
 
-    interceptor.before_call(&mut req)?;
+    interceptor.before_call(&mut call)?;
 
     assert_eq!(
-        req.metadata.get("traceparent").map(String::as_str),
-        Some("existing-value"),
-        "an upstream traceparent must not be overwritten"
+        call.get_header_values("traceparent"),
+        ["existing-value"],
+        "an upstream traceparent must not be overwritten, nor repeated"
     );
     Ok(())
 }
@@ -84,17 +82,17 @@ fn test_build_called_twice_returns_independent_interceptors(
     });
     let a = factory.build(BuildGrpcEgressInterceptorRequest);
     let b = factory.build(BuildGrpcEgressInterceptorRequest);
-    let mut req_a = bare_request();
-    let mut req_b = bare_request();
+    let mut call_a = bare_call();
+    let mut call_b = bare_call();
 
-    a.before_call(&mut req_a)?;
+    a.before_call(&mut call_a)?;
 
-    assert!(req_a.metadata.contains_key("traceparent"));
+    assert!(call_a.has_header("traceparent"));
     assert!(
-        !req_b.metadata.contains_key("traceparent"),
-        "b has not run, so its request must be untouched"
+        !call_b.has_header("traceparent"),
+        "b has not run, so its call must be untouched"
     );
-    b.before_call(&mut req_b)?;
-    assert!(req_b.metadata.contains_key("traceparent"));
+    b.before_call(&mut call_b)?;
+    assert!(call_b.has_header("traceparent"));
     Ok(())
 }

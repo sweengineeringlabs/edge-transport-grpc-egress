@@ -4,9 +4,10 @@
 use std::error::Error;
 use std::time::Duration;
 
-use grpc_egress_test_support::{ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{GrpcChannelConfig, GrpcChannelConfigError, GrpcRequest};
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
+use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
+use grpc_egress_transport::{GrpcChannelConfig, GrpcChannelConfigError};
+use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use proto_pattern::RawTransport;
 
 /// @covers: ClientFixture::from_config
 #[tokio::test]
@@ -18,14 +19,13 @@ async fn test_from_config_plaintext_endpoint_builds_a_client_that_reaches_the_pe
 
     let client = ClientFixture::from_config(&config)?;
     let response = client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", Duration::from_secs(5)),
+        )
         .await?;
 
-    assert_eq!(response.body, b"pong");
+    assert_eq!(response.get_message(), b"pong");
     assert_eq!(peer.get_recorded_requests().len(), 1);
     Ok(())
 }
@@ -42,4 +42,13 @@ fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused() {
         result,
         Err(GrpcChannelConfigError::PlaintextRejected(_))
     ));
+}
+
+/// @covers: CallFixture::path
+#[test]
+fn test_path_with_and_without_the_leading_slash_is_the_same_path() {
+    assert_eq!(
+        CallFixture::path("pkg.Service/Method"),
+        CallFixture::path("/pkg.Service/Method")
+    );
 }

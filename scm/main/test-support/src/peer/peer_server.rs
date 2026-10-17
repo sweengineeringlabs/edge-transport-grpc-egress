@@ -6,6 +6,7 @@ use std::io;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use bytes::{Bytes, BytesMut};
+use http_body_util::combinators::WithTrailers;
 use http_body_util::{BodyExt as _, Full};
 use hyper::body::Incoming;
 use hyper::service::service_fn;
@@ -16,6 +17,10 @@ use tokio_rustls::TlsAcceptor;
 use crate::{
     Fixture, GrpcFrame, PeerBehaviour, RecordedRequest, RunningPeer, TestPki, TlsServerMode,
 };
+
+/// The body of a peer's answer: the message, then the trailers.
+type PeerBody =
+    WithTrailers<Full<Bytes>, std::future::Ready<Option<Result<http::HeaderMap, Infallible>>>>;
 
 /// Starts in-process peers that answer unary gRPC calls and record what they received.
 pub struct PeerServer;
@@ -104,11 +109,16 @@ impl PeerServer {
         Ok(RunningPeer::create(addr, requests, accept_loop))
     }
 
+    /// An answer with no message and no trailers.
+    fn empty_body() -> PeerBody {
+        Full::new(Bytes::new()).with_trailers(std::future::ready(None))
+    }
+
     async fn answer(
         request: http::Request<Incoming>,
         behaviour: PeerBehaviour,
         record: Arc<Mutex<Vec<RecordedRequest>>>,
-    ) -> Result<http::Response<Full<Bytes>>, Infallible> {
+    ) -> Result<http::Response<PeerBody>, Infallible> {
         let path = request.uri().path().to_string();
         let headers: HashMap<String, String> = request
             .headers()
@@ -151,8 +161,7 @@ impl PeerServer {
 
         let mut builder = http::Response::builder()
             .status(200)
-            .header(http::header::CONTENT_TYPE, "application/grpc")
-            .header("grpc-status", "0");
+            .header(http::header::CONTENT_TYPE, "application/grpc");
         if let PeerBehaviour::ReplyCompressed {
             encoding: Some(encoding),
             ..
@@ -185,9 +194,21 @@ impl PeerServer {
                 builder = builder.header("retry-after", secs.to_string());
             }
         }
+        // A real server sends the status of a call that carried a message in the trailers, after the
+        // message; a status in the headers (with no message) is the "Trailers-Only" form, which the
+        // peer answers with for a `ReplyStatus`. A client treats a response with a status in its headers as
+        // having no message, so it does not apply the message-size limit to one.
+        let trailers = if matches!(behaviour_for_headers, PeerBehaviour::ReplyStatus { .. }) {
+            None
+        } else {
+            let mut trailers = http::HeaderMap::new();
+            trailers.insert("grpc-status", http::HeaderValue::from_static("0"));
+            Some(Ok::<_, Infallible>(trailers))
+        };
+        let body = Full::new(reply).with_trailers(std::future::ready(trailers));
         let response = builder
-            .body(Full::new(reply))
-            .unwrap_or_else(|_| http::Response::new(Full::new(Bytes::new())));
+            .body(body)
+            .unwrap_or_else(|_| http::Response::new(Self::empty_body()));
         Ok(response)
     }
 }

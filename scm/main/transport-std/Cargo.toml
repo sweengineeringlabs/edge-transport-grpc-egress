@@ -6,7 +6,7 @@ license.workspace      = true
 rust-version.workspace = true
 authors.workspace      = true
 repository.workspace   = true
-description  = "gRPC egress implementation: the hyper client, its builder, the load balancer and the constructors of the domain types."
+description  = "gRPC egress implementation: the client over the proto-svc engine, its builder, the load balancer and the constructors of the domain types."
 keywords     = ["gateway", "egress", "grpc", "sea", "swe"]
 categories   = ["network-programming"]
 
@@ -18,49 +18,43 @@ service_type     = "processor"
 application_type = "lib"
 service_type     = "processor"
 
-[features]
-default = []
-# Opt-in prost codec ergonomics (ADR-026). Default off — the byte core stays
-# codec-agnostic and the default build gains no `prost` dependency.
-prost = ["dep:prost", "grpc-egress-transport/prost"]
-
 [[example]]
 name = "basic_transport"
 path = "examples/basic_transport.rs"
 
 [dependencies]
 grpc-egress-transport = { path = "../transport" }
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
-futures = "0.3"
-bytes            = "1"
-flate2           = "1"
-webpki-roots     = "1"
-zstd             = "0.14"
-http = "1"
-http-body-util   = "0.1"
-hyper-util       = { version = "0.1", features = ["client-legacy", "tokio", "http2"] }
-hyper-rustls     = { version = "0.27", features = ["http2", "webpki-tokio"] }
-rustls           = { version = "0.23", features = ["aws-lc-rs"] }
-tokio                  = { version = "1.52", features = ["rt", "net", "time", "macros"] }
-tokio-util       = { version = "0.7", default-features = false }
-tonic            = { version = "0.12", default-features = false }
-prost            = { version = "0.13", optional = true }
+proto-pattern         = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.10.0" }
+proto-tonic-spi       = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.0" }
+serde                 = { version = "1.0", features = ["derive"] }
+toml                  = "0.8"
+futures               = "0.3"
+http                  = "1"
+prost                 = "0.14"
+tokio                 = { version = "1.53", features = ["rt", "net", "time", "macros", "sync"] }
+tokio-util            = { version = "0.7", default-features = false }
+edge-security-runtime  = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
 swe-edge-loadbalancer = { git = "https://github.com/sweengineeringlabs/edge-loadbalancer.git", tag = "v0.4.0" }
-tracing = "0.1"
+tracing               = "0.1"
 
 [dev-dependencies]
 grpc-egress-test-support = { path = "../test-support" }
-edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
-prost      = "0.13"
-tokio      = { version = "1.52", features = ["rt-multi-thread", "macros", "time", "net"] }
+proto-test-peer = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.0" }
+tokio      = { version = "1.53", features = ["rt-multi-thread", "macros", "time", "net", "sync"] }
 hyper      = { version = "1", features = ["http2", "server"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 bytes      = "1"
-http-body      = "1"
+http       = "1"
+http-body  = "1"
 http-body-util = "0.1"
 futures    = "0.3"
-tonic      = { version = "0.12", default-features = false }
+flate2     = "1"
+zstd       = "0.14"
+rustls     = { version = "0.23", features = ["aws-lc-rs"] }
+tonic        = { version = "0.14.6", default-features = false, features = ["transport", "codegen", "router"] }
+tonic-prost  = "0.14.6"
+tokio-stream = { version = "0.1.19", features = ["net"] }
+tonic-health = "0.14"
 
 [lints.rust]
 unsafe_code  = "deny"

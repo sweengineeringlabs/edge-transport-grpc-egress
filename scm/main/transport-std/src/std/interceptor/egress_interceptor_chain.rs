@@ -4,8 +4,8 @@
 use crate::std::GrpcEgressInterceptorChain;
 use std::sync::Arc;
 
-use grpc_egress_transport::{AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor};
-use grpc_egress_transport::{GrpcRequest, GrpcResponse};
+use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
+use proto_pattern::CallError;
 
 impl GrpcEgressInterceptorChain {
     /// Construct an empty chain.
@@ -32,17 +32,25 @@ impl GrpcEgressInterceptorChain {
     }
 
     /// Run every `before_call` in order until one fails or all succeed.
-    pub fn run_before(&self, req: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
+    ///
+    /// # Errors
+    ///
+    /// The error of the first interceptor that fails; the ones after it do not run.
+    pub fn run_before(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         for interceptor in &self.interceptors {
-            interceptor.before_call(req)?;
+            interceptor.before_call(call)?;
         }
         Ok(())
     }
 
     /// Run every `after_call` in order until one fails or all succeed.
-    pub fn run_after(&self, resp: &mut GrpcResponse) -> Result<(), GrpcEgressError> {
+    ///
+    /// # Errors
+    ///
+    /// The error of the first interceptor that fails; the ones after it do not run.
+    pub fn run_after(&self, reply: &InboundReply<'_>) -> Result<(), CallError> {
         for interceptor in &self.interceptors {
-            interceptor.after_call(AfterCallRequest { response: resp })?;
+            interceptor.after_call(reply)?;
         }
         Ok(())
     }

@@ -1,6 +1,6 @@
 # ADR-008: The contract and the engine are external (`proto-pattern`, `proto-svc`)
 
-**Status:** Proposed, not implemented. Issue 18 task 2, 3 and 4 are the owner's to rule on; this record states the facts found while preparing the mapping (task 1), a recommendation for each ruling, and one finding that the issue does not name and that decides how much of the move is possible.
+**Status:** Accepted (the owner, 2026-10-17); implemented on `feat/18-contract-native`. Issue 18 task 2, 3 and 4 were the owner's to rule on; this record states the facts found while preparing the mapping (task 1), a recommendation for each ruling, and one finding that the issue does not name and that decides how much of the move is possible.
 **Date:** 2026-10-16
 **Tracking:** [#18](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/18) tasks 1 to 4
 **See also:** [ADR-006](ADR-006-domain-first.md), [ADR-007](ADR-007-decorators-wrap-a-built-client.md)
@@ -13,7 +13,7 @@
 
 ## Finding that the issue does not name: the path is a constant of the type
 
-`Method::PATH` is an associated constant: `transport.call::<Greet>(request)`. `GrpcRequest::method` is a **string chosen at run time**: every call site in this repository and its tests passes one. Over the contract such a call has no expression without one `Method` type per path, which code that holds only a string cannot create. Whether a real consumer needs the path dynamic (a router, a generic client) is to be confirmed in task 15; `edge-bootstrap` builds `GrpcRequest`s from a `method` variable in its ingress adapters, but those may be the ingress crates' types. So the byte-oriented, dynamic-path surface of `GrpcEgress` is **not** a wrapper over `Transport`; it is a different capability.
+`Method::PATH` is an associated constant: `transport.call::<Greet>(request)`. `GrpcRequest::method` is a **string chosen at run time**: every call site in this repository and its tests passes one. Over the contract such a call has no expression without one `Method` type per path, which code that holds only a string cannot create. Whether a caller needs the path dynamic (a router, a generic client) is the caller's own matter; the contract has to offer both. So the byte-oriented, dynamic-path surface of `GrpcEgress` is **not** a wrapper over `Transport`; it is a different capability.
 
 This changes the three rulings below from a choice among wrappers into a choice about what survives.
 
@@ -42,13 +42,15 @@ This changes the three rulings below from a choice among wrappers into a choice 
 ## Rulings and recommendations
 
 **Ruling 1, the `dyn` question (task 2).** `Transport` is not object-safe. Options: (a) consumers use generic bounds; (b) this crate keeps one object-safe trait in front of the contract.
-*Recommendation:* (b) for the dynamic-path surface, which is object-safe by nature (a string path and bytes) and is what `edge-bootstrap` holds as `Arc<dyn GrpcEgress>` (its runtime builder, registry and port crates; this repository has `dyn GrpcEgress` in 15 non-test source files, per the issue); (a) for every typed use. The finding above is the reason: the dynamic surface cannot be a generic over `Method`.
+*Recommendation:* (b) for the dynamic-path surface, which is object-safe by nature (a string path and bytes) and is what a composition root would hold as `Arc<dyn GrpcEgress>` (this repository has `dyn GrpcEgress` in 15 non-test source files, per the issue); (a) for every typed use. The finding above is the reason: the dynamic surface cannot be a generic over `Method`.
 
 **Ruling 2, cancellation (task 3).** The contract has no token. Options: dropping the call's future cancels it (documented and tested), or a wrapper keeps `CancellationToken`.
 *Recommendation:* the wrapper keeps the token on the dynamic surface (it already races the call against it, and tests prove `Cancelled`), and typed callers rely on dropping the future. Removing the token from `GrpcRequest` would remove a capability the owner's rule forbids degrading.
 
 **Ruling 3, security context (task 4).** `call_unary_with_context` has no equivalent. Options: an interceptor that derives metadata from the context and wraps `Transport`, or removal.
 *Recommendation:* the interceptor, so the capability stays and the engine stays unaware of it.
+
+*Interfaces:* the wrappers of rulings 2 and 3 (and the call an interceptor edits, ruling 4) are bound to interfaces of the domain, `CancellationSignal`, `CallerIdentity` and `OutboundCall`, not to `CancellationToken`, `SecurityContext` or a concrete call type. ADR-009 sections 5 and 7 give the shape, and its "Alternatives and trade-offs" section the cost of each choice.
 
 ## Proposed way out
 

@@ -2,9 +2,8 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use grpc_egress_transport::{
-    AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor, GrpcRequest,
-};
+use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
+use proto_pattern::CallError;
 
 /// An interceptor that appends `before:<label>` and `after:<label>` to a shared log when it runs.
 pub struct OrderInterceptor {
@@ -20,7 +19,7 @@ impl OrderInterceptor {
 }
 
 impl GrpcEgressInterceptor for OrderInterceptor {
-    fn before_call(&self, _req: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
+    fn before_call(&self, _call: &mut dyn OutboundCall) -> Result<(), CallError> {
         self.log
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -28,7 +27,7 @@ impl GrpcEgressInterceptor for OrderInterceptor {
         Ok(())
     }
 
-    fn after_call(&self, _req: AfterCallRequest<'_>) -> Result<(), GrpcEgressError> {
+    fn after_call(&self, _reply: &InboundReply<'_>) -> Result<(), CallError> {
         self.log
             .lock()
             .unwrap_or_else(PoisonError::into_inner)

@@ -1,14 +1,7 @@
-//! API of the `client` theme: making a gRPC call and building the client that makes it.
+//! API of the `client` theme: building the client that makes a gRPC call.
 
 pub mod dto;
-pub mod error;
 pub mod traits;
-pub mod vo;
 
-pub use dto::{
-    BuildGrpcEgressBuilderRequest, CallStreamRequest, CallUnaryWithContextRequest,
-    GrpcMessageStreamResponse, GrpcRequest, GrpcResponse, HealthCheckRequest,
-};
-pub use error::{GrpcEgressError, GrpcEgressResult};
-pub use traits::{GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory};
-pub use vo::GrpcStatusCode;
+pub use dto::BuildGrpcEgressBuilderRequest;
+pub use traits::{GrpcEgressBuilder, GrpcEgressBuilderFactory};

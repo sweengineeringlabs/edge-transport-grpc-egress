@@ -3,16 +3,18 @@
 //! Verifies the **fail-closed TLS-by-default invariant** at the
 //! public-facade boundary via the `create_transport_from_config` factory.
 
-use grpc_egress_test_support::ClientFixture;
-use grpc_egress_test_support::Fixture;
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::sync::Arc;
 
+use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture};
 use grpc_egress_transport::{
-    AfterCallRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress,
-    GrpcEgressError, GrpcEgressInterceptor, GrpcRequest, GrpcResponse, GrpcStatusCode,
+    BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError,
+    GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
 };
-use grpc_egress_transport_std::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
+use grpc_egress_transport_std::{
+    GrpcChannelConfigFactory, GrpcEgressInterceptorChain, TonicGrpcEgressBuilderSpiFactory,
+    TraceContextGrpcEgressInterceptor,
+};
+use proto_pattern::{CallError, CallResponse, Metadata, RawTransport, StatusCode};
 
 fn ensure_rustls_provider() {
     use std::sync::Once;
@@ -57,12 +59,22 @@ async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_
     let transport = ClientFixture::from_config(&cfg)?;
     // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
-    let health = transport
-        .health_check(grpc_egress_transport::HealthCheckRequest)
-        .await;
+    let result = transport
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", std::time::Duration::from_secs(2)),
+        )
+        .await
+        .map(CallResponse::into_message);
     assert!(
-        matches!(health, Err(GrpcEgressError::Unavailable(_))),
-        "health_check against an unbound port must report Unavailable, got: {health:?}"
+        matches!(
+            result,
+            Err(CallError::Transport {
+                code: StatusCode::Unavailable,
+                ..
+            })
+        ),
+        "a call to an unbound port must report Unavailable, got: {result:?}"
     );
     Ok(())
 }
@@ -93,7 +105,7 @@ fn transport_struct_channel_config_with_interceptors_accepts_chain_int_test() {
     assert_eq!(chain.len(), 1);
 }
 
-/// @covers: GrpcEgressInterceptorChain — before_call short-circuits on first failure.
+/// @covers: GrpcEgressBuilder::with_interceptor — before_call short-circuits on first failure.
 #[tokio::test]
 async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -103,50 +115,43 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
 
     struct Deny;
     impl GrpcEgressInterceptor for Deny {
-        fn before_call(&self, _: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
-            Err(GrpcEgressError::Status(
-                GrpcStatusCode::PermissionDenied,
-                "denied".into(),
-            ))
+        fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
+            Err(CallError::Status {
+                path: call.get_path().into(),
+                code: StatusCode::PermissionDenied,
+                message: "denied".to_string(),
+                details: Vec::new(),
+                trailers: Metadata::default(),
+            })
         }
-        fn after_call(&self, _: AfterCallRequest<'_>) -> Result<(), GrpcEgressError> {
+        fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
             Ok(())
         }
     }
 
-    let cfg = GrpcChannelConfig::new("http://127.0.0.1:1").allow_plaintext();
-    let base = ClientFixture::from_config(&cfg)?;
-    let chain = GrpcEgressInterceptorChain::new().push(Arc::new(Deny));
+    // The endpoint is a closed port: a call that was not stopped by the interceptor would fail with a
+    // transport error, so the error below can only come from the interceptor.
+    let closed = Fixture::reserve_closed_port()?;
+    let client = TonicGrpcEgressBuilderSpiFactory::new(closed.get_endpoint())
+        .build(BuildGrpcEgressBuilderRequest)
+        .with_plaintext_allowed()
+        .with_interceptor(Arc::new(Deny))
+        .build()?;
 
-    struct WithChain {
-        inner: Arc<dyn GrpcEgress>,
-        chain: GrpcEgressInterceptorChain,
-    }
-    impl GrpcEgress for WithChain {
-        fn call_unary(
-            &self,
-            mut req: GrpcRequest,
-        ) -> futures::future::BoxFuture<'_, grpc_egress_transport::GrpcEgressResult<GrpcResponse>>
-        {
-            Box::pin(async move {
-                self.chain.run_before(&mut req)?;
-                self.inner.call_unary(req).await
-            })
-        }
-        fn health_check(
-            &self,
-            req: grpc_egress_transport::HealthCheckRequest,
-        ) -> futures::future::BoxFuture<'_, grpc_egress_transport::GrpcEgressResult<()>> {
-            self.inner.health_check(req)
-        }
-    }
+    let result = client
+        .call_raw(
+            CallFixture::path("svc/Method"),
+            CallFixture::request(&[1, 2, 3], Duration::from_secs(1)),
+        )
+        .await
+        .map(CallResponse::into_message);
 
-    let client = WithChain { inner: base, chain };
-    let req = GrpcRequest::new("svc/Method", vec![1, 2, 3], Duration::from_secs(1));
-    match client.call_unary(req).await {
-        Err(GrpcEgressError::Status(GrpcStatusCode::PermissionDenied, msg)) => {
-            assert_eq!(msg, "denied");
-        }
+    match result {
+        Err(CallError::Status {
+            code: StatusCode::PermissionDenied,
+            message,
+            ..
+        }) => assert_eq!(message, "denied"),
         other => panic!("expected PermissionDenied; got {other:?}"),
     }
     Ok(())

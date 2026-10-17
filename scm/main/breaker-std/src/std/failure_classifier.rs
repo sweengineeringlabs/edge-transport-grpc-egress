@@ -1,52 +1,50 @@
-//! Classification of [`GrpcEgressError`] values into the
-//! breaker's binary success/failure outcome.
+//! Classification of [`CallError`] values into the breaker's binary success/failure outcome.
 //!
-//! Single source of truth for which gRPC errors trip the breaker.
+//! Single source of truth for which failures trip the breaker.
 //!
 //! ## Counted as failures
 //!
-//! - `GrpcEgressError::Unavailable(_)`
-//! - `GrpcEgressError::ConnectionFailed(_)`
-//! - `GrpcEgressError::Internal(_)`
-//! - `GrpcEgressError::Status(Unavailable, _)`
-//! - `GrpcEgressError::Status(Internal, _)`
+//! - `CallError::Transport` with `Unavailable`, `Unknown` or `Internal`: the peer could not be reached, or the
+//!   connection broke.
+//! - `CallError::Status` with `Unavailable` or `Internal`: the peer says it is unhealthy.
+//! - `CallError::Decode`: a response that cannot be read is an `Internal` condition of the peer.
 //!
 //! ## NOT counted as failures
 //!
-//! - `Status(ResourceExhausted, _)` — rate-limit signal, not an
-//!   unhealthy upstream.  Retry layer handles it.
-//! - `Status(Unauthenticated, _)` / `Status(PermissionDenied, _)` —
-//!   credentials are wrong; the upstream is fine.  Tripping the
-//!   breaker on auth failures would shed traffic that has nothing
-//!   to do with upstream health.
-//! - `Status(NotFound, _)`, `InvalidArgument`, `FailedPrecondition`,
-//!   etc. — caller-visible business errors.  Upstream working as
-//!   intended.
-//! - `Timeout(_)` — caller's own deadline, not a breaker condition.
-//! - `Cancelled(_)` — caller cancelled.
+//! - `Status(ResourceExhausted, _)` — rate-limit signal, not an unhealthy upstream. The retry layer handles it.
+//! - `Status(Unauthenticated, _)` / `Status(PermissionDenied, _)` — credentials are wrong; the upstream is fine.
+//!   Tripping the breaker on auth failures would shed traffic that has nothing to do with upstream health.
+//! - `Status(NotFound, _)`, `InvalidArgument`, `FailedPrecondition`, etc. — caller-visible business errors.
+//!   Upstream working as intended.
+//! - `DeadlineExceeded` (a status, or a transport failure) — the caller's own deadline, not a breaker condition.
+//! - `Transport` with `Cancelled`, `InvalidArgument` or any other code — the caller cancelled, or the caller's
+//!   own input was refused before anything was sent.
+//! - `CallError::Encode` — the caller's own message could not be encoded.
 
-use grpc_egress_transport::{GrpcEgressError, GrpcStatusCode};
+use proto_pattern::{CallError, StatusCode};
 use tracing::trace;
 
 use edge_transport_breaker_policy::Outcome;
 use grpc_egress_breaker::FAILURE_CLASSIFIER_LOG_TARGET;
 
-/// Classifies the result of an outbound call into the breaker's outcome, from the `GrpcEgressError` /
-/// `GrpcStatusCode` taxonomy of the transport domain.
+/// Classifies the result of an outbound call into the breaker's outcome, from the [`CallError`] taxonomy of
+/// the contract.
 pub(crate) struct StdFailureClassifier;
 
 impl StdFailureClassifier {
     /// Classify an outbound result into the breaker's outcome.
-    pub(crate) fn classify_result<T>(result: &Result<T, GrpcEgressError>) -> Outcome {
+    pub(crate) fn classify_result<T>(result: &Result<T, CallError>) -> Outcome {
         let is_breaker_failure = match result {
             Ok(_) => false,
-            Err(GrpcEgressError::Unavailable(_))
-            | Err(GrpcEgressError::ConnectionFailed(_))
-            | Err(GrpcEgressError::Internal(_)) => true,
-            Err(GrpcEgressError::Status(code, _)) => {
-                matches!(code, GrpcStatusCode::Unavailable | GrpcStatusCode::Internal)
+            Err(CallError::Transport { code, .. }) => matches!(
+                code,
+                StatusCode::Unavailable | StatusCode::Unknown | StatusCode::Internal
+            ),
+            Err(CallError::Status { code, .. }) => {
+                matches!(code, StatusCode::Unavailable | StatusCode::Internal)
             }
-            Err(GrpcEgressError::Timeout(_)) | Err(GrpcEgressError::Cancelled(_)) => false,
+            Err(CallError::Decode(_)) => true,
+            Err(CallError::Encode(_)) => false,
         };
         trace!(
             target: FAILURE_CLASSIFIER_LOG_TARGET,

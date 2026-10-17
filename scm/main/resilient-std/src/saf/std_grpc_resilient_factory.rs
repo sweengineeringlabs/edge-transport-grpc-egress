@@ -7,14 +7,11 @@ use grpc_egress_resilient::{
 };
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
-use grpc_egress_transport::GrpcEgress;
+use proto_pattern::{RawTransport, Transport};
 
 use crate::std::ResilienceConfigProvider;
 
-/// Wraps clients with retry and a circuit breaker under one [`ResilienceConfig`].
-///
-/// Call stack of a wrapped client: the breaker fails fast while the circuit is open, around the retry
-/// with exponential backoff, around the bare client the caller supplied.
+/// Wraps clients with retry inside a circuit breaker, as one policy says.
 pub struct StdGrpcResilientFactory {
     config: ResilienceConfig,
 }
@@ -27,10 +24,11 @@ impl StdGrpcResilientFactory {
 }
 
 impl GrpcResilientFactory for StdGrpcResilientFactory {
-    fn build<T: GrpcEgress + Send + Sync + 'static>(
+    fn build<T: Transport + RawTransport + Send + Sync + 'static>(
         &self,
         req: BuildGrpcResilientRequest<T>,
-    ) -> Result<impl GrpcEgress + BreakerObservable + use<T>, ResilientTransportError> {
+    ) -> Result<impl Transport + RawTransport + BreakerObservable + use<T>, ResilientTransportError>
+    {
         self.config.validate()?;
         let with_retry = StdGrpcRetryFactory::new(self.config.to_retry_config())
             .build(BuildGrpcRetryRequest { inner: req.inner });

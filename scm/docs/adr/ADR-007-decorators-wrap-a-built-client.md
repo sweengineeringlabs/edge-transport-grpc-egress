@@ -10,7 +10,7 @@
 ## Context
 
 Issue 16 asked where `with_retry`, `with_breaker` and `with_bearer_auth` live, given ADR-004. Three
-options: (a) the owner's composer in `edge-bootstrap` chains the decorators; (b) a separate composing
+options: (a) the composition root of the application chains the decorators; (b) a separate composing
 crate above the transport; (c) each decorator crate has its own factory that wraps a built client.
 Issue 17 asked for one factory per theme in the shape of edge-llm#226: a trait in the domain crate, one
 `Std*Factory` in `saf/`, no implementation in `saf/`, no `Arc<dyn XFactory>`.
@@ -40,11 +40,13 @@ amplified by retries. `StdGrpcResilientFactory` builds exactly this stack; the c
 and stop at the first error. `after_call` is not reversed. The owner's question, keep or reverse,
 is answered by keeping: reversing would change behaviour that callers may already rely on, and the
 scenario test pins the current order (`InterceptorScenario`, mutant R14 of
-`scripts/mutation_proof_composition_root.py`).
+mutant C01 of `scripts/mutation/mutants.json`, run by `scripts/mutation/run_mutants.py`).
 
-**Prost and feature-dependent options:** the option is always present on the builder; without the Cargo
-feature, `build()` returns `DisabledFeatureOptions`, listing every disabled option at once. A drift-guard
-test reads `[features]` from `Cargo.toml` and fails when a feature has no builder option.
+**Prost and feature-dependent options (superseded, issue 18):** the builder had `with_prost_codec`, which set the
+content type `application/grpc+proto` and failed with `DisabledFeatureOptions` without the Cargo feature. The
+engine always sends `application/grpc` (the content subtype is outside the contract), so the option changed
+nothing on the wire and was removed with `DisabledFeatureOptions`; the `prost` feature now exposes only the
+typed helper `ProstUnaryCaller`.
 
 **Removed as scaffolding:** every `Processor`, `Validator`, `ConfigBuilderProvider`, `RetryDecorator`,
 `RetryInspector`, `BackoffScheduler` and `BreakerDecorator` trait with its `Default*` implementation,

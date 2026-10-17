@@ -1,11 +1,11 @@
-//! `TonicGrpcEgressBuilderSpiFactory` -- creates the builder of the `hyper`-backed client.
+//! `TonicGrpcEgressBuilderSpiFactory` -- creates the builder of the client over the `proto-svc` engine.
 
-use crate::spi::client::tonic::TonicGrpcEgressBuilder;
+use crate::spi::client::protosvc::GrpcEgressBuilderImpl;
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 
-/// Creates builders of the `hyper`-backed gRPC egress client for one endpoint.
+/// Creates builders of the gRPC egress client over the `proto-svc` engine for one endpoint.
 ///
 /// This is the public entry to building a client: hold a factory for the endpoint, call
 /// [`GrpcEgressBuilderFactory::build`], set options on the builder it returns, then call
@@ -27,6 +27,6 @@ impl TonicGrpcEgressBuilderSpiFactory {
 
 impl GrpcEgressBuilderFactory for TonicGrpcEgressBuilderSpiFactory {
     fn build(&self, _req: BuildGrpcEgressBuilderRequest) -> impl GrpcEgressBuilder + use<> {
-        TonicGrpcEgressBuilder::new(self.endpoint.clone())
+        GrpcEgressBuilderImpl::new(self.endpoint.clone())
     }
 }

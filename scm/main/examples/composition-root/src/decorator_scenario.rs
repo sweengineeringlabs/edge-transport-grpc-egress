@@ -10,12 +10,12 @@ use grpc_egress_breaker::{
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
-use grpc_egress_test_support::PeerBehaviour;
+use grpc_egress_test_support::{CallFixture, PeerBehaviour};
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory,
-    GrpcEgressError, GrpcRequest,
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{GrpcRequestFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallError, CallRequest, RawTransport, StatusCode};
 
 use crate::{EchoServer, ScenarioReport};
 
@@ -60,13 +60,17 @@ impl DecoratorScenario {
         })
         .build(BuildGrpcBreakerRequest { inner: retrying })?;
 
-        let _ = client.call_unary(Self::request()).await;
+        let _ = client
+            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+            .await;
         report.record(
             "a failing call is retried up to the attempt limit",
             server.count_requests() == ATTEMPTS,
         );
 
-        let _ = client.call_unary(Self::request()).await;
+        let _ = client
+            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+            .await;
         let state = client.state(ObserveStateRequest).await?.state;
         report.record(
             "the breaker opens after the threshold of failed calls",
@@ -74,20 +78,23 @@ impl DecoratorScenario {
         );
 
         let hits = server.count_requests();
-        let refused = client.call_unary(Self::request()).await;
+        let refused = client
+            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+            .await;
         report.record(
             "an open breaker answers Unavailable without reaching the peer",
-            matches!(refused, Err(GrpcEgressError::Unavailable(_)))
-                && server.count_requests() == hits,
+            matches!(
+                refused,
+                Err(CallError::Transport {
+                    code: StatusCode::Unavailable,
+                    ..
+                })
+            ) && server.count_requests() == hits,
         );
         Ok(report)
     }
 
-    fn request() -> GrpcRequest {
-        GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        )
+    fn request() -> CallRequest<Vec<u8>> {
+        CallFixture::request(b"ping", Duration::from_secs(5))
     }
 }

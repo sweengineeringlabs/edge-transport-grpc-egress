@@ -1,12 +1,8 @@
-//! The channel configuration is data: it is read from TOML and written back, and the cancellation
-//! token of a request is the one of `tokio-util`.
+//! The channel configuration is data: it is read from TOML and written back.
 
-use std::collections::HashMap;
 use std::error::Error;
-use std::time::Duration;
 
-use grpc_egress_transport::{CompressionMode, GrpcChannelConfig, GrpcRequest};
-use tokio_util::sync::CancellationToken;
+use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
 
 /// @covers: GrpcChannelConfig
 #[test]
@@ -58,24 +54,4 @@ fn test_deserialize_channel_config_without_an_endpoint_is_refused() {
     let result: Result<GrpcChannelConfig, _> = toml::from_str("tls_required = true\n");
 
     assert!(result.is_err(), "a channel needs an endpoint");
-}
-
-/// @covers: GrpcRequest
-#[test]
-fn test_cancel_token_of_a_request_is_seen_by_every_clone() {
-    let token = CancellationToken::new();
-    let request = GrpcRequest {
-        method: "pkg.Service/Method".to_string(),
-        body: Vec::new(),
-        metadata: HashMap::new(),
-        deadline: Duration::from_secs(1),
-        cancellation: Some(token.clone()),
-    };
-
-    token.cancel();
-
-    assert!(request
-        .cancellation
-        .as_ref()
-        .is_some_and(CancellationToken::is_cancelled));
 }

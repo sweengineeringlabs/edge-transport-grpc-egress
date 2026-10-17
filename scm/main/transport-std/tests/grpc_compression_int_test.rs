@@ -1,156 +1,71 @@
-//! Compression-mode wire test for the egress client.
-//!
-//! Verifies the toggle works end-to-end: a server records the
-//! incoming `grpc-encoding` header and the egress client advertises
-//! it correctly when compression is configured.
+//! The compression of a channel configuration, end to end: `with_compression(Gzip)` makes the client send gzip
+//! and list gzip as accepted (`grpc-encoding` and `grpc-accept-encoding`), and `None` makes it send neither.
 
-use grpc_egress_test_support::ClientFixture;
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
-use std::convert::Infallible;
-use std::sync::PoisonError;
-use std::sync::{Arc, Mutex};
+use std::error::Error;
 use std::time::Duration;
 
-use bytes::{BufMut, Bytes, BytesMut};
-use http_body::Frame;
-use http_body_util::{BodyExt as _, StreamBody};
+use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
+use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
+use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use proto_pattern::RawTransport;
 
-use grpc_egress_transport::{CompressionMode, GrpcChannelConfig, GrpcRequest};
+const SHORT: Duration = Duration::from_secs(2);
 
-/// Install rustls's aws-lc-rs CryptoProvider exactly once per process.
-/// See `grpc_egress_int_test::ensure_rustls_provider` for context.
-fn ensure_rustls_provider() {
-    use std::sync::Once;
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-    });
-}
-
-fn encode_frame(payload: &[u8]) -> Bytes {
-    let mut buf = BytesMut::with_capacity(5 + payload.len());
-    buf.put_u8(0x00);
-    buf.put_u32(payload.len() as u32);
-    buf.put_slice(payload);
-    buf.freeze()
-}
-
-/// @covers: tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_test  coverage.
+/// @covers: GrpcChannelConfig::with_compression
 #[tokio::test]
-async fn tonic_grpc_client_struct_advertises_grpc_encoding_when_gzip_set_int_test(
-) -> Result<(), Box<dyn std::error::Error>> {
-    ensure_rustls_provider();
-    let recorded: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
-    let addr = listener.local_addr()?;
-
-    let recorded_for_server = recorded.clone();
-    tokio::spawn(async move {
-        let Ok((stream, _)) = listener.accept().await else {
-            return;
-        };
-        let io = hyper_util::rt::TokioIo::new(stream);
-        let svc = hyper::service::service_fn(move |req: http::Request<hyper::body::Incoming>| {
-            let recorded = recorded_for_server.clone();
-            async move {
-                if let Some(v) = req.headers().get("grpc-encoding") {
-                    if let Ok(s) = v.to_str() {
-                        *recorded.lock().unwrap_or_else(PoisonError::into_inner) =
-                            Some(s.to_string());
-                    }
-                }
-                let _ = req.collect().await;
-                let mut trailers = http::HeaderMap::new();
-                trailers.insert("grpc-status", http::HeaderValue::from_static("0"));
-                let frames: Vec<Result<Frame<Bytes>, Infallible>> = vec![
-                    Ok(Frame::data(encode_frame(b"ok"))),
-                    Ok(Frame::trailers(trailers)),
-                ];
-                let body = StreamBody::new(futures::stream::iter(frames)).boxed();
-                http::Response::builder()
-                    .status(200)
-                    .header("content-type", "application/grpc")
-                    .body(body)
-            }
-        });
-        let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
-            .serve_connection(io, svc)
-            .await;
-    });
-    tokio::time::sleep(Duration::from_millis(20)).await;
-
+async fn test_call_raw_with_gzip_in_the_config_advertises_grpc_encoding_gzip_and_accepts_gzip(
+) -> Result<(), Box<dyn Error>> {
+    Fixture::ensure_tls_provider();
+    let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
     let client = ClientFixture::from_config(
-        &GrpcChannelConfig::new(format!("http://{addr}"))
+        &GrpcChannelConfig::new(peer.get_endpoint())
             .allow_plaintext()
             .with_compression(CompressionMode::Gzip),
     )?;
-    let req = GrpcRequest::new("svc/M", b"payload".to_vec(), Duration::from_secs(2));
-    let _ = client.call_unary(req).await?;
 
-    let value = recorded.lock().map_err(|e| e.to_string())?.clone();
+    client
+        .call_raw(
+            CallFixture::path("svc/M"),
+            CallFixture::request(b"payload", SHORT),
+        )
+        .await?;
+
+    let requests = peer.get_recorded_requests();
+    let request = requests.first().ok_or("the peer saw no request")?;
     assert_eq!(
-        value.as_deref(),
+        request.get_header("grpc-encoding"),
         Some("gzip"),
-        "client must advertise grpc-encoding=gzip when CompressionMode::Gzip is set",
+        "client must advertise grpc-encoding=gzip when CompressionMode::Gzip is set"
     );
+    let accepted = request
+        .get_header("grpc-accept-encoding")
+        .ok_or("the client must list what it accepts")?;
+    assert!(accepted.contains("gzip"), "{accepted:?}");
     Ok(())
 }
 
-/// @covers: tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test  coverage.
+/// @covers: GrpcChannelConfig::with_compression
 #[tokio::test]
-async fn tonic_grpc_client_struct_does_not_set_grpc_encoding_when_none_int_test(
-) -> Result<(), Box<dyn std::error::Error>> {
-    ensure_rustls_provider();
-    let recorded: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
-    let addr = listener.local_addr()?;
+async fn test_call_raw_with_no_compression_in_the_config_sets_no_grpc_encoding(
+) -> Result<(), Box<dyn Error>> {
+    Fixture::ensure_tls_provider();
+    let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
+    let client =
+        ClientFixture::from_config(&GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext())?;
 
-    let recorded_for_server = recorded.clone();
-    tokio::spawn(async move {
-        let Ok((stream, _)) = listener.accept().await else {
-            return;
-        };
-        let io = hyper_util::rt::TokioIo::new(stream);
-        let svc = hyper::service::service_fn(move |req: http::Request<hyper::body::Incoming>| {
-            let recorded = recorded_for_server.clone();
-            async move {
-                if let Some(v) = req.headers().get("grpc-encoding") {
-                    if let Ok(s) = v.to_str() {
-                        *recorded.lock().unwrap_or_else(PoisonError::into_inner) =
-                            Some(s.to_string());
-                    }
-                }
-                let _ = req.collect().await;
-                let mut trailers = http::HeaderMap::new();
-                trailers.insert("grpc-status", http::HeaderValue::from_static("0"));
-                let frames: Vec<Result<Frame<Bytes>, Infallible>> = vec![
-                    Ok(Frame::data(encode_frame(b"ok"))),
-                    Ok(Frame::trailers(trailers)),
-                ];
-                let body = StreamBody::new(futures::stream::iter(frames)).boxed();
-                http::Response::builder()
-                    .status(200)
-                    .header("content-type", "application/grpc")
-                    .body(body)
-            }
-        });
-        let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
-            .serve_connection(io, svc)
-            .await;
-    });
-    tokio::time::sleep(Duration::from_millis(20)).await;
+    client
+        .call_raw(
+            CallFixture::path("svc/M"),
+            CallFixture::request(b"payload", SHORT),
+        )
+        .await?;
 
-    let client = ClientFixture::from_config(
-        &GrpcChannelConfig::new(format!("http://{addr}")).allow_plaintext(),
-    )?;
-    let req = GrpcRequest::new("svc/M", b"payload".to_vec(), Duration::from_secs(2));
-    let _ = client.call_unary(req).await?;
-
-    let value = recorded.lock().map_err(|e| e.to_string())?.clone();
-    assert!(
-        value.is_none(),
-        "client must NOT set grpc-encoding when compression is None (got {:?})",
-        value,
+    let requests = peer.get_recorded_requests();
+    let request = requests.first().ok_or("the peer saw no request")?;
+    assert_eq!(
+        request.get_header("grpc-encoding"),
+        None,
+        "client must NOT set grpc-encoding when compression is None"
     );
     Ok(())
 }

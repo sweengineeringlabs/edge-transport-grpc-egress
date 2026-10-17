@@ -29,13 +29,6 @@ pub enum GrpcChannelConfigError {
         reason: &'static str,
     },
 
-    /// Options that need a Cargo feature which is off in this build, every one of them.
-    #[error("{}", .options.iter().map(|(option, feature)| format!("option '{option}' needs the Cargo feature '{feature}'")).collect::<Vec<_>>().join("; "))]
-    DisabledFeatureOptions {
-        /// Each option with the Cargo feature it needs, as `(option, feature)`.
-        options: Vec<(&'static str, &'static str)>,
-    },
-
     /// An option has a value the client cannot use.
     #[error("option '{option}' has an unusable value: {reason}")]
     InvalidOptionValue {

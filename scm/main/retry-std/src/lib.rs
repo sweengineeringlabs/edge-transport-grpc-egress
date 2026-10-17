@@ -1,5 +1,4 @@
-//! `grpc_egress_retry_std` — decorator that wraps a
-//! [`GrpcEgress`](grpc_egress_transport::GrpcEgress) with
+//! `grpc_egress_retry_std` — decorator that wraps a client that is a `Transport` and a `RawTransport` with
 //! exponential-backoff-with-jitter retry on gRPC-canonical
 //! retryable status codes.
 //!
@@ -17,15 +16,20 @@
 //!
 //! ## Deadline budget
 //!
-//! Total retries are bounded by the caller's deadline carried
-//! on [`GrpcRequest::deadline`](grpc_egress_transport::GrpcRequest).
-//! Even if the configured `max_attempts` allows more tries, the
+//! Total retries are bounded by the timeout the call carries in its `CallOptions`; a call with no timeout is
+//! bounded by `max_attempts` alone. Even if the configured `max_attempts` allows more tries, the
 //! loop stops when the elapsed time + next backoff would
-//! overrun the deadline.
+//! overrun the timeout, and each attempt is given what is left of it.
+//!
+//! ## What is retried
+//!
+//! Unary calls, typed and raw. A typed call is encoded once with its own `Payload` (an attempt after the
+//! first makes the message again from those bytes) and goes to the inner client as a typed call; a raw call sends
+//! the same bytes each time. The three streaming shapes are forwarded as they are: a stream cannot be re-sent.
 //!
 //! ## Composition
 //!
-//! Wrap any [`GrpcEgress`](grpc_egress_transport::GrpcEgress) implementor with
+//! Wrap any client that is a `Transport` and a `RawTransport` with
 //! [`StdGrpcRetryFactory`]: `StdGrpcRetryFactory::new(config).build(BuildGrpcRetryRequest { inner })`.
 
 #![warn(missing_docs)]

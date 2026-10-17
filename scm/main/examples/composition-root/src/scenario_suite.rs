@@ -1,15 +1,16 @@
-//! `ScenarioSuite` -- runs the seven scenarios.
+//! `ScenarioSuite` -- runs the nine scenarios.
 
 use std::error::Error;
 use std::io::Write;
 use std::process::ExitCode;
 
 use crate::{
-    AllOptionsScenario, DecoratorScenario, InterceptorScenario, InvalidCombinationScenario,
-    LoadbalancerScenario, LoadedConfigScenario, ProstScenario, ScenarioReport,
+    AllOptionsScenario, CancellationScenario, DecoratorScenario, GenericClientScenario,
+    InterceptorScenario, InvalidCombinationScenario, LoadbalancerScenario, LoadedConfigScenario,
+    ScenarioReport, SecurityContextScenario,
 };
 
-/// The seven scenarios of the composition root, run in order.
+/// The nine scenarios of the composition root, run in order.
 pub struct ScenarioSuite;
 
 impl ScenarioSuite {
@@ -29,9 +30,11 @@ impl ScenarioSuite {
             LoadedConfigScenario.run().await?,
             InterceptorScenario.run().await?,
             LoadbalancerScenario.run().await?,
-            ProstScenario.run().await?,
             DecoratorScenario.run().await?,
             InvalidCombinationScenario.run().await?,
+            GenericClientScenario.run().await?,
+            CancellationScenario.run().await?,
+            SecurityContextScenario.run().await?,
         ])
     }
 

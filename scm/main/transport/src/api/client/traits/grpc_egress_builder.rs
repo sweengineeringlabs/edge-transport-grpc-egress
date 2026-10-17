@@ -3,16 +3,23 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use proto_pattern::{Compression, RawTransport, TlsSettings, Transport};
+
 use crate::{
-    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressInterceptor,
-    KeepAliveConfig, LoadbalancerSettings, MtlsConfig, TraceContextSource,
+    GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressInterceptor, KeepAliveConfig,
+    LoadbalancerSettings, TraceContextSource,
 };
 
 /// Collects the options of a client and builds it.
 ///
 /// Every capability that can be configured is a `with_*` method here, so the API shows what a
 /// client can do. A method takes `self` and returns `Self`: options are set in any order, the last
-/// call for one option wins, and nothing is sent or opened until [`GrpcEgressBuilder::build`].
+/// call for one option wins (except [`GrpcEgressBuilder::with_accept_compression`] and
+/// [`GrpcEgressBuilder::with_interceptor`], which add), and nothing is sent or opened until
+/// [`GrpcEgressBuilder::build`].
+///
+/// The client it builds is a [`Transport`] (a call over a `Method`) and a [`RawTransport`] (a call to a
+/// `MethodPath`, with bytes for messages) at once, over one connection pool.
 ///
 /// The implementation holds the state and does the work; a caller uses the options through this
 /// trait without naming the implementation type.
@@ -24,27 +31,30 @@ pub trait GrpcEgressBuilder: Sized {
     /// TLS is required by default.
     fn with_plaintext_allowed(self) -> Self;
 
-    /// End a call that has not completed after `timeout`, whatever its own deadline says: a call
-    /// ends at the earlier of its deadline and this timeout. Without it the timeout is
-    /// [`DEFAULT_REQUEST_TIMEOUT_SECS`](crate::DEFAULT_REQUEST_TIMEOUT_SECS).
+    /// End a call that has not completed after `timeout`, whatever its own timeout says: a call
+    /// ends at the earlier of its own timeout and this one, whatever its shape. Without it the
+    /// timeout is [`DEFAULT_REQUEST_TIMEOUT_SECS`](crate::DEFAULT_REQUEST_TIMEOUT_SECS).
     fn with_request_timeout(self, timeout: Duration) -> Self;
 
-    /// Refuse a response message larger than `bytes`. Without it the cap is
-    /// [`DEFAULT_MAX_MESSAGE_BYTES`](crate::DEFAULT_MAX_MESSAGE_BYTES).
-    fn with_max_message_bytes(self, bytes: usize) -> Self;
+    /// Refuse a response message larger than `bytes`. Without it the limit is the engine's own, 4 MiB.
+    fn with_max_decoding_message_size(self, bytes: usize) -> Self;
 
-    /// Compress outgoing messages with `mode`.
-    fn with_compression(self, mode: CompressionMode) -> Self;
+    /// Refuse to send a request message larger than `bytes`. Without it there is no limit.
+    fn with_max_encoding_message_size(self, bytes: usize) -> Self;
 
-    /// Present the client certificate of `mtls` to the server (mutual TLS) and, when it names a CA
-    /// bundle, verify the server against that bundle alone. `build` reads the files and fails when
-    /// one is unusable; the endpoint must be `https://`.
-    fn with_mtls(self, mtls: MtlsConfig) -> Self;
+    /// Compress the messages this client sends with `compression`; the server must accept it. Without
+    /// it, messages are sent as they are.
+    fn with_send_compression(self, compression: Compression) -> Self;
 
-    /// Verify the server against the CA bundle in the PEM file `ca_pem_path` alone, instead of the
-    /// web PKI roots. Overrides the bundle of [`GrpcEgressBuilder::with_mtls`]. `build` reads the
-    /// file and fails when it is unusable; the endpoint must be `https://`.
-    fn with_root_ca(self, ca_pem_path: impl Into<String>) -> Self;
+    /// Accept responses compressed with `compression`, and say so to the server (`grpc-accept-encoding`).
+    /// May be called for more than one. A response compressed with an encoding that was not accepted is
+    /// refused.
+    fn with_accept_compression(self, compression: Compression) -> Self;
+
+    /// Secure the connection with `tls`: the roots to trust (the platform's when none are given), the
+    /// identity to present (mutual TLS) and the server name to verify. Required for an `https`
+    /// endpoint and refused for an `http` one.
+    fn with_tls(self, tls: TlsSettings) -> Self;
 
     /// Send HTTP/2 PING frames as `keep_alive` says and close the connection when one is not
     /// answered within its timeout, so that a peer that went away silently is noticed near that
@@ -54,21 +64,12 @@ pub trait GrpcEgressBuilder: Sized {
 
     /// Spread calls over the backends of `settings` instead of sending them to one endpoint. The
     /// balanced client honours every other option the same way a single-endpoint client does: the
-    /// message cap, compression, request timeout, TLS, keep-alive and interceptors.
+    /// message limits, compression, request timeout, TLS, keep-alive and interceptors.
     ///
     /// The backends carry their own URLs, so this cannot be combined with
     /// [`GrpcEgressBuilder::with_endpoint`]; `build` fails when both are set. The endpoint the
     /// factory was created with is not used.
     fn with_loadbalancer(self, settings: LoadbalancerSettings) -> Self;
-
-    /// Declare that the messages are prost-encoded: calls carry the content type
-    /// `application/grpc+proto`, and the built client works with the typed calls of `ProstUnaryCaller`.
-    ///
-    /// The option is always present and takes no prost type. It needs the Cargo feature `prost` of the
-    /// implementation crate: without it `build` fails with
-    /// [`GrpcChannelConfigError::DisabledFeatureOptions`], naming this option and the feature, before
-    /// any call.
-    fn with_prost_codec(self) -> Self;
 
     /// Run `interceptor` before and after every call. Interceptors run in the order they were added.
     fn with_interceptor(self, interceptor: Arc<dyn GrpcEgressInterceptor>) -> Self;
@@ -77,17 +78,20 @@ pub trait GrpcEgressBuilder: Sized {
     fn with_trace_context(self, source: TraceContextSource) -> Self;
 
     /// Apply every setting of `config` in one call, as if each had been set with its own method;
-    /// a method called afterwards overrides the setting it names.
+    /// a method called afterwards overrides the setting it names. `max_message_bytes` sets both message
+    /// limits, `compression` sets the send and the accepted compression, and the PEM files named by
+    /// `mtls` are read by `build`.
     fn with_channel_config(self, config: &GrpcChannelConfig) -> Self;
 
-    /// Check the options and build the client. Nothing has been sent when this returns.
+    /// Validate every option and build the client. Nothing is sent: the connection opens at the first
+    /// call.
     ///
     /// # Errors
     ///
     /// A [`GrpcChannelConfigError`] naming what is wrong, and for a conflict both options: a zero
-    /// message cap or request timeout, mutual TLS with plaintext allowed, a load balancer with no
+    /// message limit or request timeout, mutual TLS with plaintext allowed, a load balancer with no
     /// backends or together with an endpoint, a plaintext endpoint without
-    /// [`GrpcEgressBuilder::with_plaintext_allowed`], a TLS option on a plaintext endpoint, or a TLS
-    /// file that cannot be used.
-    fn build(self) -> Result<impl GrpcEgress + use<Self>, GrpcChannelConfigError>;
+    /// [`GrpcEgressBuilder::with_plaintext_allowed`], a TLS option on a plaintext endpoint, a TLS file
+    /// that cannot be used, or an option the engine refuses.
+    fn build(self) -> Result<impl Transport + RawTransport + use<Self>, GrpcChannelConfigError>;
 }

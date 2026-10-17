@@ -8,7 +8,7 @@ use crate::ObserveStateResponse;
 
 /// Observability contract for a circuit-breaker decorator.
 ///
-/// Implemented by `GrpcBreakerClient` of `grpc-egress-breaker-std`.
+/// Implemented by the client `StdGrpcBreakerFactory` of `grpc-egress-breaker-std` builds.
 pub trait BreakerObservable: Send + Sync {
     /// Observe the current breaker state. Returns a snapshot; the breaker
     /// may transition immediately after this call returns.

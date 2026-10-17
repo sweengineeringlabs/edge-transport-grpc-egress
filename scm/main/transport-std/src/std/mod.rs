@@ -1,18 +1,20 @@
-//! Implementations of the `api/` contracts, one folder per theme. Nothing here is a public path:
-//! the crate root re-exports the few items callers name.
+//! `std` layer: the constructors, setters and builders of the domain types, and the wrappers a client is made of.
 
+pub(crate) mod cancellation;
 pub(crate) mod channel;
 pub(crate) mod client;
-#[cfg(feature = "prost")]
-pub(crate) mod codec;
+pub(crate) mod context;
 pub(crate) mod interceptor;
 pub(crate) mod loadbalancer;
 
+pub(crate) use cancellation::CancellableTransport;
+pub use cancellation::TokenCancellation;
 pub use channel::{
-    CompressionModeProvider, GrpcChannelConfigBuilder, GrpcChannelConfigFactory, MtlsConfigFactory,
+    GrpcChannelConfigBuilder, GrpcChannelConfigFactory, MtlsConfigFactory, TlsSettingsResolver,
 };
-pub use client::{Conversions, GrpcRequestBuilder, GrpcRequestFactory};
-#[cfg(feature = "prost")]
-pub use codec::ProstUnaryCaller;
+pub use client::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus};
+pub(crate) use context::ContextTransport;
+pub use context::SecurityContextIdentity;
 pub use interceptor::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
+pub(crate) use interceptor::{InterceptedTransport, PendingCall};
 pub use loadbalancer::LoadbalancerSettingsProvider;

@@ -4,7 +4,7 @@
 //!
 //! [`StdBearerInterceptorFactory`] signs a JWT from configured claims
 //! (or accepts a pre-minted token) and injects it into the
-//! `authorization` request metadata on every outgoing call.
+//! `authorization` request metadata of every outgoing call that does not already carry one.
 //!
 //! For the inbound (server-side) bearer validation counterpart see
 //! `edge-transport-grpc-ingress-auth-bearer`.

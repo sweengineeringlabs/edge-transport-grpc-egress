@@ -1,21 +1,21 @@
-//! Tests of the HTTP/2 keep-alive option of the `hyper`-backed client. A proxy in front of a
+//! Tests of the HTTP/2 keep-alive option of the client over the `proto-svc` engine. A proxy in front of a
 //! healthy peer is frozen, so the peer stops answering without closing anything: the only way the
 //! client can notice is by a PING that is not answered, and the proxy sees the client close.
 
-use grpc_egress_test_support::ClientFixture;
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
+use grpc_egress_test_support::{CallFixture, ClientFixture};
+use grpc_egress_transport_std::GrpcChannelConfigFactory;
 use std::error::Error;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::{
     Fixture, FreezableProxy, PeerBehaviour, PeerServer, RunningPeer, RunningProxy,
 };
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcEgressError, GrpcRequest, KeepAliveConfig,
+    BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    KeepAliveConfig,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallError, RawTransport, StatusCode, Transport};
 
 const PING_INTERVAL: Duration = Duration::from_millis(200);
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
@@ -28,8 +28,14 @@ fn keep_alive(permit_without_calls: bool) -> KeepAliveConfig {
     }
 }
 
-fn request(deadline: Duration) -> GrpcRequest {
-    GrpcRequest::new("pkg.Service/Method", b"ping".to_vec(), deadline)
+async fn call<C: RawTransport>(client: &C, timeout: Duration) -> Result<(), CallError> {
+    client
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", timeout),
+        )
+        .await
+        .map(|_| ())
 }
 
 /// A peer behind a proxy; both stop when dropped.
@@ -45,7 +51,7 @@ async fn start_proxied(
 fn client_through(
     proxy: &RunningProxy,
     keep_alive: Option<KeepAliveConfig>,
-) -> Result<impl GrpcEgress, Box<dyn Error>> {
+) -> Result<impl Transport + RawTransport, Box<dyn Error>> {
     let builder = TonicGrpcEgressBuilderSpiFactory::new(proxy.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed();
@@ -55,20 +61,35 @@ fn client_through(
     })
 }
 
+/// `true` when `error` says the connection was lost: a failure of the transport, not an answer of the peer.
+fn is_lost_connection(error: &CallError) -> bool {
+    matches!(
+        error,
+        CallError::Transport {
+            code: StatusCode::Unavailable | StatusCode::Unknown,
+            ..
+        }
+    )
+}
+
 /// Start a call that the peer answers only after 10 s, freeze the proxy once the call is in
 /// flight, and return how the call ended and how long it took.
-async fn freeze_during_a_call(
-    client: Arc<dyn GrpcEgress>,
+async fn freeze_during_a_call<C: RawTransport + 'static>(
+    client: C,
     proxy: &RunningProxy,
-    deadline: Duration,
-) -> (Result<(), GrpcEgressError>, Duration) {
+    timeout: Duration,
+) -> (Result<(), CallError>, Duration) {
     let started = Instant::now();
-    let call = tokio::spawn(async move { client.call_unary(request(deadline)).await.map(|_| ()) });
+    let handle = tokio::spawn(async move { call(&client, timeout).await });
     tokio::time::sleep(Duration::from_millis(400)).await;
     proxy.freeze();
-    let result = call
-        .await
-        .unwrap_or_else(|e| Err(GrpcEgressError::Internal(format!("call task failed: {e}"))));
+    let result = handle.await.unwrap_or_else(|e| {
+        Err(CallError::Transport {
+            path: "".into(),
+            code: StatusCode::Internal,
+            reason: format!("call task failed: {e}"),
+        })
+    });
     (result, started.elapsed())
 }
 
@@ -79,11 +100,10 @@ async fn test_with_keep_alive_peer_that_stops_answering_pings_ends_the_call_near
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
     let client = client_through(&proxy, Some(keep_alive(false)))?;
 
-    let (result, elapsed) =
-        freeze_during_a_call(Arc::new(client), &proxy, Duration::from_secs(20)).await;
+    let (result, elapsed) = freeze_during_a_call(client, &proxy, Duration::from_secs(20)).await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::ConnectionFailed(_))),
+        result.as_ref().is_err_and(is_lost_connection),
         "an unanswered PING must end the call as a lost connection, got {result:?}"
     );
     assert!(
@@ -106,11 +126,16 @@ async fn test_build_without_keep_alive_peer_that_stops_answering_is_noticed_only
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
     let client = client_through(&proxy, None)?;
 
-    let (result, elapsed) =
-        freeze_during_a_call(Arc::new(client), &proxy, Duration::from_millis(2500)).await;
+    let (result, elapsed) = freeze_during_a_call(client, &proxy, Duration::from_millis(2500)).await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::Timeout(_))),
+        matches!(
+            result,
+            Err(CallError::Status {
+                code: StatusCode::DeadlineExceeded,
+                ..
+            })
+        ),
         "without keep-alive only the deadline ends the call, got {result:?}"
     );
     assert!(elapsed >= Duration::from_millis(2300), "took {elapsed:?}");
@@ -124,7 +149,7 @@ async fn test_with_keep_alive_permit_without_calls_idle_connection_to_a_frozen_p
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Reply(b"ok".to_vec())).await?;
     let client = client_through(&proxy, Some(keep_alive(true)))?;
-    client.call_unary(request(Duration::from_secs(5))).await?;
+    call(&client, Duration::from_secs(5)).await?;
 
     proxy.freeze();
 
@@ -141,7 +166,7 @@ async fn test_with_keep_alive_without_permit_without_calls_idle_connection_is_le
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Reply(b"ok".to_vec())).await?;
     let client = client_through(&proxy, Some(keep_alive(false)))?;
-    client.call_unary(request(Duration::from_secs(5))).await?;
+    call(&client, Duration::from_secs(5)).await?;
 
     proxy.freeze();
 
@@ -167,20 +192,19 @@ async fn test_with_channel_config_keep_alive_is_applied_to_the_client_happy(
         .with_channel_config(&config)
         .build()?;
 
-    let (result, elapsed) =
-        freeze_during_a_call(Arc::new(client), &proxy, Duration::from_secs(20)).await;
+    let (result, elapsed) = freeze_during_a_call(client, &proxy, Duration::from_secs(20)).await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::ConnectionFailed(_))),
+        result.as_ref().is_err_and(is_lost_connection),
         "got {result:?}"
     );
     assert!(elapsed < Duration::from_secs(4), "took {elapsed:?}");
     Ok(())
 }
 
-/// @covers: TransportConstruction::create_transport_from_config
+/// @covers: ClientFixture::from_config
 #[tokio::test]
-async fn test_create_transport_from_config_keep_alive_is_applied_to_the_client_happy(
+async fn test_from_config_keep_alive_is_applied_to_the_client_the_caller_gets_happy(
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
     let config = GrpcChannelConfig::new(proxy.get_endpoint())
@@ -191,7 +215,7 @@ async fn test_create_transport_from_config_keep_alive_is_applied_to_the_client_h
     let (result, elapsed) = freeze_during_a_call(client, &proxy, Duration::from_secs(20)).await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::ConnectionFailed(_))),
+        result.as_ref().is_err_and(is_lost_connection),
         "got {result:?}"
     );
     assert!(elapsed < Duration::from_secs(4), "took {elapsed:?}");

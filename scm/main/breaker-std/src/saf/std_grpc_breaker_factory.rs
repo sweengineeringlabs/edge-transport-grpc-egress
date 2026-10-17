@@ -4,7 +4,7 @@ use grpc_egress_breaker::{
     BreakerDomainError, BreakerObservable, BuildGrpcBreakerRequest, GrpcBreakerConfig,
     GrpcBreakerFactory,
 };
-use grpc_egress_transport::GrpcEgress;
+use proto_pattern::{RawTransport, Transport};
 use tracing::debug;
 
 use crate::std::{GrpcBreakerClient, GrpcBreakerConfigProvider};
@@ -22,10 +22,11 @@ impl StdGrpcBreakerFactory {
 }
 
 impl GrpcBreakerFactory for StdGrpcBreakerFactory {
-    fn build<T: GrpcEgress + Send + Sync + 'static>(
+    fn build<T: Transport + RawTransport + Send + Sync + 'static>(
         &self,
         req: BuildGrpcBreakerRequest<T>,
-    ) -> Result<impl GrpcEgress + BreakerObservable + use<T>, BreakerDomainError> {
+    ) -> Result<impl Transport + RawTransport + BreakerObservable + use<T>, BreakerDomainError>
+    {
         self.config.validate()?;
         debug!("grpc-breaker: wrapping inner client");
         Ok(GrpcBreakerClient::new(req.inner, self.config.clone()))

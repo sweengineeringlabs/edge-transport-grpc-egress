@@ -1,150 +1,280 @@
-//! Integration tests for `api/interceptor/grpc/grpc_egress_interceptor_chain.rs`.
+//! Integration tests for `GrpcEgressInterceptorChain`: the order interceptors run in, what happens when one fails,
+//! and that one interceptor sees what the one before it did to the call.
 
-use grpc_egress_transport_std::GrpcRequestFactory;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
-use grpc_egress_transport::{
-    AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor, GrpcRequest, GrpcResponse,
-    GrpcStatusCode,
-};
+use grpc_egress_test_support::OutboundCallFixture;
+use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
 use grpc_egress_transport_std::GrpcEgressInterceptorChain;
+use proto_pattern::{CallError, Metadata, StatusCode};
 
+/// Records `before:<marker>` and `after:<marker>` in a shared log, in the order the chain calls it.
 struct Recorder {
     marker: &'static str,
-    log: Arc<Mutex<Vec<&'static str>>>,
+    log: Arc<Mutex<Vec<String>>>,
+}
+
+impl Recorder {
+    fn note(&self, phase: &str) {
+        self.log
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(format!("{phase}:{}", self.marker));
+    }
 }
 
 impl GrpcEgressInterceptor for Recorder {
-    fn before_call(&self, _: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
-        self.log
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(self.marker);
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
+        self.note("before");
         Ok(())
     }
-    fn after_call(&self, _: AfterCallRequest<'_>) -> Result<(), GrpcEgressError> {
-        self.log
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(self.marker);
+
+    fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
+        self.note("after");
         Ok(())
     }
 }
 
-struct AlwaysFailBefore;
+/// Fails in `before_call` with `PermissionDenied`.
+struct DenyBefore;
 
-impl GrpcEgressInterceptor for AlwaysFailBefore {
-    fn before_call(&self, _: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
-        Err(GrpcEgressError::Status(
-            GrpcStatusCode::PermissionDenied,
-            "denied by interceptor".into(),
-        ))
+impl GrpcEgressInterceptor for DenyBefore {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
+        Err(CallError::Status {
+            path: call.get_path().into(),
+            code: StatusCode::PermissionDenied,
+            message: "denied by interceptor".to_string(),
+            details: Vec::new(),
+            trailers: Metadata::default(),
+        })
     }
-    fn after_call(&self, _: AfterCallRequest<'_>) -> Result<(), GrpcEgressError> {
+
+    fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
     }
 }
 
-struct CountAfter(Arc<AtomicUsize>);
+/// Fails in `after_call` with `DataLoss`.
+struct FailAfter;
 
-impl GrpcEgressInterceptor for CountAfter {
-    fn before_call(&self, _: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
+impl GrpcEgressInterceptor for FailAfter {
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
         Ok(())
     }
-    fn after_call(&self, _: AfterCallRequest<'_>) -> Result<(), GrpcEgressError> {
-        self.0.fetch_add(1, Ordering::SeqCst);
+
+    fn after_call(&self, reply: &InboundReply<'_>) -> Result<(), CallError> {
+        Err(CallError::Status {
+            path: reply.path.into(),
+            code: StatusCode::DataLoss,
+            message: "refused by interceptor".to_string(),
+            details: Vec::new(),
+            trailers: Metadata::default(),
+        })
+    }
+}
+
+/// Counts the calls of each hook.
+#[derive(Default)]
+struct Counter {
+    before: AtomicUsize,
+    after: AtomicUsize,
+}
+
+/// A handle on a [`Counter`] that is an interceptor, so the test keeps its own handle to read.
+struct CountingInterceptor(Arc<Counter>);
+
+impl GrpcEgressInterceptor for CountingInterceptor {
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
+        self.0.before.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
+        self.0.after.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 }
 
-fn req() -> GrpcRequest {
-    GrpcRequest::new("svc/M", vec![], Duration::from_secs(1))
+/// Adds the header `key: value` in `before_call`.
+struct AddHeader {
+    key: &'static str,
+    value: &'static str,
 }
 
-fn resp() -> GrpcResponse {
-    GrpcResponse {
-        body: vec![],
-        metadata: HashMap::new(),
+impl GrpcEgressInterceptor for AddHeader {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
+        call.add_header(self.key, self.value)
     }
+
+    fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
+        Ok(())
+    }
+}
+
+/// Adds `x-second: seen-first` only when `x-first` is already on the call.
+struct AddWhenFirstIsPresent;
+
+impl GrpcEgressInterceptor for AddWhenFirstIsPresent {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
+        if call.has_header("x-first") {
+            call.add_header("x-second", "seen-first")?;
+        }
+        Ok(())
+    }
+
+    fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
+        Ok(())
+    }
+}
+
+fn call() -> OutboundCallFixture {
+    OutboundCallFixture::create("/svc/M")
+        .with_timeout(None)
+        .with_metadata(Metadata::default())
+}
+
+fn reply() -> InboundReply<'static> {
+    InboundReply {
+        path: "/svc/M",
+        headers: Metadata::default(),
+        trailers: Metadata::default(),
+    }
+}
+
+fn recorder(marker: &'static str, log: &Arc<Mutex<Vec<String>>>) -> Arc<Recorder> {
+    Arc::new(Recorder {
+        marker,
+        log: Arc::clone(log),
+    })
+}
+
+fn read_log(log: &Arc<Mutex<Vec<String>>>) -> Vec<String> {
+    log.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone()
 }
 
 #[test]
-fn transport_trait_new_chain_is_empty_int_test() {
+fn test_new_chain_has_no_interceptor() {
     let chain = GrpcEgressInterceptorChain::new();
     assert_eq!(chain.len(), 0);
     assert!(chain.is_empty());
 }
 
 #[test]
-fn transport_trait_push_appends_in_registration_order_int_test(
-) -> Result<(), Box<dyn std::error::Error>> {
-    let log = Arc::new(Mutex::new(Vec::new()));
-    let chain = GrpcEgressInterceptorChain::new()
-        .push(Arc::new(Recorder {
-            marker: "a",
-            log: log.clone(),
-        }))
-        .push(Arc::new(Recorder {
-            marker: "b",
-            log: log.clone(),
-        }))
-        .push(Arc::new(Recorder {
-            marker: "c",
-            log: log.clone(),
-        }));
-    let mut r = req();
-    chain.run_before(&mut r)?;
-    assert_eq!(
-        log.lock().map_err(|e| e.to_string())?.clone(),
-        vec!["a", "b", "c"]
-    );
-    Ok(())
-}
-
-#[test]
-fn transport_trait_run_before_short_circuits_on_first_failure_int_test() {
-    let after_count = Arc::new(AtomicUsize::new(0));
-    let chain = GrpcEgressInterceptorChain::new()
-        .push(Arc::new(AlwaysFailBefore))
-        .push(Arc::new(CountAfter(after_count.clone())));
-    let mut r = req();
-    match chain.run_before(&mut r) {
-        Err(GrpcEgressError::Status(code, _)) => {
-            assert_eq!(code, GrpcStatusCode::PermissionDenied);
-        }
-        other => panic!("expected PermissionDenied, got {other:?}"),
-    }
-    assert_eq!(after_count.load(Ordering::SeqCst), 0);
-}
-
-#[test]
-fn transport_trait_run_after_invokes_every_interceptor_in_order_int_test(
-) -> Result<(), Box<dyn std::error::Error>> {
-    let log = Arc::new(Mutex::new(Vec::new()));
-    let chain = GrpcEgressInterceptorChain::new()
-        .push(Arc::new(Recorder {
-            marker: "x",
-            log: log.clone(),
-        }))
-        .push(Arc::new(Recorder {
-            marker: "y",
-            log: log.clone(),
-        }));
-    let mut r = resp();
-    chain.run_after(&mut r)?;
-    assert_eq!(
-        log.lock().map_err(|e| e.to_string())?.clone(),
-        vec!["x", "y"]
-    );
-    Ok(())
-}
-
-#[test]
-fn transport_trait_len_returns_number_of_registered_interceptors_int_test() {
-    let chain = GrpcEgressInterceptorChain::new().push(Arc::new(AlwaysFailBefore));
+fn test_len_chain_with_one_interceptor_counts_it() {
+    let chain = GrpcEgressInterceptorChain::new().push(Arc::new(DenyBefore));
     assert_eq!(chain.len(), 1);
     assert!(!chain.is_empty());
+}
+
+#[test]
+fn test_run_before_runs_interceptors_in_registration_order() -> Result<(), CallError> {
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let chain = GrpcEgressInterceptorChain::new()
+        .push(recorder("a", &log))
+        .push(recorder("b", &log))
+        .push(recorder("c", &log));
+
+    chain.run_before(&mut call())?;
+
+    assert_eq!(read_log(&log), ["before:a", "before:b", "before:c"]);
+    Ok(())
+}
+
+#[test]
+fn test_run_after_runs_interceptors_in_registration_order_not_reversed() -> Result<(), CallError> {
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let chain = GrpcEgressInterceptorChain::new()
+        .push(recorder("x", &log))
+        .push(recorder("y", &log));
+
+    chain.run_after(&reply())?;
+
+    assert_eq!(read_log(&log), ["after:x", "after:y"]);
+    Ok(())
+}
+
+#[test]
+fn test_run_before_first_failure_stops_the_chain_and_returns_its_error() {
+    let later = Arc::new(Counter::default());
+    let chain = GrpcEgressInterceptorChain::new()
+        .push(Arc::new(DenyBefore))
+        .push(Arc::new(CountingInterceptor(Arc::clone(&later))));
+
+    let result = chain.run_before(&mut call());
+
+    assert!(
+        matches!(
+            &result,
+            Err(CallError::Status { code: StatusCode::PermissionDenied, message, .. })
+                if message == "denied by interceptor"
+        ),
+        "got {result:?}"
+    );
+    assert_eq!(
+        later.before.load(Ordering::SeqCst),
+        0,
+        "an interceptor after the failing one must not run"
+    );
+}
+
+#[test]
+fn test_run_after_first_failure_stops_the_chain_and_returns_its_error() {
+    let later = Arc::new(Counter::default());
+    let chain = GrpcEgressInterceptorChain::new()
+        .push(Arc::new(FailAfter))
+        .push(Arc::new(CountingInterceptor(Arc::clone(&later))));
+
+    let result = chain.run_after(&reply());
+
+    assert!(
+        matches!(
+            &result,
+            Err(CallError::Status {
+                code: StatusCode::DataLoss,
+                ..
+            })
+        ),
+        "got {result:?}"
+    );
+    assert_eq!(later.after.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn test_run_before_later_interceptor_sees_the_header_an_earlier_one_added() -> Result<(), CallError>
+{
+    let chain = GrpcEgressInterceptorChain::new()
+        .push(Arc::new(AddHeader {
+            key: "x-first",
+            value: "1",
+        }))
+        .push(Arc::new(AddWhenFirstIsPresent));
+    let mut call = call();
+
+    chain.run_before(&mut call)?;
+
+    assert_eq!(call.get_header_values("x-second"), ["seen-first"]);
+    Ok(())
+}
+
+#[test]
+fn test_run_before_interceptor_that_runs_first_does_not_see_a_later_ones_header(
+) -> Result<(), CallError> {
+    let chain = GrpcEgressInterceptorChain::new()
+        .push(Arc::new(AddWhenFirstIsPresent))
+        .push(Arc::new(AddHeader {
+            key: "x-first",
+            value: "1",
+        }));
+    let mut call = call();
+
+    chain.run_before(&mut call)?;
+
+    assert!(
+        !call.has_header("x-second"),
+        "the order of registration is the order of effect"
+    );
+    Ok(())
 }

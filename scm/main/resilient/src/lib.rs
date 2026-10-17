@@ -1,5 +1,5 @@
 //! `grpc_egress_resilient` -- the resilience domain: the contracts, requests, responses, errors and the
-//! resilience policy value (`ResilienceConfig`). The implementation, which wraps a `GrpcEgress` in
+//! resilience policy value (`ResilienceConfig`). The implementation, which wraps a client that is a `Transport` and a `RawTransport` in
 //! retry and a circuit breaker, is in `grpc-egress-resilient-std`.
 
 #![warn(missing_docs)]

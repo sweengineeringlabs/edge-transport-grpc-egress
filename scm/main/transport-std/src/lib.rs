@@ -1,16 +1,20 @@
 //! `grpc_egress_transport_std` -- the implementation of the gRPC egress domain
-//! (`grpc-egress-transport`): the `hyper` client, its builder and factory, the load balancer, and
-//! the constructors and builders of the domain's data types.
+//! (`grpc-egress-transport`): the client over the `proto-svc` engine, its builder and factory, the interceptor,
+//! cancellation and security-context wrappers, the load balancer, the health-check call, and the constructors and
+//! builders of the domain's data types.
 
 mod saf;
 mod spi;
 mod std;
 
-#[cfg(feature = "prost")]
-pub use crate::std::ProstUnaryCaller;
 pub use crate::std::{
-    CompressionModeProvider, Conversions, GrpcChannelConfigBuilder, GrpcChannelConfigFactory,
-    GrpcEgressInterceptorChain, GrpcRequestBuilder, GrpcRequestFactory,
-    LoadbalancerSettingsProvider, MtlsConfigFactory, TraceContextGrpcEgressInterceptor,
+    GrpcChannelConfigBuilder, GrpcChannelConfigFactory, GrpcEgressInterceptorChain, HealthCheck,
+    HealthCheckRequest, HealthCheckResponse, HealthStatus, LoadbalancerSettingsProvider,
+    MtlsConfigFactory, SecurityContextIdentity, TlsSettingsResolver, TokenCancellation,
+    TraceContextGrpcEgressInterceptor,
 };
-pub use saf::{StdGrpcEgressInterceptorFactory, TonicGrpcEgressBuilderSpiFactory};
+pub use edge_security_runtime::SecurityContext;
+pub use saf::{
+    StdGrpcCallerIdentityFactory, StdGrpcCancellationFactory, StdGrpcEgressInterceptorFactory,
+    TonicGrpcEgressBuilderSpiFactory,
+};

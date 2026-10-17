@@ -7,6 +7,129 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A tag is cut only on the owner's
 word.
 
+## [Unreleased]
+
+Issue 18: the contract (`proto-pattern` 0.10) and the engine (`proto-svc` 0.4) are external, and the client is a
+generic bound over them. **Breaking throughout.** The design is ADR-009 (rulings of ADR-008 applied); every
+behaviour that differs from v0.8.0 and its decision is in `docs/behaviour-comparison.md`; the mapping of every public
+item is `docs/contract-mapping.md`.
+
+### Changed (breaking)
+
+- **The client is a `Transport` and a `RawTransport`**, built by `GrpcEgressBuilder::build` over `proto-svc`'s
+  `DualTransportFactory` (one engine, one connection pool). `GrpcEgress`, its `BoxFuture` methods and every
+  `Arc<dyn GrpcEgress>` are gone: a caller holds a generic bound. The hand-written `hyper` client, its frame codec and its
+  TLS connector are removed. `rust-version` is 1.99.
+- **Call types are the contract's.** `GrpcRequest`, `GrpcResponse`, `CallStreamRequest`, `GrpcMessageStreamResponse`
+  become `MethodPath` + `CallRequest<Vec<u8>>` + `CallOptions`, `CallResponse`, `impl ResponseStream` and `impl
+  MessageStream`. `GrpcEgressError`/`GrpcEgressResult` become `CallError` (a status code on every failure),
+  `GrpcStatusCode` becomes `StatusCode`, and the `HashMap<String, String>` metadata becomes `Metadata`: many values per
+  key and binary (`-bin`) entries now survive a call, both ways (proved against a real server).
+- **Errors**, old to new: `Status(code, message)` is `CallError::Status`; `ConnectionFailed` and `Unavailable` are
+  `CallError::Transport` with `Unavailable`; `Timeout` is `CallError::Status` with `DeadlineExceeded` (the engine
+  reports a passed deadline as a status); `Cancelled` is `CallError::Transport` with `Cancelled`; `Internal` is
+  `Encode`, `Decode` or a `Transport` failure with its own code. A path or metadata key that is not valid is refused
+  when the `MethodPath` or `MetadataEntry` is created, not at the call.
+- **Builder:** `with_max_message_bytes` is `with_max_decoding_message_size` and `with_max_encoding_message_size`
+  (a file's `max_message_bytes` sets both: the old client capped responses only); `with_compression(mode)` is
+  `with_send_compression` and `with_accept_compression` (an encoding the client did not accept is refused);
+  `with_mtls(MtlsConfig)` and `with_root_ca(path)` are `with_tls(TlsSettings)` (bytes; `TlsSettingsResolver::resolve`
+  reads PEM files, and a file that cannot be used fails with `UnusableTlsFile` naming its path); a file configuration's
+  `mtls` paths are read by `build`. `with_prost_codec` and `DisabledFeatureOptions` are removed.
+- **Interceptors:** `before_call(&mut dyn OutboundCall) -> Result<(), CallError>` and `after_call(&InboundReply)`. An
+  interceptor adds a header with `OutboundCall::add_header`. It can no longer rewrite a response body.
+- **Retry, breaker and resilient** are generic over `Transport + RawTransport` and implement both. Retry classifies by
+  `StatusCode` and reads the retry-after hint from the trailers. Their old clients did not forward the three
+  streaming shapes and answered `Unimplemented`; they forward them now.
+- **Behaviour** (details and decisions in `docs/behaviour-comparison.md`): an oversize response is `Status(OutOfRange)`;
+  a unary response with none or several messages is `Status(Unimplemented)`; streams run as they arrive instead of
+  being buffered whole; default trust for an `https` endpoint with no CA is the platform's root store, and `rustls` uses
+  `ring` through `tonic`; a balanced client holds one client per backend, built once.
+
+### Added
+
+- `OutboundCall` (an interface: path, timeout, headers, `add_header`) and `InboundReply`: what an interceptor sees
+  and how it adds a header. An interceptor crate depends on the domain crate only.
+- Two views of a client, each bound to an interface of the domain: `GrpcCancellationFactory` (a `CancellationSignal`
+  ends a call and every message read from a stream, with `Cancelled`; `TokenCancellation` adapts a `tokio-util`
+  `CancellationToken`; dropping a call's future cancels it on the server without it) and `GrpcCallerIdentityFactory`
+  (a `CallerIdentity` as the headers `x-trace-id`, `x-tenant-id`, `authorization: Bearer <token>` when it holds a token
+  to send, and the further headers it lists; `SecurityContextIdentity` adapts a `SecurityContext`, which
+  `grpc-egress-transport-std` re-exports; the domain crate no longer depends on `edge-security-runtime`).
+- `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, `HealthStatus`: the `grpc.health.v1.Health/Check` call
+  (the old `health_check` opened a TCP connection and said nothing about the service).
+- `TlsSettingsResolver`; `scripts/mutation/` (one runner, `mutants.json`) replaces the six `mutation_proof_*.py`.
+- The composition-root example has nine scenarios: the six of before, and one for each ruling (a generic client, dropping
+  and token cancellation against a real `tonic` server, the security context).
+
+### Removed
+
+`GrpcEgress`, `GrpcRequest`, `GrpcResponse`, `GrpcEgressError`, `GrpcEgressResult`, `GrpcStatusCode`, `CallStreamRequest`,
+`CallUnaryWithContextRequest`, `GrpcMessageStreamResponse`, `HealthCheckRequest` (old), `AfterCallRequest`,
+`GrpcRequestFactory`, `GrpcRequestBuilder`, `Conversions`, `CompressionModeProvider`, `GrpcEgressProstCodec`,
+`ProstUnaryCaller` and the `prost` feature, `call_stream`, and the dependencies only the hand-written client used.
+
+### Fixed
+
+- `PeerServer` of `grpc-egress-test-support` sends the status of a call that carried a message in the trailers, as a
+  server does; it sent it in the headers, which a client reads as a response with no message.
+
+### Migration guide: before and after, from the example
+
+`CompositionRoot::assemble` is unchanged. A call through any client is now generic over the contract's trait, never a
+`dyn` (the difference of `composition_root.rs` between v0.8.0 and now):
+
+```diff
++use proto_pattern::{CallOptions, CallRequest, MethodPath, RawTransport};
+@@
+         Ok(builder)
+     }
++
++    /// A call made through any client, bare or wrapped: generic over the contract's trait, never a `dyn`.
++    pub async fn ping<T: RawTransport>(client: &T, body: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
++        let path = MethodPath::create("/pkg.Service/Method")?;
++        let request = CallRequest::create(body.to_vec(), CallOptions::default());
++        Ok(client.call_raw(path, request).await?.into_message())
++    }
+```
+
+A request and a call, before and after:
+
+```diff
+-fn request() -> GrpcRequest {
+-    GrpcRequest::new("pkg.Service/Method", b"ping".to_vec(), Duration::from_secs(5))
+-}
+-let response = client.call_unary(request()).await?;
+-assert_eq!(response.body, b"pong");
++let path = MethodPath::create("/pkg.Service/Method")?;
++let request = CallRequest::create(b"ping".to_vec(), CallOptions::create(Some(Duration::from_secs(5)), Metadata::default()));
++let response = client.call_raw(path, request).await?;
++assert_eq!(response.get_message().as_slice(), b"pong");
+```
+
+The options, before and after:
+
+```diff
+-    .with_max_message_bytes(MESSAGE_CAP_BYTES)
+-    .with_compression(CompressionMode::Gzip)
+-    .with_mtls(MtlsConfig::with_root_ca(cert, key, ca))
++    .with_max_decoding_message_size(MESSAGE_CAP_BYTES)
++    .with_send_compression(Compression::Gzip)
++    .with_accept_compression(Compression::Gzip)
++    .with_tls(TlsSettingsResolver::resolve(Some(&mtls), mtls.ca_pem_path.as_deref())?)
+```
+
+The failures, before and after:
+
+```diff
+-Err(GrpcEgressError::Timeout(_))                                  // a passed deadline
+-Err(GrpcEgressError::Status(GrpcStatusCode::ResourceExhausted, _)) // a response over the cap
+-Err(GrpcEgressError::Unavailable(_))                              // an open breaker
++Err(CallError::Status { code: StatusCode::DeadlineExceeded, .. })
++Err(CallError::Status { code: StatusCode::OutOfRange, .. })
++Err(CallError::Transport { code: StatusCode::Unavailable, .. })
+```
+
 ## [0.8.0] - 2026-10-16
 
 The restructuring of issues #16 and #17. Breaking throughout: package names, crate layout, the way a

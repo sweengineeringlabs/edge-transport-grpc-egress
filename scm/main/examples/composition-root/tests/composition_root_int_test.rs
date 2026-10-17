@@ -4,8 +4,9 @@
 use std::error::Error;
 
 use grpc_egress_example_composition_root::{
-    AllOptionsScenario, DecoratorScenario, InterceptorScenario, InvalidCombinationScenario,
-    LoadbalancerScenario, LoadedConfigScenario, ProstScenario, ScenarioReport,
+    AllOptionsScenario, CancellationScenario, DecoratorScenario, GenericClientScenario,
+    InterceptorScenario, InvalidCombinationScenario, LoadbalancerScenario, LoadedConfigScenario,
+    ScenarioReport, SecurityContextScenario,
 };
 
 fn missing(report: &ScenarioReport) -> Vec<&'static str> {
@@ -61,18 +62,6 @@ async fn test_run_loadbalancer_scenario_reaches_both_backends_and_avoids_the_dea
 }
 
 #[tokio::test]
-async fn test_run_prost_scenario_observes_the_feature_dependent_effects(
-) -> Result<(), Box<dyn Error>> {
-    let report = ProstScenario.run().await?;
-
-    #[cfg(feature = "prost")]
-    assert_complete(&report, 1);
-    #[cfg(not(feature = "prost"))]
-    assert_complete(&report, 2);
-    Ok(())
-}
-
-#[tokio::test]
 async fn test_run_decorator_scenario_retries_then_opens_the_breaker() -> Result<(), Box<dyn Error>>
 {
     assert_complete(&DecoratorScenario.run().await?, 3);
@@ -83,6 +72,27 @@ async fn test_run_decorator_scenario_retries_then_opens_the_breaker() -> Result<
 async fn test_run_invalid_combination_scenario_names_the_options_of_every_refusal(
 ) -> Result<(), Box<dyn Error>> {
     assert_complete(&InvalidCombinationScenario.run().await?, 5);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_run_generic_client_scenario_passes_every_layer_to_one_generic_function(
+) -> Result<(), Box<dyn Error>> {
+    assert_complete(&GenericClientScenario.run().await?, 4);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_run_cancellation_scenario_ends_the_call_on_the_peer_and_on_a_fired_token(
+) -> Result<(), Box<dyn Error>> {
+    assert_complete(&CancellationScenario.run().await?, 3);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_run_security_context_scenario_carries_the_context_as_headers(
+) -> Result<(), Box<dyn Error>> {
+    assert_complete(&SecurityContextScenario.run().await?, 4);
     Ok(())
 }
 
