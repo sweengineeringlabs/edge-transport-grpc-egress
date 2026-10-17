@@ -1,6 +1,6 @@
 //! `InterceptedTransport` -- a client whose calls run through a chain of interceptors.
 
-use grpc_egress_transport::{InboundReply, OutboundCall};
+use grpc_egress_transport::InboundReply;
 use proto_pattern::{
     BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
     MessageStream, MetadataView, MethodPath, RawTransport, ResponseStream, ServerStreamMethod,
@@ -8,7 +8,7 @@ use proto_pattern::{
 };
 
 use crate::std::client::MetadataExtender;
-use crate::std::GrpcEgressInterceptorChain;
+use crate::std::{GrpcEgressInterceptorChain, PendingCall};
 
 /// Runs `chain` around every call of `inner`: `before_call` on every shape before anything is sent, `after_call`
 /// after a unary or client-streaming response. A call with no interceptor in the chain is forwarded as it is.
@@ -31,13 +31,9 @@ impl<T> InterceptedTransport<T> {
         if self.chain.is_empty() {
             return Ok(options);
         }
-        let mut call = OutboundCall {
-            path,
-            timeout: options.get_timeout(),
-            metadata: options.get_metadata().clone(),
-        };
+        let mut call = PendingCall::create(path, &options);
         self.chain.run_before(&mut call)?;
-        Ok(CallOptions::create(call.timeout, call.metadata))
+        Ok(call.into_options())
     }
 
     /// Run every `after_call` on a response with a message.

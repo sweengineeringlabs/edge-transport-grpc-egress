@@ -16,7 +16,7 @@ use grpc_egress_transport::{
     GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, LoadbalancerSettings,
     OutboundCall, TraceContextSource,
 };
-use grpc_egress_transport_std::{OutboundCallHeaders, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{
     CallError, CallRequest, Compression, MessageStream, RawTransport, StatusCode, TlsIdentity,
     TlsSettings,
@@ -28,7 +28,7 @@ const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-
 struct TagInterceptor;
 
 impl GrpcEgressInterceptor for TagInterceptor {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         call.add_header("x-tag", "tagged")
     }
 

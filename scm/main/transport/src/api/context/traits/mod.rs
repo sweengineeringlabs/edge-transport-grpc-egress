@@ -1,5 +1,7 @@
 //! `traits` of the `context` theme.
 
-pub mod grpc_security_context_factory;
+pub mod caller_identity;
+pub mod grpc_caller_identity_factory;
 
-pub use grpc_security_context_factory::GrpcSecurityContextFactory;
+pub use caller_identity::CallerIdentity;
+pub use grpc_caller_identity_factory::GrpcCallerIdentityFactory;

@@ -4,7 +4,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
-use grpc_egress_transport_std::OutboundCallHeaders;
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use proto_pattern::{CallError, StatusCode};
 
@@ -54,14 +53,14 @@ impl BearerEgressInterceptor {
 impl GrpcEgressInterceptor for BearerEgressInterceptor {
     /// Adds `authorization: Bearer <jwt>` to the call. A call that already carries an `authorization` header keeps
     /// it: the caller's credential is the caller's, and nothing is minted for it.
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         if call.has_header(AUTHORIZATION_HEADER) {
             return Ok(());
         }
         let token = self.sign_token().map_err(|e| {
             tracing::warn!(error = %e, "failed to mint bearer token");
             CallError::Transport {
-                path: call.path.into(),
+                path: call.get_path().into(),
                 code: StatusCode::Internal,
                 reason: "failed to mint bearer token".to_string(),
             }

@@ -11,9 +11,7 @@ use grpc_egress_transport::{
     GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
     TraceContextSource,
 };
-use grpc_egress_transport_std::{
-    GrpcChannelConfigFactory, OutboundCallHeaders, TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::{GrpcChannelConfigFactory, TonicGrpcEgressBuilderSpiFactory};
 use proto_pattern::{
     CallError, CallRequest, CallResponse, Compression, Metadata, MetadataEntry, MethodPath,
     RawTransport, StatusCode,
@@ -30,7 +28,7 @@ struct TagInterceptor {
 }
 
 impl GrpcEgressInterceptor for TagInterceptor {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         if let Ok(mut log) = self.log.lock() {
             log.push(format!("before:{}", self.tag));
         }
@@ -49,9 +47,9 @@ impl GrpcEgressInterceptor for TagInterceptor {
 struct RefusingInterceptor;
 
 impl GrpcEgressInterceptor for RefusingInterceptor {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Err(CallError::Transport {
-            path: call.path.into(),
+            path: call.get_path().into(),
             code: StatusCode::Aborted,
             reason: "refused by the interceptor".to_string(),
         })
@@ -66,7 +64,7 @@ impl GrpcEgressInterceptor for RefusingInterceptor {
 struct FailingAfterInterceptor;
 
 impl GrpcEgressInterceptor for FailingAfterInterceptor {
-    fn before_call(&self, _call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, _call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Ok(())
     }
 

@@ -2,27 +2,27 @@
 //!
 //! Tests that access the `pub(crate)` field `interceptor.source` are omitted.
 
+use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
-use grpc_egress_transport_std::{OutboundCallHeaders, TraceContextGrpcEgressInterceptor};
+use grpc_egress_transport_std::TraceContextGrpcEgressInterceptor;
 use proto_pattern::{Metadata, MetadataEntry};
 
 const UPSTREAM: &str = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1-bbbbbbbbbbbbbbbb-01";
 const INJECTED: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
 
-fn call() -> OutboundCall<'static> {
-    OutboundCall {
-        path: "/svc/M",
-        timeout: None,
-        metadata: Metadata::default(),
-    }
+fn call() -> OutboundCallFixture {
+    OutboundCallFixture::create("/svc/M")
+        .with_timeout(None)
+        .with_metadata(Metadata::default())
 }
 
-fn call_with_upstream() -> Result<OutboundCall<'static>, Box<dyn std::error::Error>> {
-    Ok(OutboundCall {
-        path: "/svc/M",
-        timeout: None,
-        metadata: Metadata::create(vec![MetadataEntry::create("traceparent", UPSTREAM)?]),
-    })
+fn call_with_upstream() -> Result<OutboundCallFixture, Box<dyn std::error::Error>> {
+    Ok(OutboundCallFixture::create("/svc/M")
+        .with_timeout(None)
+        .with_metadata(Metadata::create(vec![MetadataEntry::create(
+            "traceparent",
+            UPSTREAM,
+        )?])))
 }
 
 /// @covers: TraceContextGrpcEgressInterceptor::pass_through

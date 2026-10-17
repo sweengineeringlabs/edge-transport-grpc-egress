@@ -131,8 +131,7 @@ impl<T> EndpointTransport<T> {
         match result {
             Err(
                 error @ (CallError::Transport {
-                    code:
-                        StatusCode::Unavailable | StatusCode::Unknown | StatusCode::DeadlineExceeded,
+                    code: StatusCode::Unavailable | StatusCode::Unknown,
                     ..
                 }
                 | CallError::Status {

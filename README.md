@@ -1,6 +1,6 @@
 # edge-transport-grpc-egress
 
-> **TLDR:** Outbound gRPC client for swe-edge: one `GrpcEgress` trait, a client over the `proto-svc` engine with a client-side load balancer built through one builder, and retry, circuit-breaker and bearer-auth pieces as separate crates. See [Overview](scm/docs/README.md) for details.
+> **TLDR:** Outbound gRPC client for swe-edge: a client that is a `proto-pattern` `Transport` and `RawTransport` over the `proto-svc` engine, with a client-side load balancer built through one builder, and retry, circuit-breaker and bearer-auth pieces as separate crates. See [Overview](scm/docs/README.md) for details.
 
 ## Crates
 
@@ -10,14 +10,14 @@ The workspace is `scm/`; each crate is in `scm/main/<crate>/`. Every theme is a 
 
 | Crate | What it is |
 |-------|------------|
-| `grpc-egress-transport` | the domain: the `GrpcEgress` trait, the client builder trait, requests and responses, errors, and the options of a client. No `tonic`, `hyper` or `rustls` |
-| `grpc-egress-transport-std` | the implementation: the client over the `proto-svc` engine, its builder, the load-balanced client, interceptors, and the constructors of the domain types |
-| `grpc-egress-retry` / `-std` | retry: `GrpcRetryFactory`, `StdGrpcRetryFactory`, the retry policy `GrpcRetryConfig` |
-| `grpc-egress-breaker` / `-std` | circuit breaker: `GrpcBreakerFactory`, `StdGrpcBreakerFactory`, the policy `GrpcBreakerConfig`, `BreakerObservable` |
+| `grpc-egress-transport` | the domain: the client builder trait, the options of a client, the interceptor trait, the factories of the cancellation and security-context views, and the channel configuration. The calls, requests, responses, errors, status codes and metadata are the contract's (`proto-pattern`). No `tonic`, `hyper` or `rustls` |
+| `grpc-egress-transport-std` | the implementation: the builder over the `proto-svc` engine, the load-balanced client, interceptors, the cancellation and security-context views, the `grpc.health.v1` health-check call, the reading of TLS files, and the constructors of the domain types |
+| `grpc-egress-retry` / `-std` | retry: `GrpcRetryFactory`, `StdGrpcRetryFactory`, the retry policy `GrpcRetryConfig`; wraps any `Transport + RawTransport` |
+| `grpc-egress-breaker` / `-std` | circuit breaker: `GrpcBreakerFactory`, `StdGrpcBreakerFactory`, the policy `GrpcBreakerConfig`, `BreakerObservable`; wraps any `Transport + RawTransport` |
 | `grpc-egress-resilient` / `-std` | retry and breaker together: `StdGrpcResilientFactory`, the policy `ResilienceConfig` |
 | `grpc-egress-auth-bearer` / `-std` | JWT bearer: `StdBearerInterceptorFactory` signs a token and adds `authorization: Bearer <jwt>` to each request |
 | `grpc-egress-test-support` | fixtures for tests: an in-process peer (echo, reply, delay, status, TLS, mTLS), a freezable proxy |
-| `grpc-egress-example-composition-root` | what a composition root does with these crates: six tested scenarios (`scm/main/examples/composition-root`) |
+| `grpc-egress-example-composition-root` | what a composition root does with these crates: nine tested scenarios (`scm/main/examples/composition-root`) |
 
 ## Usage
 
@@ -27,20 +27,32 @@ option; `build()` validates and returns the client, naming the options of any re
 ```rust,ignore
 use std::time::Duration;
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, CompressionMode, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcRequest,
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{GrpcRequestFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallOptions, CallRequest, Compression, MethodPath, RawTransport, Transport};
 
 let client = TonicGrpcEgressBuilderSpiFactory::new("https://api.example.com:443")
     .build(BuildGrpcEgressBuilderRequest)
-    .with_compression(CompressionMode::Gzip)
+    .with_send_compression(Compression::Gzip)
+    .with_accept_compression(Compression::Gzip)
     .with_request_timeout(Duration::from_secs(10))
     .build()?;
 
-let request = GrpcRequest::new("/pkg.Service/Method", body_bytes, Duration::from_secs(10));
-let response = client.call_unary(request).await?;
+// By path, with bytes for messages (a path known only at run time):
+let path = MethodPath::create("/pkg.Service/Method")?;
+let response = client
+    .call_raw(path, CallRequest::create(body_bytes, CallOptions::default()))
+    .await?;
+
+// Or typed, over a `Method` the caller defines:
+let response = client
+    .call::<Greet>(CallRequest::create(request, CallOptions::default()))
+    .await?;
 ```
+
+The client is a `Transport` and a `RawTransport` at once, over one connection pool: a caller holds it through a
+generic bound, never a `dyn`. A failure is a `CallError`, with a `StatusCode` on every variant.
 
 Retry and breaker wrap a built client; the transport knows neither
 ([ADR-004](scm/docs/adr/ADR-004-remove-resilience-config-from-transport-primitive.md),
@@ -65,11 +77,12 @@ published crate.
 
 ## Options of the client builder
 
-`with_endpoint`, `with_plaintext_allowed`, `with_request_timeout`, `with_max_message_bytes`,
-`with_compression`, `with_mtls`, `with_root_ca`, `with_keep_alive`, `with_loadbalancer`,
-`with_interceptor`, `with_trace_context`, `with_channel_config` (a loaded
-`GrpcChannelConfig`, then single options override it). The Cargo feature `prost` of the implementation crate
-exposes the typed helper `ProstUnaryCaller`; it is not an option of the builder.
+`with_endpoint`, `with_plaintext_allowed`, `with_request_timeout`, `with_max_decoding_message_size`,
+`with_max_encoding_message_size`, `with_send_compression`, `with_accept_compression`, `with_tls`, `with_keep_alive`,
+`with_loadbalancer`, `with_interceptor`, `with_trace_context`, `with_channel_config` (a loaded
+`GrpcChannelConfig`, then single options override it). Two views wrap a built client for one purpose each: a
+cancellation signal (`GrpcCancellationFactory`) and a caller identity (`GrpcCallerIdentityFactory`). The
+`grpc.health.v1` health-check call is `HealthCheck`.
 
 ## Layout
 
@@ -91,7 +104,6 @@ scripts/                        check_layout.py, rename_crate.py, mutation/ (run
 cd scm
 cargo build
 cargo test --workspace
-cargo test -p grpc-egress-transport-std --features prost
 cargo clippy --workspace --all-targets
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 cargo run -p grpc-egress-example-composition-root

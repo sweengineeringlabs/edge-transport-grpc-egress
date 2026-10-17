@@ -4,6 +4,6 @@ pub mod dto;
 pub mod traits;
 pub mod vo;
 
-pub use dto::{BuildGrpcEgressInterceptorRequest, InboundReply, OutboundCall};
-pub use traits::{GrpcEgressInterceptor, GrpcEgressInterceptorFactory};
+pub use dto::{BuildGrpcEgressInterceptorRequest, InboundReply};
+pub use traits::{GrpcEgressInterceptor, GrpcEgressInterceptorFactory, OutboundCall};
 pub use vo::TraceContextSource;

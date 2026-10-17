@@ -20,7 +20,7 @@ uses `Transport`; both come from one client (`DualTransportFactory`, one engine)
 | `GrpcEgress::call_unary` | replaced | `RawTransport::call_raw` / `Transport::call` |
 | `call_server_stream`, `call_client_stream`, `call_bidi_stream` | replaced | `call_raw_server_stream`, `call_raw_client_stream`, `call_raw_bidi_stream` / the typed three |
 | `call_stream` (default `Unimplemented`) | removed | every real shape has its own method; no consumer in this repository or its dependents used it (checked) |
-| `call_unary_with_context` | replaced | the security-context view (`GrpcSecurityContextFactory`, ADR-009 section 4) |
+| `call_unary_with_context` | replaced | the caller-identity view (`GrpcCallerIdentityFactory`, ADR-009 section 4) |
 | `health_check` | replaced | `HealthCheck`, the `grpc.health.v1.Health/Check` call (`grpc-egress-transport-std`); the old one opened a TCP connection and said nothing about the service |
 | `GrpcRequest` | replaced | `MethodPath` + `CallRequest<Vec<u8>>` + `CallOptions`; its `cancellation` token is the cancellation view (`GrpcCancellationFactory`) |
 | `GrpcResponse` | replaced | `CallResponse<Vec<u8>, M>` (headers and trailers apart) |
@@ -51,9 +51,9 @@ uses `Transport`; both come from one client (`DualTransportFactory`, one engine)
 | `GrpcEgressInterceptor` | kept, new signature | the contract has no interceptor concept; `before_call(&mut OutboundCall)` / `after_call(&InboundReply)` over `Metadata`, errors are `CallError` |
 | `AfterCallRequest` | replaced | `InboundReply` (path, headers, trailers); an interceptor can no longer rewrite the response body: the typed layer has no bytes, and no interceptor here did |
 | `GrpcEgressInterceptorFactory`, `BuildGrpcEgressInterceptorRequest`, `GrpcEgressInterceptorChain`, `TraceContextGrpcEgressInterceptor`, `TraceContextSource` | kept | W3C trace headers and the ordered chain are not in the contract |
-| `OutboundCall`, `InboundReply`, `OutboundCallHeaders` | new | the data an interceptor sees, and how it adds a header |
-| cancellation view (`GrpcCancellationFactory`, `BuildGrpcCancellationRequest`) | new | keeps the `CancellationToken` capability; dropping a call's future also cancels it |
-| security-context view (`GrpcSecurityContextFactory`, `BuildGrpcSecurityContextRequest`) | new | keeps the `SecurityContext` capability as headers of the call |
+| `OutboundCall` (interface), `InboundReply` | new | what an interceptor sees, and how it adds a header |
+| cancellation view (`GrpcCancellationFactory`, `BuildGrpcCancellationRequest`) | new | keeps the cancellation capability behind `CancellationSignal` (`TokenCancellation` adapts a token); dropping a call's future also cancels it |
+| caller-identity view (`GrpcCallerIdentityFactory`, `BuildGrpcCallerIdentityRequest`) | new | keeps the security-context capability as headers of the call, behind `CallerIdentity` (`SecurityContextIdentity` adapts a `SecurityContext`) |
 | `BackendTarget`, `BalancingStrategy`, `LoadbalancerSettings`, `LoadbalancerSettingsProvider` | kept | neither the contract nor the engine balances; one client per backend behind the endpoint transport |
 
 ## Resilience and auth crates

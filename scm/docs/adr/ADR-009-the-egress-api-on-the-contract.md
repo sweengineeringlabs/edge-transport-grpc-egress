@@ -1,7 +1,7 @@
 # ADR-009: The egress API on the contract: generic wrappers over `Transport` and `RawTransport`
 
-**Status:** Proposed (issue 18); applies the owner's criteria (production grade, zero-cost abstraction, no feature
-sacrificed, the `api/std/spi/saf` rules) and ADR-008's rulings 1 to 3; acceptance is requested
+**Status:** Accepted (the owner, 2026-10-17); implemented on `feat/18-contract-native`; applies the owner's criteria (production grade, zero-cost abstraction, no feature
+sacrificed, the `api/std/spi/saf` rules) and ADR-008's rulings 1 to 3
 **Date:** 2026-10-17
 **Tracking:** [#18](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/18) tasks 5 to 13, 15 to 20
 **See also:** [ADR-006](ADR-006-domain-first.md), [ADR-007](ADR-007-decorators-wrap-a-built-client.md), [ADR-008](ADR-008-contract-and-engine-are-external.md)
@@ -81,8 +81,8 @@ clients did not forward them and answered `Unimplemented`; that was a defect).
 | Retry | `grpc-egress-retry-std` | unary only; classifies by `StatusCode` and the trailers (`retry-after`) |
 | Breaker | `grpc-egress-breaker-std` | admits or short-circuits with `Transport(Unavailable)`; records the outcome of a unary call and the open of a stream |
 | Resilient | `grpc-egress-resilient-std` | retry inside breaker, as ADR-007 |
-| Cancellation | `grpc-egress-transport-std` | a view bound to a `CancellationToken`: every call, and every message read from a stream, is raced against the token and fails with `Transport(Cancelled)` |
-| Security context | `grpc-egress-transport-std` | a view bound to a `SecurityContext`: adds `x-trace-id`, `x-tenant-id` and `authorization: Bearer <token>` (when authenticated) and the context's `metadata` before the call |
+| Cancellation | `grpc-egress-transport-std` | a view bound to a `CancellationSignal` (an interface of the domain; `TokenCancellation` adapts a `tokio-util` token): every call, and every message read from a stream, is raced against the signal and fails with `Transport(Cancelled)` |
+| Caller identity | `grpc-egress-transport-std` | a view bound to a `CallerIdentity` (an interface of the domain; `SecurityContextIdentity` adapts a `SecurityContext`): adds `x-trace-id`, `x-tenant-id`, `authorization: Bearer <token>` (when the identity holds a token to send) and the further headers it lists, before the call |
 | Bearer auth | `grpc-egress-auth-bearer-std` | an interceptor that signs a JWT into `authorization` |
 
 The interceptor list stays a runtime list (`Arc<dyn GrpcEgressInterceptor>`): it is heterogeneous by nature, and the
@@ -92,14 +92,16 @@ cost is one virtual call per interceptor per call, not per message. `GrpcEgress`
 
 ```rust
 pub trait GrpcEgressInterceptor: Send + Sync {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError>;
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError>;
     fn after_call(&self, reply: &InboundReply<'_>) -> Result<(), CallError>;
 }
 ```
 
-`OutboundCall { path: &str, timeout: Option<Duration>, metadata: Metadata }` is what the call will carry; `InboundReply
-{ path: &str, headers: Metadata, trailers: Metadata }` is what came back. An interceptor can no longer rewrite the
-response *body*: the typed layer has no bytes to rewrite, and no interceptor of this repository did.
+`OutboundCall` is an **interface** of the domain: the path, the timeout (`get_timeout`, `set_timeout`), the headers
+(`has_header`, `get_header_values`) and `add_header`. Its implementation (`PendingCall`) is private to
+`grpc-egress-transport-std`, so an interceptor crate, such as the bearer-auth one, depends on the domain crate only.
+`InboundReply { path, headers, trailers }` is data: what came back. An interceptor can no longer rewrite the response
+*body*: the typed layer has no bytes to rewrite, and no interceptor of this repository did.
 
 ### 6. Errors
 
@@ -114,18 +116,38 @@ response *body*: the typed layer has no bytes to rewrite, and no interceptor of 
 A path or a metadata key that is not valid is refused when the `MethodPath` or `MetadataEntry` is created, not at the
 call.
 
-### 7. Cancellation and the security context
+### 7. Cancellation and the caller's identity
 
-Dropping a call's future cancels the call (tonic cancels the stream when the future is dropped; a test proves the
-peer sees the reset). The token is kept for callers that hold one: the cancellation view. The security context is
-carried the same way, by a view, because the old method took the context per call and the contract has no per-call
-extension point.
+Dropping a call's future cancels the call (tonic cancels the stream when the future is dropped; a test proves the peer
+sees it end). A caller that holds a way to say "stop" keeps it, behind an interface: `CancellationSignal` has one
+method, `wait_cancelled`, that resolves when the calls must end; the view races every call and every stream read against
+it. `TokenCancellation` adapts a `tokio-util` `CancellationToken`.
+
+The identity of the caller is carried the same way, by a view, because the old method took the context per call and the
+contract has no per-call extension point. The view knows `CallerIdentity` (a trace id, a tenant, a bearer token that is
+to be sent, further headers); `SecurityContextIdentity` adapts a `SecurityContext`. The identity is given to the factory
+as `&dyn CallerIdentity` and read once, when the view is made, so the view does not keep it borrowed.
 
 ### 8. Health
 
 The `grpc.health.v1.Health/Check` call as a `Method` (`HealthCheck`) with its messages, in `grpc-egress-transport-std`
 (`Payload` by `prost`, a dependency of that crate). The old `health_check` opened a TCP connection and said nothing about the
 service; this asks it. Tested against a real health service (`tonic-health`).
+
+## Alternatives and trade-offs
+
+Each decision above was a choice between real alternatives; this is what each cost.
+
+| Decision | Chosen, and what it costs | Rejected, and why |
+|---|---|---|
+| Hold the client as a generic bound (`T: Transport + RawTransport`), never a `dyn` | No virtual call and no boxed future per call; the compiler specialises each use. **Cost:** code that must choose the client type at run time (a registry of mixed clients) has to be generic itself or wrap the client in its own `dyn`; the compiler generates one copy per client type | An object-safe trait in front of the contract: it is a second interface to keep in step, and every async method of it returns a boxed future, an allocation per call, which the criteria forbid |
+| One client value that is both traits (`DualTransportFactory`) | One engine, one connection pool for typed and raw calls; wrappers forward each call as the kind it was | Two clients per endpoint (two pools, two connections to one peer); or the typed call as an encode, raw call and decode on top of the raw one (two extra buffer copies on every typed call) |
+| Retry re-sends a typed message by encoding it once and rebuilding it for a later attempt | The first attempt sends the original and copies nothing | Routing a typed call through the raw call: it needs the typed and the raw metadata of the inner client to be one type, which the opaque client does not promise |
+| The views (cancellation, identity) know an interface, with an adapter for each library type | A caller keeps the mechanism it has; the domain API names no type of a library; **cost:** one small trait and one adapter each | The library type in the signature (`CancellationToken`, `SecurityContext`): a concrete external type in a port ties every caller to that library |
+| The identity is taken as `&dyn CallerIdentity` | One virtual call per header read, once, at build | A type parameter: the precise-capture list must name every type parameter, so the view would be treated as holding the identity and keep it borrowed |
+| `OutboundCall` is an interface; interceptors edit the call through it | An interceptor crate depends on the domain only; **cost:** one virtual call per method per interceptor per call | A struct with an extension trait in the implementation crate: the interceptor crate would depend on the implementation |
+| The interceptor list stays `Vec<Arc<dyn GrpcEgressInterceptor>>` | One virtual call per interceptor per call, not per message; the builder's `with_interceptor` keeps returning `Self` | A statically composed chain: the builder would change its type at every `with_interceptor` |
+| `grpc-egress-resilient-std` names the concrete retry and breaker factories | It is the composition of those two, as ADR-007 says, under one policy | Generic parameters for both factories: the unified `ResilienceConfig` could no longer derive each one's policy |
 
 ## Consequences
 

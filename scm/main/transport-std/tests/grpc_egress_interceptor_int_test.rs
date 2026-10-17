@@ -1,8 +1,8 @@
 //! Integration tests for the interceptor contract: the trait is object-safe, and `OutboundCallHeaders` reads and adds
 //! the request headers of an `OutboundCall` the way an interceptor needs.
 
+use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{GrpcEgressInterceptor, OutboundCall};
-use grpc_egress_transport_std::OutboundCallHeaders;
 use proto_pattern::{
     BinaryMetadataEntry, CallError, Metadata, MetadataEntry, MetadataView, StatusCode,
 };
@@ -12,12 +12,10 @@ fn test_interceptor_trait_is_object_safe() {
     fn _assert(_: &dyn GrpcEgressInterceptor) {}
 }
 
-fn call_with(metadata: Metadata) -> OutboundCall<'static> {
-    OutboundCall {
-        path: "/svc/Method",
-        timeout: None,
-        metadata,
-    }
+fn call_with(metadata: Metadata) -> OutboundCallFixture {
+    OutboundCallFixture::create("/svc/Method")
+        .with_timeout(None)
+        .with_metadata(metadata)
 }
 
 fn entry(key: &str, value: &str) -> Result<MetadataEntry, Box<dyn std::error::Error>> {
@@ -53,7 +51,7 @@ fn test_add_header_adds_after_the_headers_the_call_carries(
 
     assert_eq!(call.get_header_values("x-caller"), ["original"]);
     assert_eq!(call.get_header_values("x-added"), ["1"]);
-    assert_eq!(call.metadata.get_count(), 2);
+    assert_eq!(call.get_metadata().get_count(), 2);
     Ok(())
 }
 
@@ -81,7 +79,7 @@ fn test_add_header_keeps_the_binary_entries_the_call_carries(
 
     call.add_header("x-added", "1")?;
 
-    let kept: Vec<(String, Vec<u8>)> = MetadataView::get_binary_entries(&call.metadata)
+    let kept: Vec<(String, Vec<u8>)> = MetadataView::get_binary_entries(call.get_metadata())
         .flatten()
         .map(|b| (b.get_key().to_string(), b.get_value().to_vec()))
         .collect();
@@ -109,7 +107,7 @@ fn test_add_header_invalid_key_returns_invalid_argument_naming_the_path_and_chan
         "got {error:?}"
     );
     assert_eq!(
-        call.metadata.get_count(),
+        call.get_metadata().get_count(),
         1,
         "a refused header is not added"
     );

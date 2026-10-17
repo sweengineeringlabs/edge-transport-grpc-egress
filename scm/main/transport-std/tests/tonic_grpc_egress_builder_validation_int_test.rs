@@ -9,8 +9,9 @@ use grpc_egress_test_support::TestPki;
 use grpc_egress_transport::{
     BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcChannelConfig,
     GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory, LoadbalancerSettings,
+    MtlsConfig,
 };
-use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_std::{MtlsConfigFactory, TonicGrpcEgressBuilderSpiFactory};
 use proto_pattern::{TlsIdentity, TlsSettings};
 
 fn builder() -> impl GrpcEgressBuilder {
@@ -296,6 +297,33 @@ fn test_build_loadbalancer_with_a_plaintext_backend_without_plaintext_allowed_is
     assert!(
         matches!(&result, Err(GrpcChannelConfigError::PlaintextRejected(url)) if url == "http://b.example:80"),
         "the plaintext backend must be named, got {}",
+        describe(result)
+    );
+}
+
+/// A client configuration that names mutual-TLS files while it lets the client fall back to plaintext is refused, as
+/// one that carries the identity in memory is: the files are an identity too.
+///
+/// @covers: GrpcEgressBuilder::build
+#[test]
+fn test_build_channel_config_mtls_files_with_plaintext_allowed_returns_conflict_naming_both_options_error(
+) {
+    let mut config = GrpcChannelConfig::new("https://service.example:443");
+    config.tls_required = false;
+    config.mtls = Some(MtlsConfig::new("client.pem", "client.key"));
+
+    let result = builder().with_channel_config(&config).build();
+
+    assert!(
+        matches!(
+            result,
+            Err(GrpcChannelConfigError::ConflictingOptions {
+                first: "mtls",
+                second: "plaintext_allowed",
+                ..
+            })
+        ),
+        "got {}",
         describe(result)
     );
 }

@@ -8,13 +8,13 @@ pub(crate) mod interceptor;
 pub(crate) mod loadbalancer;
 
 pub(crate) use cancellation::CancellableTransport;
+pub use cancellation::TokenCancellation;
 pub use channel::{
     GrpcChannelConfigBuilder, GrpcChannelConfigFactory, MtlsConfigFactory, TlsSettingsResolver,
 };
 pub use client::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus};
 pub(crate) use context::ContextTransport;
-pub(crate) use interceptor::InterceptedTransport;
-pub use interceptor::{
-    GrpcEgressInterceptorChain, OutboundCallHeaders, TraceContextGrpcEgressInterceptor,
-};
+pub use context::SecurityContextIdentity;
+pub use interceptor::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
+pub(crate) use interceptor::{InterceptedTransport, PendingCall};
 pub use loadbalancer::LoadbalancerSettingsProvider;

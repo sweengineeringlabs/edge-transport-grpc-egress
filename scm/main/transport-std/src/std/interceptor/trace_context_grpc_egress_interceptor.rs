@@ -5,8 +5,6 @@ use grpc_egress_transport::{
 };
 use proto_pattern::CallError;
 
-use crate::std::OutboundCallHeaders;
-
 /// Injects the trace context of its source into every call that does not carry one.
 #[derive(Clone)]
 pub struct TraceContextGrpcEgressInterceptor {
@@ -36,7 +34,7 @@ impl TraceContextGrpcEgressInterceptor {
 }
 
 impl GrpcEgressInterceptor for TraceContextGrpcEgressInterceptor {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         if call.has_header(TRACEPARENT) {
             return Ok(());
         }

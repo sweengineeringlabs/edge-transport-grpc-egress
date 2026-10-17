@@ -1,6 +1,8 @@
 # Behaviour comparison: the hand-written `hyper` client against the `proto-svc` engine
 
-Task 14 of `edge-transport-grpc-egress#18`, for the engine swap (task 9). The method: the 5.6k lines of tests of
+Task 14 of `edge-transport-grpc-egress#18`. **Stage 1** is the engine swap (task 9): the `hyper` client replaced by
+`proto-svc` behind the old `GrpcEgress` API (rows 1 to 17). **Stage 2** is the move of the API itself onto the
+contract (ADR-009): rows 18 to 31. The method of stage 1: the 5.6k lines of tests of
 `grpc-egress-transport-std`, written against the `hyper` client of v0.8.0, were run unchanged against the client over
 `proto-svc` (`proto-pattern` 0.9.2, `proto-svc` 0.3.x). Every test that failed is a difference and is listed with
 its decision; a test that passed is a behaviour that did not change. The first run failed 39 tests; the table
@@ -32,6 +34,25 @@ server other than the in-process peers.
 | 15 | `with_prost_codec` (content type `application/grpc+proto`) | sent `application/grpc+proto` | the engine always sends `application/grpc`; the content subtype is outside the contract (`proto-pattern` ADR-007) | **Accepted: the option is removed.** Kept, it would be accepted and change nothing on the wire. `with_prost_codec`, `DisabledFeatureOptions`, the example's prost scenario and the tests that observed the content type are removed; the `prost` feature remains for the typed helper `ProstUnaryCaller`, which is a separate capability that moves to the contract's typed layer with the type replacement. Anyone who needs the content subtype needs it in the contract (`proto-pattern` ADR-007) |
 | 16 | Load-balanced calls | a client copy retargeted to the picked backend on every call | one client per backend, built once; each keeps its connection | **Improvement.** Same pool and outcome reporting |
 | 17 | A peer that sent `grpc-status` in the response headers together with a body | read as a normal answer | read as a "Trailers-Only" response with no message, so the size limit is not applied | **Fixed in the test peer.** That response is not what a server sends; `PeerServer` now sends the status in the trailers after the message. Real servers do, and `proto-svc` enforces the cap against them |
+
+## Differences of stage 2: the API on the contract
+
+| # | Case | Before | After | Decision |
+|---|---|---|---|---|
+| 18 | Metadata keys and values | any HTTP header name and value, one value per key (`HashMap<String, String>`) | the contract's rules: lowercase ASCII, digits, `-`, `_`, `.`; no `grpc-` prefix and no protocol header; a `-bin` key is a binary entry; values printable ASCII without leading or trailing space. Many values per key and binary entries survive a call | **Accepted, a fix and a tightening.** The refusal is made when the `MetadataEntry` is created, not at the call. Two values under one key and binary entries are proved against a real server; neither could be sent before |
+| 19 | A path that is not `/service/method` | `Internal("internal client error")` at the call | refused when the `MethodPath` is created (`PathError`) | **Accepted** (contract, ADR-008 of `proto-pattern`) |
+| 20 | Request size | only a response was capped (`max_message_bytes`) | a file's `max_message_bytes` sets the decoding **and** the encoding limit; a request over it never reaches the peer (`ResourceExhausted`) | **Accepted, a tightening.** The builder has the two limits as separate options |
+| 21 | The request timeout | a backstop for a unary call and the streams that carried a deadline; a server stream used only the call's own deadline | the earlier of the call's own timeout and the request timeout, for every shape | **Accepted.** One rule for every shape; a long server stream needs a longer `with_request_timeout` or a stream-sized call timeout |
+| 22 | `retry` and `breaker` and streaming calls | the three streaming shapes were not forwarded: `Unimplemented` | forwarded; retry does not retry a stream, the breaker admits the open and records its outcome | **Fixed** (a defect of the old clients) |
+| 23 | Retry of a typed call | n/a (bytes only) | the original message is sent on the first attempt and rebuilt from its encoding for a later one | **Accepted.** A typed message cannot be cloned; with one attempt allowed nothing is encoded |
+| 24 | Retry classification | by the message text of the error, `Timeout` and `Unavailable` variants | by `StatusCode`: transport `Unavailable`/`Unknown` and status `Unavailable` retry; `ResourceExhausted` by the message context, with the retry-after hint read from the trailers first | **Accepted.** The hint no longer has to be embedded in the message; the old embedding is still read |
+| 25 | The breaker when open | `Unavailable(..)` | `Transport` with `Unavailable` (nothing was sent) | **Accepted** |
+| 26 | `health_check` | opened a TCP connection and said nothing about the service | the `grpc.health.v1.Health/Check` call, tested against a real `tonic-health` server | **Improvement, behaviour change.** A caller that wants only reachability opens a connection itself |
+| 27 | `call_unary_with_context` | the default method ignored the context entirely; no implementation used it | a view of the client that sends `x-trace-id`, `x-tenant-id`, `authorization: Bearer <token>` (authenticated only) and the context's metadata, never over a header the call already carries | **Improvement, behaviour change.** The capability now does something; an invalid context entry fails the call with `InvalidArgument` and nothing is sent |
+| 28 | Cancellation | a `CancellationToken` in the request, raced against the call | dropping the call's future cancels it on the server (proved against a real server); a view bound to a `CancellationSignal` (a token through `TokenCancellation`, or any other) fails the call and each stream read with `Cancelled` | **Accepted** (ADR-008 ruling 2); the capability is kept, as a view bound to an interface |
+| 29 | Interceptors | `before_call(&mut GrpcRequest)`, `after_call` could rewrite the response body | `before_call(&mut OutboundCall)`, `after_call(&InboundReply)` (headers and trailers, no body) | **Accepted.** The typed layer has no bytes to rewrite, and no interceptor of this repository rewrote a response |
+| 30 | The bearer interceptor | overwrote an `authorization` header the call carried | keeps it, and mints nothing | **Accepted.** A header the caller set is the caller's |
+| 31 | A load-balanced client | a copy of one client retargeted per call | one client per backend, built once (stage 1, row 16); `Transport(Unavailable)` when no backend is healthy | **Improvement** |
 
 ## What did not change
 

@@ -1,4 +1,4 @@
-//! `ContextTransport` -- a view of a client whose calls carry the headers of a security context.
+//! `ContextTransport` -- a view of a client whose calls carry the headers of a caller's identity.
 
 use proto_pattern::{
     BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
@@ -8,12 +8,12 @@ use proto_pattern::{
 
 use super::ContextHeaders;
 use crate::std::client::MetadataExtender;
-use grpc_egress_transport::SecurityContext;
+use grpc_egress_transport::CallerIdentity;
 
-/// A view of `inner` bound to a security context: every call carries the headers derived from it, except one the call
+/// A view of `inner` bound to an identity: every call carries the headers derived from it, except one the call
 /// already carries. The headers are derived when the view is made, so a call pays one copy of its own headers.
 ///
-/// A header that is not valid metadata (a context entry with a key gRPC does not allow) fails the call with
+/// A header that is not valid metadata (an identity entry with a key gRPC does not allow) fails the call with
 /// `InvalidArgument` and nothing is sent: an identity header is never dropped silently.
 pub(crate) struct ContextTransport<'a, T> {
     inner: &'a T,
@@ -21,11 +21,11 @@ pub(crate) struct ContextTransport<'a, T> {
 }
 
 impl<'a, T> ContextTransport<'a, T> {
-    /// A view of `inner` that carries the headers of `ctx`.
-    pub(crate) fn create(inner: &'a T, ctx: &SecurityContext) -> Self {
+    /// A view of `inner` that carries the headers of `identity`.
+    pub(crate) fn create(inner: &'a T, identity: &dyn CallerIdentity) -> Self {
         Self {
             inner,
-            headers: ContextHeaders::derive(ctx),
+            headers: ContextHeaders::derive(identity),
         }
     }
 
@@ -41,7 +41,7 @@ impl<'a, T> ContextTransport<'a, T> {
         .map_err(|e| CallError::Transport {
             path: path.into(),
             code: StatusCode::InvalidArgument,
-            reason: format!("the security context holds a header that is not valid: {e}"),
+            reason: format!("the identity holds a header that is not valid: {e}"),
         })?;
         Ok(CallOptions::create(options.get_timeout(), metadata))
     }

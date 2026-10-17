@@ -7,9 +7,9 @@ use proto_pattern::{CallError, StatusCode};
 pub struct RefusingInterceptor;
 
 impl GrpcEgressInterceptor for RefusingInterceptor {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Err(CallError::Transport {
-            path: call.path.into(),
+            path: call.get_path().into(),
             code: StatusCode::PermissionDenied,
             reason: "refused by the example".to_string(),
         })

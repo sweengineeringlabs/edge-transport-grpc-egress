@@ -1,20 +1,19 @@
 //! Integration tests for `StdGrpcEgressInterceptorFactory`.
 
+use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
     OutboundCall, TraceContextSource,
 };
-use grpc_egress_transport_std::{OutboundCallHeaders, StdGrpcEgressInterceptorFactory};
+use grpc_egress_transport_std::StdGrpcEgressInterceptorFactory;
 use proto_pattern::Metadata;
 
 const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
 
-fn bare_call() -> OutboundCall<'static> {
-    OutboundCall {
-        path: "/svc/Method",
-        timeout: None,
-        metadata: Metadata::default(),
-    }
+fn bare_call() -> OutboundCallFixture {
+    OutboundCallFixture::create("/svc/Method")
+        .with_timeout(None)
+        .with_metadata(Metadata::default())
 }
 
 /// @covers: build
@@ -30,7 +29,7 @@ fn test_build_pass_through_source_injects_nothing() -> Result<(), Box<dyn std::e
         !call.has_header("traceparent"),
         "pass-through must not inject traceparent metadata"
     );
-    assert_eq!(call.metadata.get_count(), 0);
+    assert_eq!(call.get_metadata().get_count(), 0);
     Ok(())
 }
 

@@ -7,7 +7,9 @@ use grpc_egress_transport::{
     BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, GrpcCancellationFactory,
     GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::{
+    StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
+};
 use proto_pattern::{CallError, CallOptions, CallRequest, MethodPath, RawTransport, StatusCode};
 use proto_test_peer::{RunningPeer, Say};
 use tokio_util::sync::CancellationToken;
@@ -53,7 +55,7 @@ impl CancellationScenario {
         let token = CancellationToken::new();
         let bound = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
             inner: &client,
-            token: token.clone(),
+            signal: TokenCancellation::new(token.clone()),
         });
         let canceller = tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -77,7 +79,7 @@ impl CancellationScenario {
 
         let quiet = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
             inner: &client,
-            token: CancellationToken::new(),
+            signal: TokenCancellation::new(CancellationToken::new()),
         });
         let answered = quiet.call_raw(Self::path()?, Self::request(0)).await;
         report.record(

@@ -740,12 +740,10 @@ dependencies = [
 name = "grpc-egress-transport"
 version = "0.8.0"
 dependencies = [
- "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",
  "proto-pattern",
  "serde",
  "thiserror 2.0.19",
  "tokio",
- "tokio-util",
  "toml",
 ]
 
@@ -754,6 +752,7 @@ name = "grpc-egress-transport-std"
 version = "0.8.0"
 dependencies = [
  "bytes",
+ "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",
  "flate2",
  "futures",
  "grpc-egress-test-support",

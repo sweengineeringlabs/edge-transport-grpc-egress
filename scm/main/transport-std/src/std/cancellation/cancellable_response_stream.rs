@@ -1,25 +1,26 @@
-//! `CancellableResponseStream` -- a response stream whose reads end when a token fires.
+//! `CancellableResponseStream` -- a response stream whose reads end when a signal fires.
 
 use std::marker::PhantomData;
+use std::sync::Arc;
 
+use grpc_egress_transport::CancellationSignal;
 use proto_pattern::{CallError, MessageStream, ResponseStream, StatusCode};
-use tokio_util::sync::CancellationToken;
 
-/// A response stream of messages `R` that fails with `Cancelled` when `token` fires while a message or the
-/// trailers are being read.
-pub(crate) struct CancellableResponseStream<S, R> {
+/// A response stream of messages `R` that fails with `Cancelled` when `signal` fires while a message or the trailers
+/// are being read.
+pub(crate) struct CancellableResponseStream<S, R, G> {
     inner: S,
-    token: CancellationToken,
+    signal: Arc<G>,
     path: Box<str>,
     message: PhantomData<fn() -> R>,
 }
 
-impl<S, R> CancellableResponseStream<S, R> {
-    /// `inner`, ended by `token`; `path` names the call in the failure.
-    pub(crate) fn create(inner: S, token: CancellationToken, path: &str) -> Self {
+impl<S, R, G> CancellableResponseStream<S, R, G> {
+    /// `inner`, ended by `signal`; `path` names the call in the failure.
+    pub(crate) fn create(inner: S, signal: Arc<G>, path: &str) -> Self {
         Self {
             inner,
-            token,
+            signal,
             path: path.into(),
             message: PhantomData,
         }
@@ -34,17 +35,21 @@ impl<S, R> CancellableResponseStream<S, R> {
     }
 }
 
-impl<R: Send, S: ResponseStream<R>> MessageStream<R> for CancellableResponseStream<S, R> {
+impl<R: Send, S: ResponseStream<R>, G: CancellationSignal> MessageStream<R>
+    for CancellableResponseStream<S, R, G>
+{
     async fn read_message(&mut self) -> Result<Option<R>, CallError> {
         tokio::select! {
             biased;
-            () = self.token.cancelled() => Err(self.cancelled()),
+            () = self.signal.wait_cancelled() => Err(self.cancelled()),
             message = self.inner.read_message() => message,
         }
     }
 }
 
-impl<R: Send, S: ResponseStream<R>> ResponseStream<R> for CancellableResponseStream<S, R> {
+impl<R: Send, S: ResponseStream<R>, G: CancellationSignal> ResponseStream<R>
+    for CancellableResponseStream<S, R, G>
+{
     type Metadata = S::Metadata;
 
     fn get_headers(&self) -> &S::Metadata {
@@ -54,7 +59,7 @@ impl<R: Send, S: ResponseStream<R>> ResponseStream<R> for CancellableResponseStr
     async fn read_trailers(&mut self) -> Result<S::Metadata, CallError> {
         tokio::select! {
             biased;
-            () = self.token.cancelled() => Err(self.cancelled()),
+            () = self.signal.wait_cancelled() => Err(self.cancelled()),
             trailers = self.inner.read_trailers() => trailers,
         }
     }

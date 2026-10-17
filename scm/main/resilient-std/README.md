@@ -1,7 +1,7 @@
 # grpc-egress-resilient-std
 
 The implementation of the resilience domain `grpc-egress-resilient`: `StdGrpcResilientFactory::new(config)`
-wraps an already-built `GrpcEgress` client in retry and then a circuit breaker. It does not build the
+wraps an already-built `Transport + RawTransport` client in retry and then a circuit breaker. It does not build the
 client.
 
 ## Build and test

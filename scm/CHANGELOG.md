@@ -36,8 +36,8 @@ item is `docs/contract-mapping.md`.
   `with_mtls(MtlsConfig)` and `with_root_ca(path)` are `with_tls(TlsSettings)` (bytes; `TlsSettingsResolver::resolve`
   reads PEM files, and a file that cannot be used fails with `UnusableTlsFile` naming its path); a file configuration's
   `mtls` paths are read by `build`. `with_prost_codec` and `DisabledFeatureOptions` are removed.
-- **Interceptors:** `before_call(&mut OutboundCall) -> Result<(), CallError>` and `after_call(&InboundReply)`. An
-  interceptor adds a header with `OutboundCallHeaders::add_header`. It can no longer rewrite a response body.
+- **Interceptors:** `before_call(&mut dyn OutboundCall) -> Result<(), CallError>` and `after_call(&InboundReply)`. An
+  interceptor adds a header with `OutboundCall::add_header`. It can no longer rewrite a response body.
 - **Retry, breaker and resilient** are generic over `Transport + RawTransport` and implement both. Retry classifies by
   `StatusCode` and reads the retry-after hint from the trailers. Their old clients did not forward the three
   streaming shapes and answered `Unimplemented`; they forward them now.
@@ -48,11 +48,14 @@ item is `docs/contract-mapping.md`.
 
 ### Added
 
-- `OutboundCall`, `InboundReply`, `OutboundCallHeaders`: what an interceptor sees and how it adds a header.
-- Two views of a client: `GrpcCancellationFactory` (a `CancellationToken` ends a call and every message read from a
-  stream, with `Cancelled`; dropping a call's future cancels it on the server without it) and
-  `GrpcSecurityContextFactory` (a `SecurityContext` as the headers `x-trace-id`, `x-tenant-id`, `authorization: Bearer
-  <token>` when authenticated, and its metadata).
+- `OutboundCall` (an interface: path, timeout, headers, `add_header`) and `InboundReply`: what an interceptor sees
+  and how it adds a header. An interceptor crate depends on the domain crate only.
+- Two views of a client, each bound to an interface of the domain: `GrpcCancellationFactory` (a `CancellationSignal`
+  ends a call and every message read from a stream, with `Cancelled`; `TokenCancellation` adapts a `tokio-util`
+  `CancellationToken`; dropping a call's future cancels it on the server without it) and `GrpcCallerIdentityFactory`
+  (a `CallerIdentity` as the headers `x-trace-id`, `x-tenant-id`, `authorization: Bearer <token>` when it holds a token
+  to send, and the further headers it lists; `SecurityContextIdentity` adapts a `SecurityContext`, which
+  `grpc-egress-transport-std` re-exports; the domain crate no longer depends on `edge-security-runtime`).
 - `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, `HealthStatus`: the `grpc.health.v1.Health/Check` call
   (the old `health_check` opened a TCP connection and said nothing about the service).
 - `TlsSettingsResolver`; `scripts/mutation/` (one runner, `mutants.json`) replaces the six `mutation_proof_*.py`.

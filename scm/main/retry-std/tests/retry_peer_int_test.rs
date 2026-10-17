@@ -557,3 +557,77 @@ async fn test_call_raw_server_stream_unavailable_status_is_not_retried(
     );
     Ok(())
 }
+
+/// The last attempt is not followed by a pause: with three attempts there are two pauses, not three.
+///
+/// @covers: GrpcRetryClient::call_raw — no backoff after the last attempt.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_raw_unavailable_throughout_pauses_between_attempts_only_and_not_after_the_last(
+) -> Result<(), Box<dyn Error>> {
+    let peer = PeerServer::start(status_peer("14", "down", None)).await?;
+    let client = retrying(&peer.get_endpoint(), config(3, 500, 1, 1)?)?;
+
+    let started = Instant::now();
+    let err = client
+        .call_raw(
+            CallFixture::path("svc.Test/Method"),
+            CallFixture::request(b"x", FIVE_SECONDS),
+        )
+        .await
+        .err()
+        .ok_or("the peer is down")?;
+    let elapsed = started.elapsed();
+
+    assert!(
+        matches!(
+            err,
+            CallError::Status {
+                code: StatusCode::Unavailable,
+                ..
+            }
+        ),
+        "got {err:?}"
+    );
+    assert_eq!(peer.get_recorded_requests().len(), 3);
+    assert!(
+        elapsed >= Duration::from_millis(1000),
+        "two pauses of 500 ms were due, took {elapsed:?}"
+    );
+    assert!(
+        elapsed < Duration::from_millis(1400),
+        "a third pause after the last attempt would take it past 1500 ms, took {elapsed:?}"
+    );
+    Ok(())
+}
+
+/// A call whose budget is spent before the first attempt fails with `DeadlineExceeded` and never reaches the peer.
+///
+/// @covers: GrpcRetryClient::call_raw — the budget is exhausted before an attempt.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_raw_zero_timeout_fails_with_deadline_exceeded_and_the_peer_sees_no_request(
+) -> Result<(), Box<dyn Error>> {
+    let peer = PeerServer::start(status_peer("14", "down", None)).await?;
+    let client = retrying(&peer.get_endpoint(), fast_config(3)?)?;
+
+    let err = client
+        .call_raw(
+            CallFixture::path("svc.Test/Method"),
+            CallFixture::request(b"x", Duration::ZERO),
+        )
+        .await
+        .err()
+        .ok_or("a zero budget cannot make a call")?;
+
+    assert!(
+        matches!(
+            &err,
+            CallError::Transport {
+                code: StatusCode::DeadlineExceeded,
+                ..
+            }
+        ),
+        "got {err:?}"
+    );
+    assert_eq!(peer.get_recorded_requests().len(), 0);
+    Ok(())
+}

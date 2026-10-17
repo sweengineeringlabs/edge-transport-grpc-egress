@@ -116,9 +116,8 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
     }
 
     fn with_accept_compression(mut self, compression: Compression) -> Self {
-        if !self.accept_compression.contains(&compression) {
-            self.accept_compression.push(compression);
-        }
+        // The engine enables each encoding once, however often it is named: a repeat changes nothing on the wire.
+        self.accept_compression.push(compression);
         self
     }
 

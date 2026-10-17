@@ -2,45 +2,50 @@
 
 ## Sequence
 
-> A caller uses `GrpcEgress` to call a downstream gRPC service. The interceptor chain runs before the wire call and again after it. The chain is empty unless interceptors were attached.
+> A caller makes a call on the client the builder returned: a `proto-pattern` `Transport` (a call over a `Method`) and
+> `RawTransport` (a call to a path, with bytes). The interceptor chain runs before the call and again after a response
+> with a message; it is empty unless interceptors were attached. The engine (`proto-svc`) owns the wire.
 
 ```mermaid
 sequenceDiagram
     participant Caller
-    participant GrpcEgress
-    participant TonicGrpcEgress
-    participant InterceptorChain
+    participant Client as InterceptedTransport
+    participant Endpoint as EndpointTransport
+    participant Engine as proto-svc engine
     participant RemoteService
 
-    Caller->>GrpcEgress: call_unary(GrpcRequest)
-    GrpcEgress->>TonicGrpcEgress: call_unary(request)
-    TonicGrpcEgress->>InterceptorChain: run_before(request)
-    Note over InterceptorChain: for example TraceContextGrpcEgressInterceptor injects traceparent and tracestate
-    InterceptorChain-->>TonicGrpcEgress: request, possibly changed
-
-    TonicGrpcEgress->>RemoteService: gRPC call over HTTP/2 (TLS)
-    RemoteService-->>TonicGrpcEgress: response bytes and metadata
-
-    TonicGrpcEgress->>InterceptorChain: run_after(response)
-    InterceptorChain-->>TonicGrpcEgress: response, possibly changed
-    TonicGrpcEgress-->>GrpcEgress: Result of GrpcResponse or GrpcEgressError
-    GrpcEgress-->>Caller: Result of GrpcResponse or GrpcEgressError
+    Caller->>Client: call_raw(MethodPath, CallRequest) or call::<M>(CallRequest)
+    Client->>Client: before_call of each interceptor, in order
+    Note over Client: for example the trace-context interceptor adds traceparent and tracestate
+    Client->>Endpoint: the call, with the headers the interceptors added
+    Endpoint->>Endpoint: pick a backend (load balancer) or the one endpoint
+    Endpoint->>Engine: the call, as the kind it was
+    Engine->>RemoteService: gRPC call over HTTP/2 (TLS)
+    RemoteService-->>Engine: response, headers and trailers
+    Engine-->>Endpoint: Result of CallResponse or CallError
+    Endpoint->>Endpoint: report the outcome to the load balancer
+    Endpoint-->>Client: Result
+    Client->>Client: after_call of each interceptor, in order
+    Client-->>Caller: Result of CallResponse or CallError
 ```
 
-`TonicGrpcEgress` is a private type of the crate; the builder's `build()` returns it as `impl GrpcEgress`, and a caller that needs a trait object wraps it itself.
+The types of the client are private to the crate; the builder's `build()` returns them as
+`impl Transport + RawTransport`. Retry, a circuit breaker, a cancellation token and a security context wrap that
+value without knowing its type ([ADR-009](adr/ADR-009-the-egress-api-on-the-contract.md)).
 
 ## Data Flow
 
-> The request is bytes: the caller encodes the message and decodes the response (the optional `prost` feature adds a typed layer). Nothing is serialised by the transport.
+> A call is either typed (the caller's `Payload` encodes and decodes the message) or raw (bytes in, bytes out). The
+> transport serialises nothing of its own.
 
 ```mermaid
 flowchart LR
-    A["GrpcRequest\n───────────\nmethod\nbody: bytes\nmetadata\ndeadline"] --> B["TonicGrpcEgress"]
-    B --> C["interceptors\nrun_before"]
-    C --> D["gRPC wire\n(HTTP/2, TLS required by default)"]
+    A["CallRequest\n───────────\nmessage (typed or bytes)\nCallOptions: timeout, Metadata"] --> B["interceptors\nbefore_call"]
+    B --> C["endpoint\n(load balancer or one backend)"]
+    C --> D["proto-svc engine\nHTTP/2, TLS required by default"]
     D --> E["Remote gRPC service"]
-    E --> F["response bytes\nand metadata"]
-    F --> G["interceptors\nrun_after"]
-    G -->|Ok| H["GrpcResponse"]
-    G -->|Err| I["GrpcEgressError\nStatus / ConnectionFailed / Timeout\nInternal / Unavailable / Cancelled"]
+    E --> F["response message\nheaders and trailers"]
+    F --> G["interceptors\nafter_call"]
+    G -->|Ok| H["CallResponse"]
+    G -->|Err| I["CallError\nStatus / Transport / Encode / Decode\nStatusCode on every variant"]
 ```

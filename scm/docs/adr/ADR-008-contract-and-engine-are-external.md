@@ -1,6 +1,6 @@
 # ADR-008: The contract and the engine are external (`proto-pattern`, `proto-svc`)
 
-**Status:** Proposed, not implemented. Issue 18 task 2, 3 and 4 are the owner's to rule on; this record states the facts found while preparing the mapping (task 1), a recommendation for each ruling, and one finding that the issue does not name and that decides how much of the move is possible.
+**Status:** Accepted (the owner, 2026-10-17); implemented on `feat/18-contract-native`. Issue 18 task 2, 3 and 4 were the owner's to rule on; this record states the facts found while preparing the mapping (task 1), a recommendation for each ruling, and one finding that the issue does not name and that decides how much of the move is possible.
 **Date:** 2026-10-16
 **Tracking:** [#18](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/18) tasks 1 to 4
 **See also:** [ADR-006](ADR-006-domain-first.md), [ADR-007](ADR-007-decorators-wrap-a-built-client.md)
@@ -49,6 +49,8 @@ This changes the three rulings below from a choice among wrappers into a choice 
 
 **Ruling 3, security context (task 4).** `call_unary_with_context` has no equivalent. Options: an interceptor that derives metadata from the context and wraps `Transport`, or removal.
 *Recommendation:* the interceptor, so the capability stays and the engine stays unaware of it.
+
+*Interfaces:* the wrappers of rulings 2 and 3 (and the call an interceptor edits, ruling 4) are bound to interfaces of the domain, `CancellationSignal`, `CallerIdentity` and `OutboundCall`, not to `CancellationToken`, `SecurityContext` or a concrete call type. ADR-009 sections 5 and 7 give the shape, and its "Alternatives and trade-offs" section the cost of each choice.
 
 ## Proposed way out
 

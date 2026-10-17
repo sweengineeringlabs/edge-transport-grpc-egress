@@ -10,9 +10,11 @@ mod std;
 pub use crate::std::{
     GrpcChannelConfigBuilder, GrpcChannelConfigFactory, GrpcEgressInterceptorChain, HealthCheck,
     HealthCheckRequest, HealthCheckResponse, HealthStatus, LoadbalancerSettingsProvider,
-    MtlsConfigFactory, OutboundCallHeaders, TlsSettingsResolver, TraceContextGrpcEgressInterceptor,
+    MtlsConfigFactory, SecurityContextIdentity, TlsSettingsResolver, TokenCancellation,
+    TraceContextGrpcEgressInterceptor,
 };
+pub use edge_security_runtime::SecurityContext;
 pub use saf::{
-    StdGrpcCancellationFactory, StdGrpcEgressInterceptorFactory, StdGrpcSecurityContextFactory,
+    StdGrpcCallerIdentityFactory, StdGrpcCancellationFactory, StdGrpcEgressInterceptorFactory,
     TonicGrpcEgressBuilderSpiFactory,
 };

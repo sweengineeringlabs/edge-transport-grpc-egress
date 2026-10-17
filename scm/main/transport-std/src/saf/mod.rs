@@ -7,5 +7,5 @@ mod interceptor;
 
 pub use cancellation::StdGrpcCancellationFactory;
 pub use client::TonicGrpcEgressBuilderSpiFactory;
-pub use context::StdGrpcSecurityContextFactory;
+pub use context::StdGrpcCallerIdentityFactory;
 pub use interceptor::StdGrpcEgressInterceptorFactory;

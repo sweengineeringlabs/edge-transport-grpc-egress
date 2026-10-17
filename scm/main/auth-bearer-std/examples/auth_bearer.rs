@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use grpc_egress_auth_bearer::{BearerSecret, AUTHORIZATION_HEADER};
 use grpc_egress_auth_bearer_std::{BearerEgressConfigBuilder, StdBearerInterceptorFactory};
+use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, OutboundCall,
 };
@@ -33,14 +34,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         StdBearerInterceptorFactory::new(config).build(BuildGrpcEgressInterceptorRequest),
     ));
 
-    let mut call = OutboundCall {
-        path: "/example.Service/Method",
-        timeout: Some(Duration::from_secs(3)),
-        metadata: Metadata::default(),
-    };
+    let mut call = OutboundCallFixture::create("/example.Service/Method")
+        .with_timeout(Some(Duration::from_secs(3)))
+        .with_metadata(Metadata::default());
     chain.run_before(&mut call)?;
 
-    let values = call.metadata.get_values(AUTHORIZATION_HEADER);
+    let values = call.get_header_values(AUTHORIZATION_HEADER);
     let [header] = values.as_slice() else {
         return Err("the interceptor did not add exactly one authorization header".into());
     };

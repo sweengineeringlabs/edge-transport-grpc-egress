@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret, AUTHORIZATION_HEADER};
 use grpc_egress_auth_bearer_std::StdBearerInterceptorFactory;
+use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
     InboundReply, OutboundCall,
@@ -49,16 +50,14 @@ fn interceptor(config: BearerEgressConfig) -> impl GrpcEgressInterceptor {
     StdBearerInterceptorFactory::new(config).build(BuildGrpcEgressInterceptorRequest)
 }
 
-fn call_with(metadata: Metadata) -> OutboundCall<'static> {
-    OutboundCall {
-        path: "/svc/M",
-        timeout: Some(Duration::from_secs(1)),
-        metadata,
-    }
+fn call_with(metadata: Metadata) -> OutboundCallFixture {
+    OutboundCallFixture::create("/svc/M")
+        .with_timeout(Some(Duration::from_secs(1)))
+        .with_metadata(metadata)
 }
 
-fn token_of(call: &OutboundCall<'_>) -> Result<String, Box<dyn std::error::Error>> {
-    let values = call.metadata.get_values(AUTHORIZATION_HEADER);
+fn token_of(call: &OutboundCallFixture) -> Result<String, Box<dyn std::error::Error>> {
+    let values = call.get_header_values(AUTHORIZATION_HEADER);
     let [value] = values.as_slice() else {
         return Err(format!("expected exactly one authorization header, got {values:?}").into());
     };
@@ -170,7 +169,7 @@ fn test_before_call_with_an_authorization_header_keeps_it_and_adds_no_second(
     interceptor(hs256_config(b"sec")).before_call(&mut call)?;
 
     assert_eq!(
-        call.metadata.get_values(AUTHORIZATION_HEADER),
+        call.get_header_values(AUTHORIZATION_HEADER),
         ["Bearer caller-supplied"]
     );
     Ok(())
@@ -186,8 +185,8 @@ fn test_before_call_keeps_the_other_headers_of_the_call() -> Result<(), Box<dyn 
 
     interceptor(hs256_config(b"sec")).before_call(&mut call)?;
 
-    assert_eq!(call.metadata.get_values("x-trace"), ["t-1"]);
-    assert_eq!(call.metadata.get_values(AUTHORIZATION_HEADER).len(), 1);
+    assert_eq!(call.get_header_values("x-trace"), ["t-1"]);
+    assert_eq!(call.get_header_values(AUTHORIZATION_HEADER).len(), 1);
     Ok(())
 }
 
@@ -212,7 +211,7 @@ fn test_before_call_with_an_rs256_key_that_is_not_a_key_returns_transport_intern
         other => panic!("expected a transport failure, got {other:?}"),
     }
     assert!(
-        call.metadata.get_values(AUTHORIZATION_HEADER).is_empty(),
+        call.get_header_values(AUTHORIZATION_HEADER).is_empty(),
         "no header is added when no token could be minted"
     );
 }

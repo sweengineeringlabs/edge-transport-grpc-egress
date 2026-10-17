@@ -36,7 +36,7 @@ impl GrpcEgressInterceptorChain {
     /// # Errors
     ///
     /// The error of the first interceptor that fails; the ones after it do not run.
-    pub fn run_before(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    pub fn run_before(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         for interceptor in &self.interceptors {
             interceptor.before_call(call)?;
         }

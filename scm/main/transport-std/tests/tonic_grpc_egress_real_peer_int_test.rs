@@ -17,7 +17,8 @@ use grpc_egress_transport::{
     GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::{
-    GrpcChannelConfigFactory, StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory,
+    GrpcChannelConfigFactory, StdGrpcCancellationFactory, TokenCancellation,
+    TonicGrpcEgressBuilderSpiFactory,
 };
 use proto_pattern::{
     BinaryMetadataEntry, CallError, CallOptions, CallRequest, MessageStream, Metadata,
@@ -573,7 +574,7 @@ async fn test_call_raw_through_a_fired_token_fails_cancelled_long_before_the_pee
     let token = CancellationToken::new();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        token: token.clone(),
+        signal: TokenCancellation::new(token.clone()),
     });
     let canceller = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -621,7 +622,7 @@ async fn test_call_typed_through_a_token_that_is_not_fired_returns_the_peers_ans
     let client = Fixtures::client(&peer)?;
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        token: CancellationToken::new(),
+        signal: TokenCancellation::new(CancellationToken::new()),
     });
 
     let response = view
@@ -646,7 +647,7 @@ async fn test_call_server_stream_through_a_token_fired_mid_stream_keeps_the_mess
     let token = CancellationToken::new();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        token: token.clone(),
+        signal: TokenCancellation::new(token.clone()),
     });
 
     let mut stream = view
@@ -662,7 +663,9 @@ async fn test_call_server_stream_through_a_token_fired_mid_stream_keeps_the_mess
         token.cancel();
     });
     let started = Instant::now();
-    let third = stream.read_message().await;
+    let third = tokio::time::timeout(SHORT, stream.read_message())
+        .await
+        .map_err(|_| "the read did not end after the token fired")?;
     canceller.await?;
 
     assert_eq!(first, Some(Count { value: 1 }));
@@ -698,7 +701,7 @@ async fn test_call_raw_on_the_client_after_a_token_ended_a_call_through_a_view_s
     token.cancel();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: client.as_ref(),
-        token,
+        signal: TokenCancellation::new(token),
     });
 
     let ended = view

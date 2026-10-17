@@ -1,19 +1,22 @@
-//! `SecurityContextScenario` -- ruling 3 of ADR-008: the security context travels as headers of the call.
+//! `SecurityContextScenario` -- ruling 3 of ADR-008: the identity of the caller travels as headers of the call.
 
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::CallFixture;
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, BuildGrpcSecurityContextRequest, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcSecurityContextFactory, SecurityContext,
+    BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, GrpcCallerIdentityFactory,
+    GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{StdGrpcSecurityContextFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::{
+    SecurityContext, SecurityContextIdentity, StdGrpcCallerIdentityFactory,
+    TonicGrpcEgressBuilderSpiFactory,
+};
 use proto_pattern::{Metadata, MetadataEntry, RawTransport};
 
 use crate::{EchoServer, ScenarioReport};
 
-/// Binds a client to a security context and looks at the headers the peer receives.
+/// Binds a client to the identity a security context stands for and looks at the headers the peer receives.
 pub struct SecurityContextScenario;
 
 impl SecurityContextScenario {
@@ -34,9 +37,9 @@ impl SecurityContextScenario {
         ctx.tenant_id = Some("tenant-7".to_string());
         ctx.authenticated = true;
         ctx.token = Some("jwt-abc".to_string());
-        let bound = StdGrpcSecurityContextFactory::new().build(BuildGrpcSecurityContextRequest {
+        let bound = StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
             inner: &client,
-            ctx: &ctx,
+            identity: &SecurityContextIdentity::new(&ctx),
         });
         bound
             .call_raw(
@@ -65,9 +68,9 @@ impl SecurityContextScenario {
 
         ctx.authenticated = false;
         let unauthenticated =
-            StdGrpcSecurityContextFactory::new().build(BuildGrpcSecurityContextRequest {
+            StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
                 inner: &client,
-                ctx: &ctx,
+                identity: &SecurityContextIdentity::new(&ctx),
             });
         unauthenticated
             .call_raw(

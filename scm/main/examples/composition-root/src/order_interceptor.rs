@@ -19,7 +19,7 @@ impl OrderInterceptor {
 }
 
 impl GrpcEgressInterceptor for OrderInterceptor {
-    fn before_call(&self, _call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, _call: &mut dyn OutboundCall) -> Result<(), CallError> {
         self.log
             .lock()
             .unwrap_or_else(PoisonError::into_inner)

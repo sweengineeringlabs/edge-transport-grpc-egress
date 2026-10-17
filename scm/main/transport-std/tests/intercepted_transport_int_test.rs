@@ -13,7 +13,7 @@ use grpc_egress_transport::{
     GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
     TraceContextSource,
 };
-use grpc_egress_transport_std::{OutboundCallHeaders, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{
     CallError, CallOptions, CallRequest, MessageStream, Metadata, MetadataEntry, RawTransport,
     StatusCode, Transport,
@@ -31,7 +31,7 @@ struct Tag {
 }
 
 impl GrpcEgressInterceptor for Tag {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         call.add_header(self.key, self.value)
     }
 
@@ -56,7 +56,7 @@ impl Log {
 }
 
 impl GrpcEgressInterceptor for Log {
-    fn before_call(&self, _: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
         self.note("before");
         Ok(())
     }
@@ -71,9 +71,9 @@ impl GrpcEgressInterceptor for Log {
 struct Deny;
 
 impl GrpcEgressInterceptor for Deny {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Err(CallError::Status {
-            path: call.path.into(),
+            path: call.get_path().into(),
             code: StatusCode::PermissionDenied,
             message: "denied by interceptor".to_string(),
             details: Vec::new(),
@@ -90,7 +90,7 @@ impl GrpcEgressInterceptor for Deny {
 struct RefuseReply;
 
 impl GrpcEgressInterceptor for RefuseReply {
-    fn before_call(&self, _: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
         Ok(())
     }
 
@@ -112,7 +112,7 @@ struct Counting {
 }
 
 impl GrpcEgressInterceptor for Counting {
-    fn before_call(&self, _: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
         self.before.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
@@ -134,7 +134,7 @@ struct SeenReply {
 struct Capture(Arc<Mutex<Vec<SeenReply>>>);
 
 impl GrpcEgressInterceptor for Capture {
-    fn before_call(&self, _: &mut OutboundCall<'_>) -> Result<(), CallError> {
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
         Ok(())
     }
 
@@ -154,8 +154,8 @@ impl GrpcEgressInterceptor for Capture {
 struct SetTimeout(Duration);
 
 impl GrpcEgressInterceptor for SetTimeout {
-    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
-        call.timeout = Some(self.0);
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
+        call.set_timeout(Some(self.0));
         Ok(())
     }
 
@@ -391,7 +391,7 @@ async fn test_call_later_interceptor_sees_the_header_an_earlier_one_added_and_th
     /// Adds `x-second` only when `x-tag` is already on the call.
     struct Follower;
     impl GrpcEgressInterceptor for Follower {
-        fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+        fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
             if call.has_header("x-tag") {
                 call.add_header("x-second", "saw-tag")?;
             }

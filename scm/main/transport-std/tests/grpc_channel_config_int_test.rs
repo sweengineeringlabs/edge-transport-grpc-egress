@@ -115,9 +115,9 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
 
     struct Deny;
     impl GrpcEgressInterceptor for Deny {
-        fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+        fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
             Err(CallError::Status {
-                path: call.path.into(),
+                path: call.get_path().into(),
                 code: StatusCode::PermissionDenied,
                 message: "denied".to_string(),
                 details: Vec::new(),

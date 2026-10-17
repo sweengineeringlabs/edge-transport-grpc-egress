@@ -59,7 +59,7 @@ real server:
 7. ruling 1, a client is a generic bound: the bare, retried and guarded client go through one generic function, and a
    typed call goes through the same stack (`GenericClientScenario`)
 8. ruling 2, dropping a call's future cancels it, and a token can too: against a real `tonic` server (`CancellationScenario`)
-9. ruling 3, the security context is headers of the call (`SecurityContextScenario`)
+9. ruling 3, the caller's identity is headers of the call (`SecurityContextScenario`)
 
 ## What a composition root does, and what the builder changes
 

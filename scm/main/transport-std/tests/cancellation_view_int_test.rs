@@ -10,7 +10,9 @@ use grpc_egress_transport::{
     BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, GrpcCancellationFactory,
     GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::{
+    StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
+};
 use proto_pattern::{
     CallError, CallOptions, CallRequest, MessageStream, RawTransport, ResponseStream, StatusCode,
     Transport,
@@ -55,7 +57,7 @@ impl Fixture {
     ) -> impl Transport + RawTransport + use<'a, T> {
         StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
             inner: client,
-            token: token.clone(),
+            signal: TokenCancellation::new(token.clone()),
         })
     }
 
@@ -279,7 +281,9 @@ async fn test_read_message_typed_bidi_token_fired_while_waiting_fails_with_cance
     Fixture::fire_later(&token);
     let started = Instant::now();
 
-    let result = stream.read_message().await;
+    let result = tokio::time::timeout(PROMPT, stream.read_message())
+        .await
+        .map_err(|_| "the read did not end after the token fired")?;
 
     let error = result
         .err()
@@ -310,7 +314,9 @@ async fn test_read_message_raw_bidi_token_fired_while_waiting_fails_with_cancell
         .await?;
     Fixture::fire_later(&token);
 
-    let result = stream.read_message().await;
+    let result = tokio::time::timeout(PROMPT, stream.read_message())
+        .await
+        .map_err(|_| "the read did not end after the token fired")?;
 
     let error = result
         .err()
@@ -337,7 +343,9 @@ async fn test_read_trailers_typed_bidi_token_fired_while_waiting_fails_with_canc
     // The stream has not ended, so there are no trailers to read yet.
     Fixture::fire_later(&token);
 
-    let result = stream.read_trailers().await;
+    let result = tokio::time::timeout(PROMPT, stream.read_trailers())
+        .await
+        .map_err(|_| "the read did not end after the token fired")?;
 
     let error = result
         .err()
@@ -371,5 +379,90 @@ async fn test_read_message_typed_bidi_token_that_never_fires_delivers_the_answer
         None,
         "the peer ends the stream when the request stream ends"
     );
+    Ok(())
+}
+
+// ---- the view knows the interface, not the token: a signal written here works the same
+
+/// A signal that is not a token: a flag the test raises, awaited through a `Notify`; clones share the flag.
+#[derive(Clone)]
+struct FlagSignal(std::sync::Arc<FlagState>);
+
+struct FlagState {
+    raised: std::sync::atomic::AtomicBool,
+    notify: tokio::sync::Notify,
+}
+
+impl FlagSignal {
+    fn create() -> Self {
+        Self(std::sync::Arc::new(FlagState {
+            raised: std::sync::atomic::AtomicBool::new(false),
+            notify: tokio::sync::Notify::new(),
+        }))
+    }
+
+    fn raise(&self) {
+        self.0
+            .raised
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.0.notify.notify_waiters();
+    }
+}
+
+impl grpc_egress_transport::CancellationSignal for FlagSignal {
+    async fn wait_cancelled(&self) {
+        loop {
+            let notified = self.0.notify.notified();
+            if self.0.raised.load(std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
+            notified.await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn test_call_typed_custom_signal_raised_while_the_peer_is_slow_fails_with_cancelled_promptly(
+) -> Result<(), Box<dyn Error>> {
+    let peer = RunningPeer::start().await;
+    let client = Fixture::client(&peer)?;
+    let signal = FlagSignal::create();
+    let raiser = signal.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(FIRE_AFTER).await;
+        raiser.raise();
+    });
+    let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
+        inner: &client,
+        signal,
+    });
+    let started = Instant::now();
+
+    let result = view.call::<Echo>(Fixture::typed(Say::slow(3000))).await;
+
+    let error = result
+        .err()
+        .ok_or("the peer answers after 3 s; the signal was raised at 100 ms")?;
+    assert!(
+        Fixture::is_cancelled(&error, "/test.Peer/Echo"),
+        "got {error:?}"
+    );
+    assert!(started.elapsed() < PROMPT, "took {:?}", started.elapsed());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_call_typed_custom_signal_never_raised_returns_the_peers_answer(
+) -> Result<(), Box<dyn Error>> {
+    let peer = RunningPeer::start().await;
+    let client = Fixture::client(&peer)?;
+    let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
+        inner: &client,
+        signal: FlagSignal::create(),
+    });
+
+    let response = view.call::<Echo>(Fixture::typed(Say::of("hi"))).await?;
+
+    assert_eq!(response.get_message(), &Say::of("hi"));
     Ok(())
 }
