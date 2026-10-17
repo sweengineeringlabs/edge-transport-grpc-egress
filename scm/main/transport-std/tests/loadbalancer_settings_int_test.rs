@@ -103,12 +103,13 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
 ) -> Result<(), Box<dyn Error>> {
     use std::time::Duration;
 
+    use grpc_egress_test_support::CallFixture;
     use grpc_egress_test_support::{Fixture, PeerBehaviour, PeerServer};
     use grpc_egress_transport::{
-        BuildGrpcEgressBuilderRequest, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory,
-        GrpcRequest,
+        BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
     };
-    use grpc_egress_transport_std::{GrpcRequestFactory, TonicGrpcEgressBuilderSpiFactory};
+    use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+    use proto_pattern::RawTransport;
 
     Fixture::ensure_tls_provider();
     let one = PeerServer::start(PeerBehaviour::Reply(b"one".to_vec())).await?;
@@ -126,11 +127,10 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
 
     for _ in 0..6 {
         client
-            .call_unary(GrpcRequest::new(
-                "pkg.Service/Method",
-                b"ping".to_vec(),
-                Duration::from_secs(5),
-            ))
+            .call_raw(
+                CallFixture::path("pkg.Service/Method"),
+                CallFixture::request(b"ping", Duration::from_secs(5)),
+            )
             .await?;
     }
 

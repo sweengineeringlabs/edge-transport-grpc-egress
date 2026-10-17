@@ -1,19 +1,17 @@
 //! Characterisation of the options of the plain client, against a real in-process peer.
 //!
-//! Each test pins what one option of `GrpcChannelConfig` does today, so that the builder refactor
-//! of issue 16 cannot change it silently, and each fails when its option is ignored or changed.
-//! Where today's behaviour is a defect (an option that is accepted and has no effect) the test
-//! name and the doc comment say so, and the fix replaces the test on purpose.
+//! Each test pins what one option of `GrpcChannelConfig` does, so that a change cannot slip in silently, and
+//! each fails when its option is ignored or changed.
 
-use grpc_egress_test_support::ClientFixture;
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, GrpcRequestFactory};
 use std::error::Error;
 use std::time::{Duration, Instant};
 
-use grpc_egress_test_support::{Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{
-    CompressionMode, GrpcChannelConfig, GrpcEgressError, GrpcRequest, GrpcStatusCode,
-};
+use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
+use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
+use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use proto_pattern::{CallError, RawTransport, StatusCode};
+
+const SHORT: Duration = Duration::from_secs(5);
 
 /// @covers: GrpcChannelConfig::with_max_message_bytes
 #[tokio::test]
@@ -27,17 +25,18 @@ async fn test_call_response_at_max_message_bytes_returns_the_message() -> Result
     let client = ClientFixture::from_config(&config)?;
 
     let response = client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", SHORT),
+        )
         .await?;
 
-    assert_eq!(response.body.len(), 1024);
+    assert_eq!(response.get_message().len(), 1024);
     Ok(())
 }
 
+/// The engine's own code for a response over the limit is `OutOfRange` (the old client said `ResourceExhausted`).
+///
 /// @covers: GrpcChannelConfig::with_max_message_bytes
 #[tokio::test]
 async fn test_call_response_one_byte_over_max_message_bytes_returns_out_of_range(
@@ -50,26 +49,62 @@ async fn test_call_response_one_byte_over_max_message_bytes_returns_out_of_range
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", SHORT),
+        )
         .await;
 
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
+            Err(CallError::Status {
+                code: StatusCode::OutOfRange,
+                ..
+            })
         ),
-        "expected OutOfRange, got {result:?}"
+        "expected OutOfRange, got {:?}",
+        result.as_ref().err()
     );
     Ok(())
 }
 
-/// @covers: GrpcRequest::new
+/// The message cap of a configuration limits what the client sends as well as what it reads (the old client capped
+/// responses only): a request one byte over the cap never leaves the client.
+///
+/// @covers: GrpcChannelConfig::with_max_message_bytes
 #[tokio::test]
-async fn test_call_slower_than_the_deadline_returns_timeout_at_the_deadline(
+async fn test_call_request_one_byte_over_max_message_bytes_fails_before_it_reaches_the_peer(
+) -> Result<(), Box<dyn Error>> {
+    Fixture::ensure_tls_provider();
+    let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
+    let config = GrpcChannelConfig::new(peer.get_endpoint())
+        .allow_plaintext()
+        .with_max_message_bytes(1024);
+    let client = ClientFixture::from_config(&config)?;
+
+    let result = client
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(&[1u8; 1025], SHORT),
+        )
+        .await;
+
+    assert!(
+        matches!(&result, Err(CallError::Encode(e)) if e.is_too_large()),
+        "expected a too-large encode failure, got {:?}",
+        result.as_ref().err()
+    );
+    assert!(
+        peer.get_recorded_requests().is_empty(),
+        "the peer must not see the request"
+    );
+    Ok(())
+}
+
+/// @covers: CallOptions
+#[tokio::test]
+async fn test_call_slower_than_the_timeout_returns_status_deadline_exceeded_at_the_timeout(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_secs(3))).await?;
@@ -78,33 +113,36 @@ async fn test_call_slower_than_the_deadline_returns_timeout_at_the_deadline(
 
     let started = Instant::now();
     let result = client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_millis(300),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", Duration::from_millis(300)),
+        )
         .await;
     let elapsed = started.elapsed();
 
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+            Err(CallError::Status {
+                code: StatusCode::DeadlineExceeded,
+                ..
+            })
         ),
-        "expected DeadlineExceeded, got {result:?}"
+        "expected DeadlineExceeded, got {:?}",
+        result.as_ref().err()
     );
     assert!(
         elapsed < Duration::from_secs(2),
-        "the deadline of 300 ms must end the call long before the 3 s delay, took {elapsed:?}"
+        "the timeout of 300 ms must end the call long before the 3 s delay, took {elapsed:?}"
     );
     Ok(())
 }
 
-/// The client's request timeout is a backstop: a call whose own deadline is longer is cut at the timeout.
+/// The client's request timeout is a backstop: a call whose own timeout is longer is cut at the request timeout.
 ///
 /// @covers: GrpcChannelConfig::with_request_timeout
 #[tokio::test]
-async fn test_call_unary_request_timeout_shorter_than_the_deadline_returns_timeout_error(
+async fn test_call_request_timeout_shorter_than_the_call_timeout_returns_status_deadline_exceeded(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_millis(3000))).await?;
@@ -115,20 +153,23 @@ async fn test_call_unary_request_timeout_shorter_than_the_deadline_returns_timeo
 
     let started = Instant::now();
     let result = client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(10),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", Duration::from_secs(10)),
+        )
         .await;
     let elapsed = started.elapsed();
 
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+            Err(CallError::Status {
+                code: StatusCode::DeadlineExceeded,
+                ..
+            })
         ),
-        "the 300 ms request timeout must cut the call, got {result:?}"
+        "the 300 ms request timeout must cut the call, got {:?}",
+        result.as_ref().err()
     );
     assert!(
         elapsed < Duration::from_secs(2),
@@ -137,11 +178,11 @@ async fn test_call_unary_request_timeout_shorter_than_the_deadline_returns_timeo
     Ok(())
 }
 
-/// A request timeout longer than the call's own deadline does not extend the deadline.
+/// A request timeout longer than the call's own timeout does not extend it.
 ///
 /// @covers: GrpcChannelConfig::with_request_timeout
 #[tokio::test]
-async fn test_call_unary_request_timeout_longer_than_the_deadline_keeps_the_deadline_edge(
+async fn test_call_request_timeout_longer_than_the_call_timeout_keeps_the_call_timeout(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_millis(3000))).await?;
@@ -152,20 +193,23 @@ async fn test_call_unary_request_timeout_longer_than_the_deadline_keeps_the_dead
 
     let started = Instant::now();
     let result = client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_millis(300),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", Duration::from_millis(300)),
+        )
         .await;
     let elapsed = started.elapsed();
 
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+            Err(CallError::Status {
+                code: StatusCode::DeadlineExceeded,
+                ..
+            })
         ),
-        "the 300 ms deadline must cut the call, got {result:?}"
+        "the 300 ms call timeout must cut the call, got {:?}",
+        result.as_ref().err()
     );
     assert!(
         elapsed < Duration::from_secs(2),
@@ -187,11 +231,10 @@ async fn test_call_without_compression_sends_no_encoding_header_and_the_message_
     let payload = vec![b'a'; 4096];
 
     client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            payload.clone(),
-            Duration::from_secs(5),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(&payload, SHORT),
+        )
         .await?;
 
     let requests = peer.get_recorded_requests();
@@ -216,11 +259,10 @@ async fn test_call_sends_the_request_to_the_endpoint_of_the_config_with_a_leadin
     let client = ClientFixture::from_config(&config)?;
 
     client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", SHORT),
+        )
         .await?;
 
     let requests = peer.get_recorded_requests();
@@ -231,23 +273,30 @@ async fn test_call_sends_the_request_to_the_endpoint_of_the_config_with_a_leadin
 
 /// @covers: GrpcChannelConfig::new
 #[tokio::test]
-async fn test_call_to_a_closed_endpoint_returns_connection_failed() -> Result<(), Box<dyn Error>> {
+async fn test_call_to_a_closed_endpoint_returns_transport_unavailable() -> Result<(), Box<dyn Error>>
+{
     Fixture::ensure_tls_provider();
     let closed = Fixture::reserve_closed_port()?;
     let config = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
-        .call_unary(GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        ))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", SHORT),
+        )
         .await;
 
     assert!(
-        matches!(result, Err(GrpcEgressError::ConnectionFailed(_))),
-        "expected ConnectionFailed, got {result:?}"
+        matches!(
+            result,
+            Err(CallError::Transport {
+                code: StatusCode::Unavailable,
+                ..
+            })
+        ),
+        "expected Transport Unavailable, got {:?}",
+        result.as_ref().err()
     );
     Ok(())
 }

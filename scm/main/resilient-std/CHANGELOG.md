@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   *and* composed retry+breaker onto it — a second composer) is removed. Replaced by
   `GrpcResilientFacade::apply_resilience(inner, config)`, a pure decorator that wraps an
   already-built bare `GrpcEgress` — the composition root builds the base itself, per the
-  one-composer model (ADR-004 amendment, edge-bootstrap ADR-008/010).
+  one-composer model (ADR-004 amendment).
 - `ResilienceConfig` is no longer a newtype wrapper around
   `edge_transport_grpc_egress::ResilienceConfigResilienceValidator` (that type is gone from
   `transport`). It's now this crate's own owned struct — same field shape, but this crate is the

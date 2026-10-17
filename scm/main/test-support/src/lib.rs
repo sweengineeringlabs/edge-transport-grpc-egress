@@ -2,6 +2,8 @@
 //!
 //! * [`Fixture`] and [`ClosedPort`]: a port that refuses connections and cannot be given away, and
 //!   the TLS provider setup.
+//! * [`CallFixture`] and [`ClientFixture`]: the path and request of a raw call, and a client built through the
+//!   public builder.
 //! * [`PeerServer`]: an in-process gRPC peer that answers over HTTP/2 and records what it received.
 //! * [`FreezableProxy`]: a TCP proxy a test can freeze, so a healthy peer stops answering.
 //! * [`GrpcFrame`] and [`DecodedFrame`]: the five-byte gRPC message framing.
@@ -20,5 +22,5 @@ mod tls;
 pub use frame::{DecodedFrame, GrpcFrame};
 pub use peer::{PeerBehaviour, PeerServer, RecordedRequest, RunningPeer};
 pub use proxy::{FreezableProxy, RunningProxy};
-pub use setup::{ClientFixture, ClosedPort, Fixture};
+pub use setup::{CallFixture, ClientFixture, ClosedPort, Fixture};
 pub use tls::{TestPki, TlsServerMode};

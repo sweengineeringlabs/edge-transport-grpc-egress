@@ -1,5 +1,5 @@
 //! `grpc_egress_retry` -- the retry domain: the contracts, requests, responses, errors and the
-//! retry policy value. The implementation (the decorator that wraps a `GrpcEgress`) is in
+//! retry policy value. The implementation (the decorator that wraps a `Transport` and a `RawTransport`) is in
 //! `grpc-egress-retry-std`.
 
 #![warn(missing_docs)]

@@ -60,8 +60,7 @@ Runnable versions: `scm/main/transport-std/examples/basic_transport.rs`,
 This crate ships the client side of the transport: the client over the `proto-svc` engine (which owns the
 wire format, the connection, TLS, compression and the status codes), the load balancer and interceptors. It does **not** ship
 server machinery: it binds no listener, runs no accept loop, terminates no TLS and owns no connection
-lifecycle on the serving side. That is the job of the deploying application (for the ingress side,
-`edge-runtime`). The in-process peer in `grpc-egress-test-support` is for tests and is not part of any
+lifecycle on the serving side. That is the job of the deploying application. The in-process peer in `grpc-egress-test-support` is for tests and is not part of any
 published crate.
 
 ## Options of the client builder
@@ -82,7 +81,7 @@ scm/
   main/<theme>-std/             implementation crate: src/{std,spi,saf}/, tests/, examples/
   main/examples/composition-root/
   docs/                         architecture and ADRs
-scripts/                        check_layout.py, rename_crate.py, mutation_proof_*.py
+scripts/                        check_layout.py, rename_crate.py, mutation/ (run_mutants.py and mutants.json)
 .githooks/                      pre-commit: fmt, clippy, arch audit, cargo audit, layout, script tests
 ```
 

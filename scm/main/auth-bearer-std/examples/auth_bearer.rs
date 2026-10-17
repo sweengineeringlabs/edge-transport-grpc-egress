@@ -1,22 +1,22 @@
-//! Reusable example: sign a bearer token and see it added to an outbound request.
+//! Reusable example: sign a bearer token and see it added to an outbound call.
 //!
 //! The interceptor is built from a [`BearerEgressConfig`], pushed into a
-//! [`GrpcEgressInterceptorChain`], and the chain is run over a request exactly as the client runs it
-//! before the wire call. No server is needed.
+//! [`GrpcEgressInterceptorChain`], and the chain is run over the call exactly as the client runs it before the wire
+//! call. No server is needed.
 //!
 //! [`BearerEgressConfig`]: grpc_egress_auth_bearer::BearerEgressConfig
 //! [`GrpcEgressInterceptorChain`]: grpc_egress_transport_std::GrpcEgressInterceptorChain
 
-use grpc_egress_transport_std::GrpcRequestFactory;
 use std::sync::Arc;
 use std::time::Duration;
 
 use grpc_egress_auth_bearer::{BearerSecret, AUTHORIZATION_HEADER};
 use grpc_egress_auth_bearer_std::{BearerEgressConfigBuilder, StdBearerInterceptorFactory};
 use grpc_egress_transport::{
-    BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, GrpcRequest,
+    BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, OutboundCall,
 };
 use grpc_egress_transport_std::GrpcEgressInterceptorChain;
+use proto_pattern::Metadata;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = BearerEgressConfigBuilder::new()
@@ -33,13 +33,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         StdBearerInterceptorFactory::new(config).build(BuildGrpcEgressInterceptorRequest),
     ));
 
-    let mut request = GrpcRequest::new("example.Service/Method", vec![], Duration::from_secs(3));
-    chain.run_before(&mut request)?;
+    let mut call = OutboundCall {
+        path: "/example.Service/Method",
+        timeout: Some(Duration::from_secs(3)),
+        metadata: Metadata::default(),
+    };
+    chain.run_before(&mut call)?;
 
-    let header = request
-        .metadata
-        .get(AUTHORIZATION_HEADER)
-        .ok_or("the interceptor did not add an authorization header")?;
+    let values = call.metadata.get_values(AUTHORIZATION_HEADER);
+    let [header] = values.as_slice() else {
+        return Err("the interceptor did not add exactly one authorization header".into());
+    };
     let token = header
         .strip_prefix("Bearer ")
         .ok_or("the authorization header is not a bearer token")?;

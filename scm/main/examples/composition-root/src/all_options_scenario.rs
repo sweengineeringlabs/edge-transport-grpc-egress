@@ -1,26 +1,26 @@
 //! `AllOptionsScenario` -- every option of the client builder, one after the other.
 
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use grpc_egress_test_support::{PeerBehaviour, PeerServer, TestPki, TlsServerMode};
+use grpc_egress_test_support::{CallFixture, PeerBehaviour, PeerServer, TestPki, TlsServerMode};
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, CompressionMode, GrpcEgress, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcEgressError, GrpcRequest, GrpcStatusCode, KeepAliveConfig,
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig,
     MtlsConfig, TraceContextSource,
 };
 use grpc_egress_transport_std::{
-    GrpcRequestFactory, MtlsConfigFactory, TonicGrpcEgressBuilderSpiFactory,
+    MtlsConfigFactory, TlsSettingsResolver, TonicGrpcEgressBuilderSpiFactory,
 };
+use proto_pattern::{CallError, CallRequest, Compression, RawTransport, StatusCode};
 
 use crate::{EchoServer, OrderInterceptor, ScenarioReport};
 
 const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
 const MESSAGE_CAP_BYTES: usize = 1024;
 
-/// Sets every option of the builder: endpoint, plaintext rule, request timeout, message cap,
-/// compression, keep-alive, mTLS, interceptor and trace context, and looks for the effect of each.
+/// Sets every option of the builder: endpoint, plaintext rule, request timeout, message limit, compression,
+/// keep-alive, TLS, interceptor and trace context, and looks for the effect of each.
 pub struct AllOptionsScenario;
 
 impl AllOptionsScenario {
@@ -32,14 +32,15 @@ impl AllOptionsScenario {
     pub async fn run(&self) -> Result<ScenarioReport, Box<dyn Error>> {
         let mut report = ScenarioReport::new("every transport option");
         let server = EchoServer::start_with(PeerBehaviour::Reply(b"pong".to_vec())).await?;
-        let log = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = Arc::new(Mutex::new(Vec::new()));
         let client = TonicGrpcEgressBuilderSpiFactory::new("")
             .build(BuildGrpcEgressBuilderRequest)
             .with_endpoint(server.get_endpoint())
             .with_plaintext_allowed()
             .with_request_timeout(Duration::from_secs(5))
-            .with_max_message_bytes(MESSAGE_CAP_BYTES)
-            .with_compression(CompressionMode::Gzip)
+            .with_max_decoding_message_size(MESSAGE_CAP_BYTES)
+            .with_send_compression(Compression::Gzip)
+            .with_accept_compression(Compression::Gzip)
             .with_keep_alive(KeepAliveConfig {
                 interval: Duration::from_secs(30),
                 timeout: Duration::from_secs(10),
@@ -52,8 +53,16 @@ impl AllOptionsScenario {
             })
             .build()?;
 
-        let echoed = client.call_unary(Self::request(b"ping")).await?;
-        report.record("the peer's answer arrives", echoed.body == b"pong");
+        let echoed = client
+            .call_raw(
+                CallFixture::path("pkg.Service/Method"),
+                Self::request(b"ping"),
+            )
+            .await?;
+        report.record(
+            "the peer's answer arrives",
+            echoed.get_message().as_slice() == b"pong",
+        );
         report.record(
             "the message travelled compressed",
             server.is_last_message_compressed(),
@@ -74,8 +83,8 @@ impl AllOptionsScenario {
         );
 
         report.record(
-            "a reply over the message cap is refused",
-            Self::cap_refuses().await?,
+            "a reply over the message limit is refused",
+            Self::limit_refuses().await?,
         );
 
         report.record(
@@ -89,22 +98,30 @@ impl AllOptionsScenario {
         Ok(report)
     }
 
-    fn request(body: &[u8]) -> GrpcRequest {
-        GrpcRequest::new("pkg.Service/Method", body.to_vec(), Duration::from_secs(5))
+    fn request(body: &[u8]) -> CallRequest<Vec<u8>> {
+        CallFixture::request(body, Duration::from_secs(5))
     }
 
-    async fn cap_refuses() -> Result<bool, Box<dyn Error>> {
+    async fn limit_refuses() -> Result<bool, Box<dyn Error>> {
         let big =
             EchoServer::start_with(PeerBehaviour::Reply(vec![7u8; MESSAGE_CAP_BYTES * 2])).await?;
         let client = TonicGrpcEgressBuilderSpiFactory::new(big.get_endpoint())
             .build(BuildGrpcEgressBuilderRequest)
             .with_plaintext_allowed()
-            .with_max_message_bytes(MESSAGE_CAP_BYTES)
+            .with_max_decoding_message_size(MESSAGE_CAP_BYTES)
             .build()?;
-        let result = client.call_unary(Self::request(b"ping")).await;
+        let result = client
+            .call_raw(
+                CallFixture::path("pkg.Service/Method"),
+                Self::request(b"ping"),
+            )
+            .await;
         Ok(matches!(
             result,
-            Err(GrpcEgressError::Status(GrpcStatusCode::OutOfRange, _))
+            Err(CallError::Status {
+                code: StatusCode::OutOfRange,
+                ..
+            })
         ))
     }
 
@@ -115,10 +132,18 @@ impl AllOptionsScenario {
             .with_plaintext_allowed()
             .with_request_timeout(Duration::from_millis(150))
             .build()?;
-        let result = client.call_unary(Self::request(b"ping")).await;
+        let result = client
+            .call_raw(
+                CallFixture::path("pkg.Service/Method"),
+                CallFixture::request(b"ping", Duration::from_secs(5)),
+            )
+            .await;
         Ok(matches!(
             result,
-            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+            Err(CallError::Status {
+                code: StatusCode::DeadlineExceeded,
+                ..
+            })
         ))
     }
 
@@ -130,17 +155,24 @@ impl AllOptionsScenario {
             TlsServerMode::ClientAuthRequired,
         )
         .await?;
+        let mtls = MtlsConfig::with_root_ca(
+            pki.get_client_cert_pem_path()
+                .to_string_lossy()
+                .into_owned(),
+            pki.get_client_key_pem_path().to_string_lossy().into_owned(),
+            pki.get_ca_pem_path().to_string_lossy().into_owned(),
+        );
+        let tls = TlsSettingsResolver::resolve(Some(&mtls), mtls.ca_pem_path.as_deref())?;
         let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_https_endpoint())
             .build(BuildGrpcEgressBuilderRequest)
-            .with_mtls(MtlsConfig::with_root_ca(
-                pki.get_client_cert_pem_path()
-                    .to_string_lossy()
-                    .into_owned(),
-                pki.get_client_key_pem_path().to_string_lossy().into_owned(),
-                pki.get_ca_pem_path().to_string_lossy().into_owned(),
-            ))
+            .with_tls(tls)
             .build()?;
-        let answered = client.call_unary(Self::request(b"ping")).await?;
-        Ok(answered.body == b"secure")
+        let answered = client
+            .call_raw(
+                CallFixture::path("pkg.Service/Method"),
+                Self::request(b"ping"),
+            )
+            .await?;
+        Ok(answered.get_message().as_slice() == b"secure")
     }
 }

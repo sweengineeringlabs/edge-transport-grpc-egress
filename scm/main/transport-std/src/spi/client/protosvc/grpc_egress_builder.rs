@@ -4,30 +4,36 @@
 //! [`crate::saf::TonicGrpcEgressBuilderSpiFactory`] and uses it through the
 //! [`GrpcEgressBuilder`] trait.
 
-use crate::std::{GrpcEgressInterceptorChain, TraceContextGrpcEgressInterceptor};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::spi::loadbalancer::protosvc::BalancedGrpcEgress;
 use proto_pattern::{
-    BuildTransportRequest, Compression, RawTransport, RawTransportFactory, TlsSettings,
+    BuildTransportRequest, Compression, DualTransportFactory, RawTransport, TlsSettings, Transport,
 };
 use proto_tonic_spi::TonicTransportSpiFactory;
 
 use grpc_egress_transport::{
-    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgress, GrpcEgressBuilder,
+    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressInterceptor, KeepAliveConfig, LoadbalancerSettings, MtlsConfig, TraceContextSource,
-    DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
+    DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 
-use super::grpc_egress_client::GrpcEgressClient;
-use super::proto_svc_grpc_egress::ProtoSvcGrpcEgress;
-use super::tls_file_reader::TlsFileReader;
+use super::EndpointTransport;
+use crate::std::{
+    GrpcEgressInterceptorChain, InterceptedTransport, TlsSettingsResolver,
+    TraceContextGrpcEgressInterceptor,
+};
+
+/// Where the TLS settings of the client come from: given as bytes, or named as PEM files to read at `build`.
+enum TlsSource {
+    Settings(TlsSettings),
+    Files(MtlsConfig),
+}
 
 /// Holds the options of one client and builds it.
 ///
-/// Defaults: TLS required, a 30 s request timeout, a 4 MiB message cap, no compression, no
-/// interceptor.
+/// Defaults: TLS required, a 30 s request timeout, the engine's 4 MiB response limit, no request limit, no
+/// compression, no interceptor.
 pub(crate) struct GrpcEgressBuilderImpl {
     endpoint: String,
     /// Whether `with_endpoint` or a channel config named an endpoint, as opposed to the one the
@@ -35,12 +41,13 @@ pub(crate) struct GrpcEgressBuilderImpl {
     endpoint_explicit: bool,
     plaintext_allowed: bool,
     request_timeout: Duration,
-    max_message_bytes: usize,
-    compression: CompressionMode,
+    max_decoding_message_size: Option<usize>,
+    max_encoding_message_size: Option<usize>,
+    send_compression: Option<Compression>,
+    accept_compression: Vec<Compression>,
     interceptors: GrpcEgressInterceptorChain,
-    mtls: Option<MtlsConfig>,
+    tls: Option<TlsSource>,
     keep_alive: Option<KeepAliveConfig>,
-    root_ca: Option<String>,
     loadbalancer: Option<LoadbalancerSettings>,
 }
 
@@ -52,12 +59,13 @@ impl GrpcEgressBuilderImpl {
             endpoint_explicit: false,
             plaintext_allowed: false,
             request_timeout: Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS),
-            max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
-            compression: CompressionMode::None,
+            max_decoding_message_size: None,
+            max_encoding_message_size: None,
+            send_compression: None,
+            accept_compression: Vec::new(),
             interceptors: GrpcEgressInterceptorChain::new(),
-            mtls: None,
+            tls: None,
             keep_alive: None,
-            root_ca: None,
             loadbalancer: None,
         }
     }
@@ -86,30 +94,37 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
         }
     }
 
-    fn with_max_message_bytes(self, bytes: usize) -> Self {
+    fn with_max_decoding_message_size(self, bytes: usize) -> Self {
         Self {
-            max_message_bytes: bytes,
+            max_decoding_message_size: Some(bytes),
             ..self
         }
     }
 
-    fn with_compression(self, mode: CompressionMode) -> Self {
+    fn with_max_encoding_message_size(self, bytes: usize) -> Self {
         Self {
-            compression: mode,
+            max_encoding_message_size: Some(bytes),
             ..self
         }
     }
 
-    fn with_mtls(self, mtls: MtlsConfig) -> Self {
+    fn with_send_compression(self, compression: Compression) -> Self {
         Self {
-            mtls: Some(mtls),
+            send_compression: Some(compression),
             ..self
         }
     }
 
-    fn with_root_ca(self, ca_pem_path: impl Into<String>) -> Self {
+    fn with_accept_compression(mut self, compression: Compression) -> Self {
+        if !self.accept_compression.contains(&compression) {
+            self.accept_compression.push(compression);
+        }
+        self
+    }
+
+    fn with_tls(self, tls: TlsSettings) -> Self {
         Self {
-            root_ca: Some(ca_pem_path.into()),
+            tls: Some(TlsSource::Settings(tls)),
             ..self
         }
     }
@@ -150,20 +165,27 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
         let request_timeout = config
             .request_timeout_secs
             .map_or(self.request_timeout, Duration::from_secs);
+        let (send_compression, accept_compression) =
+            match Self::read_compression(config.compression) {
+                Some(compression) => (Some(compression), vec![compression]),
+                None => (self.send_compression, self.accept_compression.clone()),
+            };
         Self {
             endpoint: config.endpoint.clone(),
             endpoint_explicit: self.endpoint_explicit || !config.endpoint.is_empty(),
             plaintext_allowed: !config.tls_required,
             request_timeout,
-            max_message_bytes: config.max_message_bytes,
-            compression: config.compression,
-            mtls: config.mtls.clone().or(self.mtls),
+            max_decoding_message_size: Some(config.max_message_bytes),
+            max_encoding_message_size: Some(config.max_message_bytes),
+            send_compression,
+            accept_compression,
+            tls: config.mtls.clone().map(TlsSource::Files).or(self.tls),
             keep_alive: config.keep_alive.or(self.keep_alive),
             ..self
         }
     }
 
-    fn build(self) -> Result<impl GrpcEgress + use<>, GrpcChannelConfigError> {
+    fn build(self) -> Result<impl Transport + RawTransport + use<>, GrpcChannelConfigError> {
         self.check_values()?;
         let targets = self.list_targets()?;
         if !self.plaintext_allowed {
@@ -171,11 +193,7 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
                 return Err(GrpcChannelConfigError::PlaintextRejected(url.clone()));
             }
         }
-        let root_ca = self
-            .root_ca
-            .as_deref()
-            .or_else(|| self.mtls.as_ref().and_then(|m| m.ca_pem_path.as_deref()));
-        if let Some(option) = self.name_tls_option(root_ca) {
+        if let Some(option) = self.name_tls_option() {
             if targets.iter().all(|url| Self::is_plaintext_endpoint(url)) {
                 return Err(GrpcChannelConfigError::TlsOptionOnPlaintextEndpoint {
                     option,
@@ -183,33 +201,39 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
                 });
             }
         }
-        let tls = TlsFileReader::read(self.mtls.as_ref(), root_ca)?;
-        match &self.loadbalancer {
-            Some(settings) => {
-                let mut clients = Vec::with_capacity(targets.len());
-                for url in &targets {
-                    clients.push((url.clone(), self.create_client(url, &tls)?));
-                }
-                Ok(GrpcEgressClient::Balanced(BalancedGrpcEgress::create(
-                    clients, settings,
-                )?))
-            }
-            None => {
-                let first = targets.first().cloned().unwrap_or_default();
-                Ok(GrpcEgressClient::Direct(self.create_client(&first, &tls)?))
-            }
+        let tls = self.resolve_tls()?;
+        let mut clients = Vec::with_capacity(targets.len());
+        for url in &targets {
+            clients.push((url.clone(), self.create_client(url, &tls)?));
         }
+        let endpoint = EndpointTransport::create(clients, self.loadbalancer.as_ref())?;
+        Ok(InterceptedTransport::create(endpoint, self.interceptors))
     }
 }
 
 impl GrpcEgressBuilderImpl {
-    /// Refuse a zero cap or timeout, and options that exclude each other.
+    /// The compression a file configuration names; `None` is no compression.
+    fn read_compression(mode: CompressionMode) -> Option<Compression> {
+        match mode {
+            CompressionMode::None => None,
+            CompressionMode::Gzip => Some(Compression::Gzip),
+            CompressionMode::Zstd => Some(Compression::Zstd),
+        }
+    }
+
+    /// Refuse a zero limit or timeout, and options that exclude each other.
     fn check_values(&self) -> Result<(), GrpcChannelConfigError> {
-        if self.max_message_bytes == 0 {
-            return Err(GrpcChannelConfigError::InvalidOptionValue {
-                option: "max_message_bytes",
-                reason: "zero would refuse every message; use a positive number of bytes".into(),
-            });
+        for (option, value) in [
+            ("max_decoding_message_size", self.max_decoding_message_size),
+            ("max_encoding_message_size", self.max_encoding_message_size),
+        ] {
+            if value == Some(0) {
+                return Err(GrpcChannelConfigError::InvalidOptionValue {
+                    option,
+                    reason: "zero would refuse every message; use a positive number of bytes"
+                        .into(),
+                });
+            }
         }
         if self.request_timeout.is_zero() {
             return Err(GrpcChannelConfigError::InvalidOptionValue {
@@ -217,7 +241,7 @@ impl GrpcEgressBuilderImpl {
                 reason: "zero would end every call at once; use a positive duration".into(),
             });
         }
-        if self.mtls.is_some() && self.plaintext_allowed {
+        if self.presents_identity() && self.plaintext_allowed {
             return Err(GrpcChannelConfigError::ConflictingOptions {
                 first: "mtls",
                 second: "plaintext_allowed",
@@ -232,6 +256,15 @@ impl GrpcEgressBuilderImpl {
             });
         }
         Ok(())
+    }
+
+    /// `true` when the client is to present a certificate (mutual TLS).
+    fn presents_identity(&self) -> bool {
+        match &self.tls {
+            Some(TlsSource::Settings(settings)) => settings.get_identity().is_some(),
+            Some(TlsSource::Files(_)) => true,
+            None => false,
+        }
     }
 
     /// The URLs calls go to: the endpoint, or each backend of the load balancer.
@@ -258,61 +291,65 @@ impl GrpcEgressBuilderImpl {
         Ok(urls)
     }
 
-    /// The TLS option that is set, for an error message: mutual TLS first, then the root CA.
-    fn name_tls_option(&self, root_ca: Option<&str>) -> Option<&'static str> {
-        match (&self.mtls, root_ca) {
-            (Some(_), _) => Some("mtls"),
-            (None, Some(_)) => Some("root_ca"),
-            (None, None) => None,
+    /// The TLS option that is set, for an error message.
+    fn name_tls_option(&self) -> Option<&'static str> {
+        match &self.tls {
+            Some(TlsSource::Settings(_)) => Some("tls"),
+            Some(TlsSource::Files(_)) => Some("mtls"),
+            None => None,
         }
     }
-}
 
-impl GrpcEgressBuilderImpl {
+    /// The TLS settings of an `https` endpoint: the ones given, the files named read, or the system's roots.
+    fn resolve_tls(&self) -> Result<TlsSettings, GrpcChannelConfigError> {
+        match &self.tls {
+            Some(TlsSource::Settings(settings)) => Ok(settings.clone()),
+            Some(TlsSource::Files(mtls)) => {
+                TlsSettingsResolver::resolve(Some(mtls), mtls.ca_pem_path.as_deref())
+            }
+            None => Ok(TlsSettings::create(None, Vec::new(), None)),
+        }
+    }
+
     /// Returns `true` when `endpoint` starts with `http://` (case-insensitive).
     fn is_plaintext_endpoint(endpoint: &str) -> bool {
         endpoint.len() >= 7 && endpoint[..7].eq_ignore_ascii_case("http://")
     }
 
-    /// The client for `url`: its transport is built by the `proto-svc` factory from the options of this
-    /// builder, and TLS is set up for an `https` endpoint only.
+    /// The client for `url`: the `proto-svc` factory builds it from the options of this builder, and TLS is set up
+    /// for an `https` endpoint only.
     fn create_client(
         &self,
         url: &str,
         tls: &TlsSettings,
-    ) -> Result<ProtoSvcGrpcEgress<impl RawTransport + 'static>, GrpcChannelConfigError> {
-        let mut factory = TonicTransportSpiFactory::new(url)
-            .with_max_decoding_message_size(self.max_message_bytes);
+    ) -> Result<impl Transport + RawTransport + 'static, GrpcChannelConfigError> {
+        let mut factory = TonicTransportSpiFactory::new(url).with_timeout(self.request_timeout);
+        if let Some(bytes) = self.max_decoding_message_size {
+            factory = factory.with_max_decoding_message_size(bytes);
+        }
+        if let Some(bytes) = self.max_encoding_message_size {
+            factory = factory.with_max_encoding_message_size(bytes);
+        }
         if !Self::is_plaintext_endpoint(url) {
             factory = factory.with_tls(tls.clone());
         }
-        factory = match self.compression {
-            CompressionMode::None => factory,
-            CompressionMode::Gzip => factory
-                .with_send_compression(Compression::Gzip)
-                .with_accept_compression(Compression::Gzip),
-            CompressionMode::Zstd => factory
-                .with_send_compression(Compression::Zstd)
-                .with_accept_compression(Compression::Zstd),
-        };
+        if let Some(compression) = self.send_compression {
+            factory = factory.with_send_compression(compression);
+        }
+        for compression in &self.accept_compression {
+            factory = factory.with_accept_compression(*compression);
+        }
         if let Some(keep_alive) = self.keep_alive {
             factory = factory
                 .with_http2_keep_alive_interval(keep_alive.interval)
                 .with_keep_alive_timeout(keep_alive.timeout)
                 .with_keep_alive_while_idle(keep_alive.permit_without_calls);
         }
-        let transport =
-            RawTransportFactory::build(&factory, BuildTransportRequest).map_err(|e| {
-                GrpcChannelConfigError::InvalidOptionValue {
-                    option: "endpoint",
-                    reason: e.to_string(),
-                }
-            })?;
-        Ok(ProtoSvcGrpcEgress::create(
-            transport,
-            url,
-            self.request_timeout,
-            self.interceptors.clone(),
-        ))
+        DualTransportFactory::build(&factory, BuildTransportRequest).map_err(|e| {
+            GrpcChannelConfigError::InvalidOptionValue {
+                option: "endpoint",
+                reason: e.to_string(),
+            }
+        })
     }
 }

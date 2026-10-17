@@ -18,16 +18,10 @@ service_type     = "processor"
 application_type = "port"
 service_type     = "processor"
 
-[features]
-default = []
-# Exposes the `GrpcEgressProstCodec` marker trait. The trait needs no dependency; the codec
-# itself (the `prost` crate) is a dependency of the implementation crate.
-prost = []
-
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
-futures = "0.3"
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.10.0" }
 tokio-util            = { version = "0.7", default-features = false }
 edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
 

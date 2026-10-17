@@ -20,6 +20,7 @@ service_type     = "processor"
 
 [dependencies]
 grpc-egress-transport = { path = "../transport" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.10.0" }
 grpc-egress-breaker = { path = "../breaker" }
 thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }

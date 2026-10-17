@@ -1,10 +1,10 @@
-//! Public type — the retry decorator that wraps any [`GrpcEgress`].
+//! The retry decorator that wraps any client that is a `Transport` and a `RawTransport`.
 
 use std::sync::Arc;
 
 use grpc_egress_retry::GrpcRetryConfig;
 
-/// Decorator that wraps an inner [`GrpcEgress`](grpc_egress_transport::GrpcEgress) with the
+/// Decorator that wraps an inner `Transport` and `RawTransport` with the
 /// retry semantics described at the crate root.
 ///
 /// `T` is the inner type; the wrapper is `T + 'static + Send + Sync`

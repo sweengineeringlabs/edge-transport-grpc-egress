@@ -41,7 +41,7 @@ mutual TLS with client certificates, endpoint and option validation, load-balanc
 normalisation, the status codes a server sends (all 17 pass through), connection failures, cancellation by token.
 Each is a test that passed unchanged.
 
-## Consequences for consumers (feeds task 15)
+## Consequences for a caller
 
 - Code that matches `GrpcEgressError::Timeout` for a deadline must match `Status(DeadlineExceeded, _)`. The client
   no longer produces `Timeout`; the variant goes in the type-replacement stage.

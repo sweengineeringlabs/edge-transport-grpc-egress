@@ -1,0 +1,380 @@
+[
+  {
+    "name": "I01 the interceptors never run before a call",
+    "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
+    "find": "        if self.chain.is_empty() {\n            return Ok(options);\n        }",
+    "replace": "        if true {\n            return Ok(options);\n        }"
+  },
+  {
+    "name": "I02 an error of before_call does not abort the call",
+    "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
+    "find": "self.chain.run_before(&mut call)?;",
+    "replace": "let _ = self.chain.run_before(&mut call);"
+  },
+  {
+    "name": "I03 the headers an interceptor added are not sent",
+    "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
+    "find": "Ok(CallOptions::create(call.timeout, call.metadata))",
+    "replace": "Ok(options)"
+  },
+  {
+    "name": "I04 the interceptors never run after a call",
+    "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
+    "find": "        if self.chain.is_empty() {\n            return Ok(());\n        }",
+    "replace": "        if true {\n            return Ok(());\n        }"
+  },
+  {
+    "name": "I05 after_call gets the trailers as headers",
+    "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
+    "find": "            headers: MetadataExtender::copy(headers),\n            trailers: MetadataExtender::copy(trailers),",
+    "replace": "            headers: MetadataExtender::copy(trailers),\n            trailers: MetadataExtender::copy(headers),"
+  },
+  {
+    "name": "C01 after_call runs in reverse order",
+    "file": "scm/main/transport-std/src/std/interceptor/egress_interceptor_chain.rs",
+    "find": "        for interceptor in &self.interceptors {\n            interceptor.after_call(reply)?;",
+    "replace": "        for interceptor in self.interceptors.iter().rev() {\n            interceptor.after_call(reply)?;"
+  },
+  {
+    "name": "C02 an error of one before_call does not stop the next",
+    "file": "scm/main/transport-std/src/std/interceptor/egress_interceptor_chain.rs",
+    "find": "interceptor.before_call(call)?;",
+    "replace": "let _ = interceptor.before_call(call);"
+  },
+  {
+    "name": "C03 an error of after_call does not fail the call",
+    "file": "scm/main/transport-std/src/std/interceptor/egress_interceptor_chain.rs",
+    "find": "interceptor.after_call(reply)?;",
+    "replace": "let _ = interceptor.after_call(reply);"
+  },
+  {
+    "name": "T01 a traceparent the call carries is overwritten",
+    "file": "scm/main/transport-std/src/std/interceptor/trace_context_grpc_egress_interceptor.rs",
+    "find": "        if call.has_header(TRACEPARENT) {\n            return Ok(());\n        }",
+    "replace": "        if false {\n            return Ok(());\n        }"
+  },
+  {
+    "name": "T02 the tracestate is never added",
+    "file": "scm/main/transport-std/src/std/interceptor/trace_context_grpc_egress_interceptor.rs",
+    "find": "                if let Some(state) = tracestate {",
+    "replace": "                if let Some(state) = None::<&String> {"
+  },
+  {
+    "name": "H01 has_header says no header is there",
+    "file": "scm/main/transport-std/src/std/interceptor/outbound_call_headers.rs",
+    "find": "        !self.metadata.get_values(key).is_empty()",
+    "replace": "        false"
+  },
+  {
+    "name": "M01 an extension overwrites a header the call carries",
+    "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
+    "find": "            if source.get_values(key).is_empty() {",
+    "replace": "            if true {"
+  },
+  {
+    "name": "M02 binary entries are lost when metadata is extended",
+    "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
+    "find": "        for entry in MetadataView::get_binary_entries(source).flatten() {",
+    "replace": "        for entry in MetadataView::get_binary_entries(source).flatten().filter(|_| false) {"
+  },
+  {
+    "name": "E01 the pool is never told a backend failed",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/endpoint_transport.rs",
+    "find": "            ) => Outcome::Failure {\n                reason: error.to_string(),\n            },",
+    "replace": "            ) => Outcome::Success,"
+  },
+  {
+    "name": "E02 a passed deadline does not mark a backend as failed",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/endpoint_transport.rs",
+    "find": "                        StatusCode::Unavailable | StatusCode::Unknown | StatusCode::DeadlineExceeded,",
+    "replace": "                        StatusCode::Unavailable | StatusCode::Unknown,"
+  },
+  {
+    "name": "E03 calls are never balanced",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/endpoint_transport.rs",
+    "find": "            Some(settings) => Some(Arc::new(Self::create_pool(settings)?)),",
+    "replace": "            Some(_) => None,"
+  },
+  {
+    "name": "E04 the outcome of a call is not reported",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/endpoint_transport.rs",
+    "find": "        if let (Some(pool), Some(backend)) = (&self.pool, &pick.backend) {",
+    "replace": "        if let (Some(pool), Some(backend)) = (&self.pool, pick.backend.as_ref().filter(|_| false)) {"
+  },
+  {
+    "name": "X01 a fired token does not end a call",
+    "file": "scm/main/transport-std/src/std/cancellation/cancellable_transport.rs",
+    "find": "            () = self.token.cancelled() => Err(Self::cancelled(path)),",
+    "replace": "            () = std::future::pending::<()>() => Err(Self::cancelled(path)),"
+  },
+  {
+    "name": "X02 a fired token does not end a message read",
+    "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
+    "find": "            () = self.token.cancelled() => Err(self.cancelled()),\n            message = self.inner.read_message() => message,",
+    "replace": "            () = std::future::pending::<()>() => Err(self.cancelled()),\n            message = self.inner.read_message() => message,"
+  },
+  {
+    "name": "X03 a fired token does not end the read of the trailers",
+    "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
+    "find": "            () = self.token.cancelled() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,",
+    "replace": "            () = std::future::pending::<()>() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,"
+  },
+  {
+    "name": "X04 a cancelled call fails with another code",
+    "file": "scm/main/transport-std/src/std/cancellation/cancellable_transport.rs",
+    "find": "            code: StatusCode::Cancelled,",
+    "replace": "            code: StatusCode::Aborted,"
+  },
+  {
+    "name": "Y01 the trace id is not sent",
+    "file": "scm/main/transport-std/src/std/context/context_headers.rs",
+    "find": "            headers.push((\"x-trace-id\".to_string(), trace_id.clone()));",
+    "replace": "            let _ = trace_id;"
+  },
+  {
+    "name": "Y02 an unauthenticated context sends its token",
+    "file": "scm/main/transport-std/src/std/context/context_headers.rs",
+    "find": "        if let (true, Some(token)) = (ctx.authenticated, &ctx.token) {",
+    "replace": "        if let (_, Some(token)) = (ctx.authenticated, &ctx.token) {"
+  },
+  {
+    "name": "Y03 the tenant header has another name",
+    "file": "scm/main/transport-std/src/std/context/context_headers.rs",
+    "find": "            headers.push((\"x-tenant-id\".to_string(), tenant_id.clone()));",
+    "replace": "            headers.push((\"x-tenant\".to_string(), tenant_id.clone()));"
+  },
+  {
+    "name": "Y04 the entries of the context metadata are not sent",
+    "file": "scm/main/transport-std/src/std/context/context_headers.rs",
+    "find": "        headers.extend(entries.into_iter().map(|(k, v)| (k.clone(), v.clone())));",
+    "replace": "        let _ = entries;"
+  },
+  {
+    "name": "L01 the root CA file is ignored",
+    "file": "scm/main/transport-std/src/std/channel/tls_settings_resolver.rs",
+    "find": "        let roots = match root_ca {",
+    "replace": "        let roots = match root_ca.filter(|_| false) {"
+  },
+  {
+    "name": "L02 the identity files are ignored",
+    "file": "scm/main/transport-std/src/std/channel/tls_settings_resolver.rs",
+    "find": "        let identity = match identity {",
+    "replace": "        let identity = match identity.filter(|_| false) {"
+  },
+  {
+    "name": "L03 a file with no PEM item is accepted",
+    "file": "scm/main/transport-std/src/std/channel/tls_settings_resolver.rs",
+    "find": "        if !text.contains(marker) {",
+    "replace": "        if false {"
+  },
+  {
+    "name": "B01 a file configuration sets the request limit to the engine's own",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "            max_encoding_message_size: Some(config.max_message_bytes),",
+    "replace": "            max_encoding_message_size: self.max_encoding_message_size,"
+  },
+  {
+    "name": "B02 the same accepted compression is added twice",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "        if !self.accept_compression.contains(&compression) {",
+    "replace": "        if true {"
+  },
+  {
+    "name": "B03 the request timeout is not applied",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "TonicTransportSpiFactory::new(url).with_timeout(self.request_timeout);",
+    "replace": "TonicTransportSpiFactory::new(url);"
+  },
+  {
+    "name": "B04 keep-alive while idle is inverted",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": ".with_keep_alive_while_idle(keep_alive.permit_without_calls);",
+    "replace": ".with_keep_alive_while_idle(!keep_alive.permit_without_calls);"
+  },
+  {
+    "name": "B05 a plaintext endpoint is accepted without the opt-in",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "        if !self.plaintext_allowed {",
+    "replace": "        if false {"
+  },
+  {
+    "name": "B06 mutual TLS from files is not seen as an identity",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "            Some(TlsSource::Files(_)) => true,",
+    "replace": "            Some(TlsSource::Files(_)) => false,"
+  },
+  {
+    "name": "B07 a zero message limit is accepted",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "            if value == Some(0) {",
+    "replace": "            if false {"
+  },
+  {
+    "name": "B08 the send compression is ignored",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "        if let Some(compression) = self.send_compression {",
+    "replace": "        if let Some(compression) = self.send_compression.filter(|_| false) {"
+  },
+  {
+    "name": "B09 TLS is not applied to an https endpoint",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "        if !Self::is_plaintext_endpoint(url) {\n            factory = factory.with_tls(tls.clone());\n        }",
+    "replace": "        if false {\n            factory = factory.with_tls(tls.clone());\n        }"
+  },
+  {
+    "name": "B10 an explicit endpoint is not remembered",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "            endpoint_explicit: true,",
+    "replace": "            endpoint_explicit: false,"
+  },
+  {
+    "name": "B11 a zero request timeout is accepted",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "        if self.request_timeout.is_zero() {",
+    "replace": "        if false {"
+  },
+  {
+    "name": "B12 a configuration file's gzip becomes zstd",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "            CompressionMode::Gzip => Some(Compression::Gzip),",
+    "replace": "            CompressionMode::Gzip => Some(Compression::Zstd),"
+  },
+  {
+    "name": "B13 the CA of the file configuration is not trusted",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "TlsSettingsResolver::resolve(Some(mtls), mtls.ca_pem_path.as_deref())",
+    "replace": "TlsSettingsResolver::resolve(Some(mtls), None)"
+  },
+  {
+    "name": "N01 the health request names the service in another field",
+    "file": "scm/main/transport-std/src/std/client/dto/health_check_request.rs",
+    "find": "    #[prost(string, tag = \"1\")]",
+    "replace": "    #[prost(string, tag = \"2\")]"
+  },
+  {
+    "name": "N02 the health call goes to Watch",
+    "file": "scm/main/transport-std/src/std/client/health_check.rs",
+    "find": "\"/grpc.health.v1.Health/Check\"",
+    "replace": "\"/grpc.health.v1.Health/Watch\""
+  },
+  {
+    "name": "RT01 a connection that failed is not retried",
+    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "find": "                StatusCode::Unavailable | StatusCode::Unknown => RetryDecision::Retry,",
+    "replace": "                StatusCode::Unavailable => RetryDecision::Retry,"
+  },
+  {
+    "name": "RT02 an Unavailable status is not retried",
+    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "find": "            StatusCode::Unavailable => RetryDecision::Retry,\n            StatusCode::ResourceExhausted =>",
+    "replace": "            StatusCode::Unavailable => RetryDecision::Terminal,\n            StatusCode::ResourceExhausted =>"
+  },
+  {
+    "name": "RT03 a hard quota is retried",
+    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "find": "                ResourceExhaustedContext::HardQuota => RetryDecision::Terminal,",
+    "replace": "                ResourceExhaustedContext::HardQuota => RetryDecision::Retry,"
+  },
+  {
+    "name": "RT04 a rate limit is retried on the standard track",
+    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "find": "                ResourceExhaustedContext::RateLimit => RetryDecision::RetryRateLimit,",
+    "replace": "                ResourceExhaustedContext::RateLimit => RetryDecision::Retry,"
+  },
+  {
+    "name": "RT05 an encode or decode failure is retried",
+    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "find": "            Err(CallError::Encode(_) | CallError::Decode(_)) => RetryDecision::Terminal,",
+    "replace": "            Err(CallError::Encode(_) | CallError::Decode(_)) => RetryDecision::Retry,"
+  },
+  {
+    "name": "RT06 the retry-after trailer is not read",
+    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "find": "[\"retry-after\", \"x-ratelimit-reset-requests\"]",
+    "replace": "[\"retry-afterx\", \"x-ratelimit-reset-requestsx\"]"
+  },
+  {
+    "name": "RT07 one attempt more than the limit is made",
+    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "find": "                    if next_attempt >= max_attempts {",
+    "replace": "                    if next_attempt > max_attempts {"
+  },
+  {
+    "name": "RT08 the total budget never shrinks",
+    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "find": "                Some(budget) => match budget.checked_sub(started.elapsed()) {",
+    "replace": "                Some(budget) => match Some(budget) {"
+  },
+  {
+    "name": "RT09 a pause that does not fit the budget is taken",
+    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "find": "            .is_some_and(|t| t < budget);",
+    "replace": "            .is_some_and(|t| t < budget || true);"
+  },
+  {
+    "name": "RT10 the budget exhausted before an attempt reports another code",
+    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "find": "                            code: StatusCode::DeadlineExceeded,\n                            reason: \"deadline exhausted before retry could be issued\".to_string(),",
+    "replace": "                            code: StatusCode::Internal,\n                            reason: \"deadline exhausted before retry could be issued\".to_string(),"
+  },
+  {
+    "name": "BR01 an Unavailable status does not count as a failure",
+    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "find": "                matches!(code, StatusCode::Unavailable | StatusCode::Internal)\n            }",
+    "replace": "                matches!(code, StatusCode::Internal)\n            }"
+  },
+  {
+    "name": "BR02 a transport Unavailable does not count as a failure",
+    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "find": "                StatusCode::Unavailable | StatusCode::Unknown | StatusCode::Internal\n            ),",
+    "replace": "                StatusCode::Unknown | StatusCode::Internal\n            ),"
+  },
+  {
+    "name": "BR03 a response that cannot be decoded does not count as a failure",
+    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "find": "            Err(CallError::Decode(_)) => true,",
+    "replace": "            Err(CallError::Decode(_)) => false,"
+  },
+  {
+    "name": "BR04 an encode failure counts as a failure",
+    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "find": "            Err(CallError::Encode(_)) => false,",
+    "replace": "            Err(CallError::Encode(_)) => true,"
+  },
+  {
+    "name": "BR05 a failure is recorded as a success",
+    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "find": "        if is_breaker_failure {\n            Outcome::Failure",
+    "replace": "        if !is_breaker_failure {\n            Outcome::Failure"
+  },
+  {
+    "name": "BR06 an admitted call is refused",
+    "file": "scm/main/breaker-std/src/std/breaker_egress.rs",
+    "find": "            Admission::Proceed => Ok(()),",
+    "replace": "            Admission::Proceed => Err(Self::refuse(path, StatusCode::Unavailable, String::new())),"
+  },
+  {
+    "name": "BA01 a caller's authorization header is overwritten",
+    "file": "scm/main/auth-bearer-std/src/spi/jsonwebtoken/bearer_egress_interceptor.rs",
+    "find": "        if call.has_header(AUTHORIZATION_HEADER) {",
+    "replace": "        if false {"
+  },
+  {
+    "name": "BA02 the token is signed with another algorithm",
+    "file": "scm/main/auth-bearer-std/src/spi/jsonwebtoken/bearer_egress_interceptor.rs",
+    "find": "(Algorithm::HS256, EncodingKey::from_secret(secret))",
+    "replace": "(Algorithm::HS384, EncodingKey::from_secret(secret))"
+  },
+  {
+    "name": "BA03 the bearer scheme is left out",
+    "file": "scm/main/auth-bearer-std/src/spi/jsonwebtoken/bearer_egress_interceptor.rs",
+    "find": "format!(\"Bearer {token}\")",
+    "replace": "format!(\"{token}\")"
+  },
+  {
+    "name": "BA04 a token that cannot be minted fails with another code",
+    "file": "scm/main/auth-bearer-std/src/spi/jsonwebtoken/bearer_egress_interceptor.rs",
+    "find": "                code: StatusCode::Internal,",
+    "replace": "                code: StatusCode::Unauthenticated,"
+  }
+]

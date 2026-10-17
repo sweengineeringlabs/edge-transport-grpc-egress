@@ -2,66 +2,151 @@
 //! backoff/attempt loop (delegating to the shared `edge-transport-retry`
 //! crate's `BackoffScheduler`) actually executes — not just constructs.
 //!
-//! A `GrpcEgress` test double is enough to prove this; no real gRPC server
-//! is needed since `StdGrpcRetryFactory` decorates any `GrpcEgress` implementor.
+//! A test double that fails twice and then succeeds is enough to prove this; no real gRPC server
+//! is needed since `StdGrpcRetryFactory` decorates any client that is a `Transport` and a `RawTransport`.
 //!
 //! [`StdGrpcRetryFactory`]: grpc_egress_retry_std::StdGrpcRetryFactory
 
-use grpc_egress_transport_std::GrpcRequestFactory;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::future::BoxFuture;
 use grpc_egress_retry::GrpcRetryConfig;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
-use grpc_egress_transport::{
-    CallStreamRequest, GrpcEgress, GrpcEgressError, GrpcEgressResult, GrpcMessageStreamResponse,
-    GrpcRequest, GrpcResponse, HealthCheckRequest,
+use proto_pattern::{
+    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
+    MessageStream, Metadata, MethodPath, RawTransport, ResponseStream, ServerStreamMethod,
+    StatusCode, Transport, UnaryMethod,
 };
 
-/// An upstream that fails the first `fail_until` calls, then succeeds —
-/// lets this example prove the retry loop really re-invokes the upstream
-/// after a real backoff sleep, not just that it compiles.
+/// An upstream that fails its first `fail_until` calls with `Unavailable`, then succeeds. A real peer answers one
+/// way for every call, so this double is what makes "fails twice, then succeeds" happen.
 struct FlakyUpstream {
     calls: Arc<AtomicUsize>,
     fail_until: usize,
 }
 
-impl GrpcEgress for FlakyUpstream {
-    fn call_unary(&self, _req: GrpcRequest) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
-        let attempt = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
-        let fail_until = self.fail_until;
-        Box::pin(async move {
-            if attempt <= fail_until {
-                Err(GrpcEgressError::Unavailable(format!(
-                    "upstream still down (attempt {attempt})"
-                )))
-            } else {
-                Ok(GrpcResponse {
-                    body: format!("ok on attempt {attempt}").into_bytes(),
-                    metadata: HashMap::new(),
-                })
-            }
-        })
+/// The response stream of a call the upstream refuses.
+struct NoStream {
+    headers: Metadata,
+}
+
+impl<T: Send> MessageStream<T> for NoStream {
+    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
+        Ok(None)
+    }
+}
+
+impl<T: Send> ResponseStream<T> for NoStream {
+    type Metadata = Metadata;
+
+    fn get_headers(&self) -> &Metadata {
+        &self.headers
     }
 
-    fn call_stream(
+    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
+        Ok(Metadata::default())
+    }
+}
+
+impl FlakyUpstream {
+    fn refusal(path: &str) -> CallError {
+        CallError::Transport {
+            path: path.into(),
+            code: StatusCode::Unimplemented,
+            reason: "this example only makes raw unary calls".to_string(),
+        }
+    }
+}
+
+impl RawTransport for FlakyUpstream {
+    type Metadata = Metadata;
+
+    async fn call_raw(
         &self,
-        _req: CallStreamRequest,
-    ) -> BoxFuture<'_, GrpcEgressResult<GrpcMessageStreamResponse>> {
-        unimplemented!("not exercised by this example")
+        path: MethodPath,
+        _request: CallRequest<Vec<u8>>,
+    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
+        let attempt = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+        if attempt <= self.fail_until {
+            Err(CallError::Transport {
+                path: path.get_path().into(),
+                code: StatusCode::Unavailable,
+                reason: format!("upstream still down (attempt {attempt})"),
+            })
+        } else {
+            Ok(CallResponse::create(
+                format!("ok on attempt {attempt}").into_bytes(),
+                Metadata::default(),
+                Metadata::default(),
+            ))
+        }
     }
 
-    fn health_check(&self, _req: HealthCheckRequest) -> BoxFuture<'_, GrpcEgressResult<()>> {
-        Box::pin(async { Ok(()) })
+    async fn call_raw_server_stream(
+        &self,
+        path: MethodPath,
+        _request: CallRequest<Vec<u8>>,
+    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(path.get_path()))
+    }
+
+    async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
+        &self,
+        path: MethodPath,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
+        Err(Self::refusal(path.get_path()))
+    }
+
+    async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
+        &self,
+        path: MethodPath,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(path.get_path()))
+    }
+}
+
+impl Transport for FlakyUpstream {
+    type Metadata = Metadata;
+
+    async fn call<M: UnaryMethod>(
+        &self,
+        _request: CallRequest<M::Request>,
+    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
+        Err(Self::refusal(M::PATH))
+    }
+
+    async fn call_server_stream<M: ServerStreamMethod>(
+        &self,
+        _request: CallRequest<M::Request>,
+    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(M::PATH))
+    }
+
+    async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
+        &self,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
+        Err(Self::refusal(M::PATH))
+    }
+
+    async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
+        &self,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(M::PATH))
     }
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let upstream = FlakyUpstream {
         calls: calls.clone(),
@@ -80,13 +165,21 @@ async fn main() {
 
     // A single logical call. The retry layer's internal attempt loop must
     // re-invoke the upstream after a real backoff sleep on each retriable
-    // failure — the deadline below leaves comfortable headroom for that.
-    let request = GrpcRequest::new("example.Service/Method", vec![], Duration::from_secs(3));
+    // failure — the timeout below leaves comfortable headroom for that.
+    let request = CallRequest::create(
+        Vec::new(),
+        CallOptions::create(Some(Duration::from_secs(3)), Metadata::default()),
+    );
     let started = std::time::Instant::now();
-    let result = client.call_unary(request).await;
+    let result = client
+        .call_raw(MethodPath::create("/example.Service/Method")?, request)
+        .await;
     let elapsed = started.elapsed();
 
-    println!("result: {result:?}");
+    println!(
+        "result: {:?}",
+        result.as_ref().map(|r| r.get_message().len())
+    );
     println!(
         "upstream was called {} time(s) across {:?}",
         calls.load(Ordering::SeqCst),
@@ -110,4 +203,5 @@ async fn main() {
         "confirmed: BackoffScheduler::next_backoff really executed between attempts \
          (elapsed {elapsed:?} implies a genuine sleep, not a busy loop)"
     );
+    Ok(())
 }

@@ -1,20 +1,34 @@
 //! Tests of the combinations and values `build` refuses. Each error names the option, and a
 //! conflict names both options, so that a caller knows what to change. Nothing panics.
 
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, MtlsConfigFactory};
+use grpc_egress_transport_std::GrpcChannelConfigFactory;
 use std::error::Error;
 use std::time::Duration;
 
+use grpc_egress_test_support::TestPki;
 use grpc_egress_transport::{
     BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcChannelConfig,
     GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory, LoadbalancerSettings,
-    MtlsConfig,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{TlsIdentity, TlsSettings};
 
 fn builder() -> impl GrpcEgressBuilder {
     TonicGrpcEgressBuilderSpiFactory::new("https://service.example:443")
         .build(BuildGrpcEgressBuilderRequest)
+}
+
+/// Settings that ask the client to present a certificate. The bytes are never read: the conflict is refused
+/// before any TLS setting is used.
+fn settings_with_identity() -> TlsSettings {
+    TlsSettings::create(
+        None,
+        Vec::new(),
+        Some(TlsIdentity::create(
+            b"client certificate".to_vec(),
+            b"client key".to_vec(),
+        )),
+    )
 }
 
 fn settings(urls: &[&str]) -> LoadbalancerSettings {
@@ -39,10 +53,10 @@ fn describe<T>(result: Result<T, GrpcChannelConfigError>) -> String {
 
 /// @covers: GrpcEgressBuilder::build
 #[test]
-fn test_build_mtls_with_plaintext_allowed_returns_conflict_naming_both_options_error() {
+fn test_build_tls_identity_with_plaintext_allowed_returns_conflict_naming_both_options_error() {
     let result = builder()
         .with_plaintext_allowed()
-        .with_mtls(MtlsConfig::new("client.pem", "client.key"))
+        .with_tls(settings_with_identity())
         .build();
 
     match result {
@@ -55,11 +69,11 @@ fn test_build_mtls_with_plaintext_allowed_returns_conflict_naming_both_options_e
 
 /// @covers: GrpcChannelConfigError
 #[test]
-fn test_build_mtls_with_plaintext_allowed_message_contains_both_option_names_error() {
+fn test_build_tls_identity_with_plaintext_allowed_message_contains_both_option_names_error() {
     let message = describe(
         builder()
             .with_plaintext_allowed()
-            .with_mtls(MtlsConfig::new("client.pem", "client.key"))
+            .with_tls(settings_with_identity())
             .build(),
     );
 
@@ -69,16 +83,34 @@ fn test_build_mtls_with_plaintext_allowed_message_contains_both_option_names_err
     );
 }
 
+/// A root to trust with no client identity is not mutual TLS, so plaintext being allowed is no conflict for it
+/// (the endpoint decides whether the roots are used).
+///
+/// @covers: GrpcEgressBuilder::build
+#[tokio::test]
+async fn test_build_tls_roots_only_with_plaintext_allowed_and_an_https_endpoint_is_accepted_edge() {
+    let pki = TestPki::create().unwrap_or_else(|e| panic!("{e}"));
+    let ca = std::fs::read(pki.get_ca_pem_path()).unwrap_or_else(|e| panic!("{e}"));
+    let roots_only = TlsSettings::create(None, vec![ca], None);
+
+    let result = builder()
+        .with_plaintext_allowed()
+        .with_tls(roots_only)
+        .build();
+
+    assert_eq!(describe(result), "built");
+}
+
 /// @covers: GrpcEgressBuilder::build
 #[test]
-fn test_build_max_message_bytes_zero_returns_invalid_option_value_error() {
-    let result = builder().with_max_message_bytes(0).build();
+fn test_build_max_decoding_message_size_zero_returns_invalid_option_value_error() {
+    let result = builder().with_max_decoding_message_size(0).build();
 
     assert!(
         matches!(
             result,
             Err(GrpcChannelConfigError::InvalidOptionValue {
-                option: "max_message_bytes",
+                option: "max_decoding_message_size",
                 ..
             })
         ),
@@ -88,12 +120,52 @@ fn test_build_max_message_bytes_zero_returns_invalid_option_value_error() {
 }
 
 /// @covers: GrpcEgressBuilder::build
-#[tokio::test]
-async fn test_build_max_message_bytes_one_is_accepted_edge() {
-    assert_eq!(
-        describe(builder().with_max_message_bytes(1).build()),
-        "built"
+#[test]
+fn test_build_max_encoding_message_size_zero_returns_invalid_option_value_error() {
+    let result = builder().with_max_encoding_message_size(0).build();
+
+    assert!(
+        matches!(
+            result,
+            Err(GrpcChannelConfigError::InvalidOptionValue {
+                option: "max_encoding_message_size",
+                ..
+            })
+        ),
+        "got {}",
+        describe(result)
     );
+}
+
+/// @covers: GrpcEgressBuilder::build
+#[test]
+fn test_build_channel_config_max_message_bytes_zero_returns_invalid_option_value_error() {
+    let config = GrpcChannelConfig::new("https://service.example:443").with_max_message_bytes(0);
+
+    let result = builder().with_channel_config(&config).build();
+
+    assert!(
+        matches!(
+            result,
+            Err(GrpcChannelConfigError::InvalidOptionValue {
+                option: "max_decoding_message_size",
+                ..
+            })
+        ),
+        "a zero limit of the configuration must be refused, got {}",
+        describe(result)
+    );
+}
+
+/// @covers: GrpcEgressBuilder::build
+#[tokio::test]
+async fn test_build_message_size_limits_of_one_byte_are_accepted_edge() {
+    let result = builder()
+        .with_max_decoding_message_size(1)
+        .with_max_encoding_message_size(1)
+        .build();
+
+    assert_eq!(describe(result), "built");
 }
 
 /// @covers: GrpcEgressBuilder::build

@@ -11,11 +11,9 @@ use grpc_egress_breaker::{
 use tokio::sync::Mutex;
 use tracing::trace;
 
-/// Decorator that wraps an inner [`GrpcEgress`](grpc_egress_transport::GrpcEgress) with a
-/// three-state circuit breaker.
+/// Decorator that wraps an inner client (a `Transport` and a `RawTransport`) with a three-state circuit breaker.
 ///
-/// Construct via [`create_breaker_client`](crate::GrpcBreakerFacade::create_breaker_client)
-/// (loads SWE baseline) or [`GrpcBreakerClient::new`] (caller-supplied config).
+/// Built by `StdGrpcBreakerFactory`, which validates the policy first.
 pub struct GrpcBreakerClient<T> {
     pub(crate) inner: T,
     pub(crate) config: Arc<GrpcBreakerConfig>,

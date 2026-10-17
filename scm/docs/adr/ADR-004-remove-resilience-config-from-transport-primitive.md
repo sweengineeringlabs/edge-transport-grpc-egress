@@ -73,9 +73,8 @@ builds the base gRPC client *and* wraps it (`base → GrpcRetryClient → GrpcBr
 amendment extends ADR-004: that facade is a **composing library** (a library assembling a finished
 client), which the wider `edge` architecture forbids.
 
-**Principle (confirmed with the repo owner; established on the HTTP side — edge-bootstrap ADR-008,
-edge-transport-http-egress#28/#29/#37/#38):** there is exactly **one composer**, `edge-bootstrap`'s
-`RuntimeBuilder`. Libraries expose *primitives* — a bare transport, and a *decorator* — never a
+**Principle (confirmed with the repo owner; established on the HTTP side, edge-transport-http-egress#28/#29/#37/#38):**
+there is exactly **one composer**, the composition root of the application. Libraries expose *primitives* — a bare transport, and a *decorator* — never a
 composed result. The HTTP `resilient` crate models this: it exposes `DefaultResilientLayers.apply_defaults`,
 a decorator applied to an already-built client by the composition root. The gRPC `resilient` crate must
 do the same.
@@ -92,9 +91,8 @@ do the same.
 - The resilience config type still lands in `resilient` (Layer 1 above), now consumed by the decorator
   rather than the facade.
 
-### Consumer
+### Composition
 
-`edge-bootstrap`'s `RuntimeBuilder` composes gRPC egress = bare client + resilient decorator, alongside
-its HTTP equivalent — one composer, both protocols. Tracked: edge-transport-grpc-egress#14 (Layer 2),
-edge-bootstrap#39. This also makes gRPC egress resilient in bootstrap for the first time (today it calls
-the bare path and silently gets no retry/breaker).
+The composition root of an application composes gRPC egress = bare client + resilient decorator, alongside
+its HTTP equivalent: one composer, both protocols. Tracked: edge-transport-grpc-egress#14 (Layer 2). This
+library does not know which application composes it; it publishes the primitives and the decorator.

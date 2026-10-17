@@ -1,16 +1,22 @@
-//! `GrpcEgressInterceptor` trait — observes/mutates requests before and after dispatch.
+//! `GrpcEgressInterceptor` trait -- observes and changes a call before it is sent and after it came back.
 
-use crate::AfterCallRequest;
-use crate::GrpcEgressError;
-use crate::GrpcRequest;
+use proto_pattern::CallError;
+
+use crate::{InboundReply, OutboundCall};
 
 /// An interceptor for outbound gRPC calls.
 pub trait GrpcEgressInterceptor: Send + Sync {
-    /// Run before the request is sent on the wire.
-    /// Returning `Err(_)` aborts the call — the transport is not invoked.
-    fn before_call(&self, req: &mut GrpcRequest) -> Result<(), GrpcEgressError>;
+    /// Run before the request is sent. The call carries `call.metadata` and `call.timeout` afterwards.
+    ///
+    /// # Errors
+    ///
+    /// Returning `Err(_)` aborts the call: nothing is sent, and the caller gets the error.
+    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError>;
 
-    /// Run after a successful response has been read from the wire.
-    /// Returning `Err(_)` converts the call result to that error.
-    fn after_call(&self, req: AfterCallRequest<'_>) -> Result<(), GrpcEgressError>;
+    /// Run after a response with a message has been read: a unary call or a client-streaming call.
+    ///
+    /// # Errors
+    ///
+    /// Returning `Err(_)` makes the call fail with that error.
+    fn after_call(&self, reply: &InboundReply<'_>) -> Result<(), CallError>;
 }

@@ -2,7 +2,6 @@
 //! `BreakerObservable` from the breaker domain, and refuses an invalid policy with a
 //! `ResilientTransportError`.
 
-use std::collections::HashMap;
 use std::error::Error;
 
 use futures::future::BoxFuture;
@@ -12,25 +11,122 @@ use grpc_egress_breaker::{
 use grpc_egress_resilient::{
     BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig, ResilientTransportError,
 };
-use grpc_egress_transport::{
-    GrpcEgress, GrpcEgressResult, GrpcRequest, GrpcResponse, HealthCheckRequest,
+use proto_pattern::{
+    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
+    MessageStream, Metadata, MethodPath, RawTransport, ResponseStream, ServerStreamMethod,
+    StatusCode, Transport, UnaryMethod,
 };
 
-/// A client that answers every call with an empty success and reports a closed breaker.
+/// A client that answers every raw call with an empty success, refuses what else it is asked, and reports a closed
+/// breaker.
 struct ClosedClient;
 
-impl GrpcEgress for ClosedClient {
-    fn call_unary(&self, _req: GrpcRequest) -> BoxFuture<'_, GrpcEgressResult<GrpcResponse>> {
-        Box::pin(async {
-            Ok(GrpcResponse {
-                body: Vec::new(),
-                metadata: HashMap::new(),
-            })
-        })
+/// The response stream of a call `ClosedClient` refuses.
+struct NoStream {
+    headers: Metadata,
+}
+
+impl<T: Send> MessageStream<T> for NoStream {
+    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
+        Ok(None)
+    }
+}
+
+impl<T: Send> ResponseStream<T> for NoStream {
+    type Metadata = Metadata;
+
+    fn get_headers(&self) -> &Metadata {
+        &self.headers
     }
 
-    fn health_check(&self, _req: HealthCheckRequest) -> BoxFuture<'_, GrpcEgressResult<()>> {
-        Box::pin(async { Ok(()) })
+    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
+        Ok(Metadata::default())
+    }
+}
+
+impl ClosedClient {
+    fn refusal(path: &str) -> CallError {
+        CallError::Transport {
+            path: path.into(),
+            code: StatusCode::Unimplemented,
+            reason: "the test client only answers raw unary calls".to_string(),
+        }
+    }
+}
+
+impl Transport for ClosedClient {
+    type Metadata = Metadata;
+
+    async fn call<M: UnaryMethod>(
+        &self,
+        _request: CallRequest<M::Request>,
+    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
+        Err(Self::refusal(M::PATH))
+    }
+
+    async fn call_server_stream<M: ServerStreamMethod>(
+        &self,
+        _request: CallRequest<M::Request>,
+    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(M::PATH))
+    }
+
+    async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
+        &self,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
+        Err(Self::refusal(M::PATH))
+    }
+
+    async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
+        &self,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(M::PATH))
+    }
+}
+
+impl RawTransport for ClosedClient {
+    type Metadata = Metadata;
+
+    async fn call_raw(
+        &self,
+        _path: MethodPath,
+        _request: CallRequest<Vec<u8>>,
+    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
+        Ok(CallResponse::create(
+            Vec::new(),
+            Metadata::default(),
+            Metadata::default(),
+        ))
+    }
+
+    async fn call_raw_server_stream(
+        &self,
+        path: MethodPath,
+        _request: CallRequest<Vec<u8>>,
+    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(path.get_path()))
+    }
+
+    async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
+        &self,
+        path: MethodPath,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
+        Err(Self::refusal(path.get_path()))
+    }
+
+    async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
+        &self,
+        path: MethodPath,
+        _requests: S,
+        _options: CallOptions,
+    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
+        Err::<NoStream, _>(Self::refusal(path.get_path()))
     }
 }
 
@@ -53,10 +149,11 @@ struct CheckingFactory {
 }
 
 impl GrpcResilientFactory for CheckingFactory {
-    fn build<T: GrpcEgress + Send + Sync + 'static>(
+    fn build<T: Transport + RawTransport + Send + Sync + 'static>(
         &self,
         _req: BuildGrpcResilientRequest<T>,
-    ) -> Result<impl GrpcEgress + BreakerObservable + use<T>, ResilientTransportError> {
+    ) -> Result<impl Transport + RawTransport + BreakerObservable + use<T>, ResilientTransportError>
+    {
         if self.config.max_attempts == 0 {
             return Err(ResilientTransportError::InvalidResilience(
                 "max_attempts must be >= 1".into(),
@@ -78,7 +175,14 @@ async fn test_build_valid_policy_returns_a_client_that_can_be_called_and_observe
         inner: ClosedClient,
     })?;
 
+    let answered = client
+        .call_raw(
+            MethodPath::create("/pkg.Service/Method")?,
+            CallRequest::create(Vec::new(), CallOptions::default()),
+        )
+        .await?;
     let observed = client.state(ObserveStateRequest).await?;
+    assert!(answered.get_message().is_empty());
     assert_eq!(observed.state, BreakerState::Closed);
     Ok(())
 }

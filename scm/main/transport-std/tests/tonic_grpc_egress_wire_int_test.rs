@@ -1,21 +1,21 @@
-//! Tests of the gRPC wire protocol of the `hyper`-backed client, against a real in-process peer: how a
-//! request is put on the wire, and how every kind of answer is read -- the status codes, the frames, and
-//! the deadline.
+//! Tests of the gRPC wire protocol of the client over the `proto-svc` engine, against a real in-process peer: how a
+//! request is put on the wire, and how every kind of answer is read -- the status codes, the frames, and the
+//! deadline. The peer is hand-written (`PeerServer`), so it can send answers a real server never would: malformed
+//! frames, a status in the headers, a body with no status.
 
-use std::collections::HashMap;
 use std::error::Error;
 use std::time::Duration;
 
-use futures::StreamExt as _;
-use grpc_egress_test_support::{Fixture, PeerBehaviour, PeerServer, RunningPeer};
+use grpc_egress_test_support::{CallFixture, Fixture, PeerBehaviour, PeerServer, RunningPeer};
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, CallStreamRequest, GrpcChannelConfigError, GrpcEgress,
-    GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressError, GrpcMessageStreamResponse,
-    GrpcRequest, GrpcStatusCode,
+    BuildGrpcEgressBuilderRequest, GrpcChannelConfigError, GrpcEgressBuilder,
+    GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{GrpcRequestFactory, TonicGrpcEgressBuilderSpiFactory};
-
-const SANITIZED: &str = "internal client error";
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{
+    CallError, MessageStream, Metadata, MetadataEntry, MethodPath, PathError, RawTransport,
+    StatusCode, Transport,
+};
 
 fn frame(flag: u8, payload: &[u8]) -> Vec<u8> {
     let mut out = vec![flag];
@@ -29,22 +29,19 @@ async fn start(behaviour: PeerBehaviour) -> Result<RunningPeer, Box<dyn Error>> 
     Ok(PeerServer::start(behaviour).await?)
 }
 
-fn client_for(peer: &RunningPeer) -> Result<impl GrpcEgress, Box<dyn Error>> {
+fn client_for(peer: &RunningPeer) -> Result<impl Transport + RawTransport, Box<dyn Error>> {
     Ok(TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
         .build()?)
 }
 
-fn request(deadline: Duration) -> GrpcRequest {
-    GrpcRequest::new("pkg.Service/Method", b"ping".to_vec(), deadline)
-}
-
+/// The failure of a unary call to a peer that answers `status`.
 async fn call_status(
     status: &str,
     message: Option<&str>,
     retry_after_secs: Option<u64>,
-) -> Result<GrpcEgressError, Box<dyn Error>> {
+) -> Result<CallError, Box<dyn Error>> {
     let peer = start(PeerBehaviour::ReplyStatus {
         status: status.to_string(),
         message: message.map(str::to_string),
@@ -52,62 +49,64 @@ async fn call_status(
     })
     .await?;
     let client = client_for(&peer)?;
-    match client.call_unary(request(Duration::from_secs(5))).await {
+    match client
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", Duration::from_secs(5)),
+        )
+        .await
+    {
         Err(error) => Ok(error),
         Ok(_) => Err("a non-zero grpc-status must be an error".into()),
     }
 }
 
-async fn call_raw(body: Vec<u8>, encoding: Option<&str>) -> Result<Vec<u8>, GrpcEgressError> {
+/// The one message of a unary call to a peer that answers the raw `body`.
+async fn call_raw(body: Vec<u8>, encoding: Option<&str>) -> Result<Vec<u8>, CallError> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::ReplyRaw {
         body,
         encoding: encoding.map(str::to_string),
     })
     .await
-    .map_err(|e| GrpcEgressError::Internal(e.to_string()))?;
+    .map_err(|e| CallError::Transport {
+        path: "".into(),
+        code: StatusCode::Internal,
+        reason: e.to_string(),
+    })?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
         .build()
-        .map_err(|e| GrpcEgressError::Internal(e.to_string()))?;
+        .map_err(|e| CallError::Transport {
+            path: "".into(),
+            code: StatusCode::Internal,
+            reason: e.to_string(),
+        })?;
     client
-        .call_unary(request(Duration::from_secs(5)))
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", Duration::from_secs(5)),
+        )
         .await
-        .map(|response| response.body)
+        .map(|response| response.into_message())
 }
 
 // ---------------------------------------------------------------- status codes
 
 /// @covers: grpc-status
 #[tokio::test]
-async fn test_call_unary_every_grpc_status_code_maps_to_its_status_code(
-) -> Result<(), Box<dyn Error>> {
-    let canonical = [
-        (1, GrpcStatusCode::Cancelled),
-        (2, GrpcStatusCode::Unknown),
-        (3, GrpcStatusCode::InvalidArgument),
-        (4, GrpcStatusCode::DeadlineExceeded),
-        (5, GrpcStatusCode::NotFound),
-        (6, GrpcStatusCode::AlreadyExists),
-        (7, GrpcStatusCode::PermissionDenied),
-        (8, GrpcStatusCode::ResourceExhausted),
-        (9, GrpcStatusCode::FailedPrecondition),
-        (10, GrpcStatusCode::Aborted),
-        (11, GrpcStatusCode::OutOfRange),
-        (12, GrpcStatusCode::Unimplemented),
-        (13, GrpcStatusCode::Internal),
-        (14, GrpcStatusCode::Unavailable),
-        (15, GrpcStatusCode::DataLoss),
-        (16, GrpcStatusCode::Unauthenticated),
-    ];
-    for (wire, expected) in canonical {
-        match call_status(&wire.to_string(), Some("peer says no"), None).await? {
-            GrpcEgressError::Status(code, message) => {
-                assert_eq!(code, expected, "grpc-status {wire}");
-                assert_eq!(message, "peer says no", "grpc-status {wire}");
+async fn test_call_raw_every_grpc_status_code_maps_to_its_status_code() -> Result<(), Box<dyn Error>>
+{
+    for code in StatusCode::ALL.into_iter().filter(|c| *c != StatusCode::Ok) {
+        match call_status(&code.get_code().to_string(), Some("peer says no"), None).await? {
+            CallError::Status {
+                code: got, message, ..
+            } => {
+                assert_eq!(got, code, "grpc-status {code}");
+                assert_eq!(message, "peer says no", "grpc-status {code}");
             }
-            other => return Err(format!("grpc-status {wire}: expected Status, got {other}").into()),
+            other => return Err(format!("grpc-status {code}: expected Status, got {other}").into()),
         }
     }
     Ok(())
@@ -115,12 +114,12 @@ async fn test_call_unary_every_grpc_status_code_maps_to_its_status_code(
 
 /// @covers: grpc-status
 #[tokio::test]
-async fn test_call_unary_unknown_or_malformed_grpc_status_maps_to_unknown(
+async fn test_call_raw_unknown_or_malformed_grpc_status_maps_to_unknown(
 ) -> Result<(), Box<dyn Error>> {
     for status in ["99", "-1", "abc"] {
         match call_status(status, None, None).await? {
-            GrpcEgressError::Status(code, _) => {
-                assert_eq!(code, GrpcStatusCode::Unknown, "grpc-status {status:?}")
+            CallError::Status { code, .. } => {
+                assert_eq!(code, StatusCode::Unknown, "grpc-status {status:?}")
             }
             other => return Err(format!("{status:?}: expected Status, got {other}").into()),
         }
@@ -128,13 +127,22 @@ async fn test_call_unary_unknown_or_malformed_grpc_status_maps_to_unknown(
     Ok(())
 }
 
+/// The retry hint of a rate-limited answer is in the trailers, where a retry policy reads it; the message is the
+/// peer's own. (The old client wrote the hint into the message as `[retry-after=Ns]`.)
+///
 /// @covers: grpc-status
 #[tokio::test]
-async fn test_call_unary_resource_exhausted_with_retry_after_embeds_the_hint(
+async fn test_call_raw_resource_exhausted_with_retry_after_carries_the_hint_in_the_trailers(
 ) -> Result<(), Box<dyn Error>> {
     match call_status("8", Some("slow down"), Some(7)).await? {
-        GrpcEgressError::Status(GrpcStatusCode::ResourceExhausted, message) => {
-            assert_eq!(message, "slow down [retry-after=7s]");
+        CallError::Status {
+            code: StatusCode::ResourceExhausted,
+            message,
+            trailers,
+            ..
+        } => {
+            assert_eq!(message, "slow down");
+            assert_eq!(trailers.get_values("retry-after"), ["7"]);
             Ok(())
         }
         other => Err(format!("expected ResourceExhausted, got {other}").into()),
@@ -143,10 +151,14 @@ async fn test_call_unary_resource_exhausted_with_retry_after_embeds_the_hint(
 
 /// @covers: grpc-status
 #[tokio::test]
-async fn test_call_unary_other_status_with_retry_after_leaves_the_message_alone(
+async fn test_call_raw_other_status_with_retry_after_leaves_the_message_alone(
 ) -> Result<(), Box<dyn Error>> {
     match call_status("14", Some("down"), Some(7)).await? {
-        GrpcEgressError::Status(GrpcStatusCode::Unavailable, message) => {
+        CallError::Status {
+            code: StatusCode::Unavailable,
+            message,
+            ..
+        } => {
             assert_eq!(message, "down");
             Ok(())
         }
@@ -161,16 +173,19 @@ async fn test_call_unary_other_status_with_retry_after_leaves_the_message_alone(
 ///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_empty_body_is_an_unimplemented_status_error() {
+async fn test_call_raw_empty_body_is_an_unimplemented_status_error() {
     assert!(matches!(
         call_raw(Vec::new(), None).await,
-        Err(GrpcEgressError::Status(GrpcStatusCode::Unimplemented, _))
+        Err(CallError::Status {
+            code: StatusCode::Unimplemented,
+            ..
+        })
     ));
 }
 
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_one_frame_is_its_payload() -> Result<(), Box<dyn Error>> {
+async fn test_call_raw_one_frame_is_its_payload() -> Result<(), Box<dyn Error>> {
     assert_eq!(call_raw(frame(0, b"hello"), None).await?, b"hello");
     Ok(())
 }
@@ -179,7 +194,7 @@ async fn test_call_unary_one_frame_is_its_payload() -> Result<(), Box<dyn Error>
 ///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_truncated_frame_is_an_error_and_delivers_no_message() {
+async fn test_call_raw_truncated_frame_is_an_error_and_delivers_no_message() {
     let mut body = frame(0, b"hello");
     body.truncate(body.len() - 2);
 
@@ -191,7 +206,7 @@ async fn test_call_unary_truncated_frame_is_an_error_and_delivers_no_message() {
 ///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_bytes_after_the_last_frame_are_ignored() -> Result<(), Box<dyn Error>> {
+async fn test_call_raw_bytes_after_the_last_frame_are_ignored() -> Result<(), Box<dyn Error>> {
     let mut body = frame(0, b"hello");
     body.extend_from_slice(&[1, 2, 3]);
 
@@ -201,19 +216,25 @@ async fn test_call_unary_bytes_after_the_last_frame_are_ignored() -> Result<(), 
 
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_invalid_compressed_flag_is_an_internal_status_error() {
+async fn test_call_raw_invalid_compressed_flag_is_an_internal_status_error() {
     assert!(matches!(
         call_raw(frame(2, b"hello"), None).await,
-        Err(GrpcEgressError::Status(GrpcStatusCode::Internal, _))
+        Err(CallError::Status {
+            code: StatusCode::Internal,
+            ..
+        })
     ));
 }
 
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_compressed_flag_without_an_encoding_is_an_internal_status_error() {
+async fn test_call_raw_compressed_flag_without_an_encoding_is_an_internal_status_error() {
     assert!(matches!(
         call_raw(frame(1, b"hello"), None).await,
-        Err(GrpcEgressError::Status(GrpcStatusCode::Internal, _))
+        Err(CallError::Status {
+            code: StatusCode::Internal,
+            ..
+        })
     ));
 }
 
@@ -221,19 +242,24 @@ async fn test_call_unary_compressed_flag_without_an_encoding_is_an_internal_stat
 ///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_unary_two_frames_are_an_unimplemented_status_error() {
+async fn test_call_raw_two_frames_are_an_unimplemented_status_error() {
     let mut body = frame(0, b"one");
     body.extend_from_slice(&frame(0, b"two"));
 
     assert!(matches!(
         call_raw(body, None).await,
-        Err(GrpcEgressError::Status(GrpcStatusCode::Unimplemented, _))
+        Err(CallError::Status {
+            code: StatusCode::Unimplemented,
+            ..
+        })
     ));
 }
 
+/// A server-streaming call reads every frame as a message of its own: the old `call_stream` buffered them all.
+///
 /// @covers: frames
 #[tokio::test]
-async fn test_call_stream_two_frames_are_two_messages() -> Result<(), Box<dyn Error>> {
+async fn test_call_raw_server_stream_two_frames_are_two_messages() -> Result<(), Box<dyn Error>> {
     let mut body = frame(0, b"one");
     body.extend_from_slice(&frame(0, b"two"));
     let peer = start(PeerBehaviour::ReplyRaw {
@@ -243,21 +269,16 @@ async fn test_call_stream_two_frames_are_two_messages() -> Result<(), Box<dyn Er
     .await?;
     let client = client_for(&peer)?;
 
-    let response = client
-        .call_stream(CallStreamRequest {
-            method: "pkg.Service/Stream".to_string(),
-            metadata: HashMap::new(),
-            messages: GrpcMessageStreamResponse {
-                stream: Box::pin(futures::stream::iter(vec![Ok(b"in".to_vec())])),
-            },
-        })
+    let mut stream = client
+        .call_raw_server_stream(
+            CallFixture::path("pkg.Service/Stream"),
+            CallFixture::request(b"in", Duration::from_secs(5)),
+        )
         .await?;
-    let messages: Vec<Vec<u8>> = response
-        .stream
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .collect::<Result<_, _>>()?;
+    let mut messages = Vec::new();
+    while let Some(message) = stream.read_message().await? {
+        messages.push(message);
+    }
 
     assert_eq!(messages, vec![b"one".to_vec(), b"two".to_vec()]);
     Ok(())
@@ -267,15 +288,18 @@ async fn test_call_stream_two_frames_are_two_messages() -> Result<(), Box<dyn Er
 
 /// @covers: request headers
 #[tokio::test]
-async fn test_call_unary_puts_the_grpc_headers_the_path_and_the_framed_message_on_the_wire(
+async fn test_call_raw_puts_the_grpc_headers_the_path_and_the_framed_message_on_the_wire(
 ) -> Result<(), Box<dyn Error>> {
     let peer = start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
     let client = client_for(&peer)?;
-    let mut call = request(Duration::from_secs(5));
-    call.metadata
-        .insert("x-trace-id".to_string(), "abc123".to_string());
+    let metadata = Metadata::create(vec![MetadataEntry::create("x-trace-id", "abc123")?]);
 
-    client.call_unary(call).await?;
+    client
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request_with(b"ping", Duration::from_secs(5), metadata),
+        )
+        .await?;
 
     let recorded = peer.get_recorded_requests();
     let first = recorded.first().ok_or("the peer saw no request")?;
@@ -290,89 +314,97 @@ async fn test_call_unary_puts_the_grpc_headers_the_path_and_the_framed_message_o
     Ok(())
 }
 
+/// The timeout of a call is sent as `grpc-timeout` (HTTP/2 section of the gRPC protocol): a number of at most
+/// eight digits and a unit. The unit is the engine's choice; the value must be the timeout of the call.
+///
 /// @covers: request headers
 #[tokio::test]
-async fn test_call_unary_encodes_the_deadline_as_a_grpc_timeout_in_the_smallest_fitting_unit(
+async fn test_call_raw_sends_the_timeout_of_the_call_as_a_grpc_timeout_header(
 ) -> Result<(), Box<dyn Error>> {
-    let expectations = [
-        (Duration::from_millis(50), "50000000n"),
-        (Duration::from_secs(5), "5000000u"),
-    ];
-    for (deadline, expected) in expectations {
+    for timeout in [Duration::from_millis(50), Duration::from_secs(5)] {
         let peer = start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
         let client = client_for(&peer)?;
 
-        client.call_unary(request(deadline)).await?;
+        client
+            .call_raw(
+                CallFixture::path("pkg.Service/Method"),
+                CallFixture::request(b"ping", timeout),
+            )
+            .await?;
 
         let recorded = peer.get_recorded_requests();
         let first = recorded.first().ok_or("the peer saw no request")?;
-        assert_eq!(
-            first.get_header("grpc-timeout"),
-            Some(expected),
-            "{deadline:?}"
+        let header = first
+            .get_header("grpc-timeout")
+            .ok_or("the call must carry grpc-timeout")?;
+        let sent = parse_grpc_timeout(header)?;
+        assert!(
+            sent <= timeout && sent + Duration::from_millis(100) >= timeout,
+            "grpc-timeout {header:?} is {sent:?} for a timeout of {timeout:?}"
         );
     }
     Ok(())
 }
 
+/// The value of a `grpc-timeout` header: digits and one of `H M S m u n`.
+fn parse_grpc_timeout(header: &str) -> Result<Duration, Box<dyn Error>> {
+    let (digits, unit) = header.split_at(header.len().saturating_sub(1));
+    if digits.is_empty() || digits.len() > 8 {
+        return Err(format!("{header:?} is not one to eight digits and a unit").into());
+    }
+    let value: u64 = digits.parse()?;
+    Ok(match unit {
+        "H" => Duration::from_secs(value * 3600),
+        "M" => Duration::from_secs(value * 60),
+        "S" => Duration::from_secs(value),
+        "m" => Duration::from_millis(value),
+        "u" => Duration::from_micros(value),
+        "n" => Duration::from_nanos(value),
+        other => return Err(format!("{other:?} is not a grpc-timeout unit").into()),
+    })
+}
+
+/// A method that is no URI path cannot be named: the check is made when the path is created, so no call is made
+/// (the old client sent it through and failed with a sanitized internal error).
+///
 /// @covers: request uri
-#[tokio::test]
-async fn test_call_unary_method_that_is_no_uri_path_is_a_sanitized_internal_error(
-) -> Result<(), Box<dyn Error>> {
-    let peer = start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
-    let client = client_for(&peer)?;
-    let call = GrpcRequest::new("pkg.Service/bad method", Vec::new(), Duration::from_secs(5));
+#[test]
+fn test_create_method_path_that_is_no_uri_path_is_refused_before_any_call() {
+    let result = MethodPath::create("/pkg.Service/bad method");
 
-    let result = client.call_unary(call).await;
-
-    assert!(matches!(result, Err(GrpcEgressError::Internal(message)) if message == SANITIZED));
     assert!(
-        peer.get_recorded_requests().is_empty(),
-        "nothing may be sent"
+        matches!(result, Err(PathError::InvalidCharacter { .. })),
+        "{:?}",
+        result.as_ref().err()
     );
-    Ok(())
 }
 
 // ---------------------------------------------------------------- deadline
 
 /// @covers: deadline
 #[tokio::test]
-async fn test_call_unary_peer_slower_than_the_deadline_is_a_timeout() -> Result<(), Box<dyn Error>>
-{
+async fn test_call_raw_peer_slower_than_the_timeout_is_a_status_deadline_exceeded(
+) -> Result<(), Box<dyn Error>> {
     let peer = start(PeerBehaviour::Delay(Duration::from_millis(500))).await?;
     let client = client_for(&peer)?;
 
-    let result = client.call_unary(request(Duration::from_millis(50))).await;
+    let result = client
+        .call_raw(
+            CallFixture::path("pkg.Service/Method"),
+            CallFixture::request(b"ping", Duration::from_millis(50)),
+        )
+        .await;
 
     assert!(
         matches!(
             result,
-            Err(GrpcEgressError::Status(GrpcStatusCode::DeadlineExceeded, _))
+            Err(CallError::Status {
+                code: StatusCode::DeadlineExceeded,
+                ..
+            })
         ),
-        "{result:?}"
-    );
-    Ok(())
-}
-
-/// @covers: cancellation
-#[tokio::test]
-async fn test_call_unary_cancelled_while_in_flight_is_cancelled() -> Result<(), Box<dyn Error>> {
-    let peer = start(PeerBehaviour::Delay(Duration::from_secs(5))).await?;
-    let client = client_for(&peer)?;
-    let token = tokio_util::sync::CancellationToken::new();
-    let mut call = request(Duration::from_secs(10));
-    call.cancellation = Some(token.clone());
-    let canceller = tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        token.cancel();
-    });
-
-    let result = client.call_unary(call).await;
-    canceller.await?;
-
-    assert!(
-        matches!(result, Err(GrpcEgressError::Cancelled(_))),
-        "{result:?}"
+        "{:?}",
+        result.as_ref().err()
     );
     Ok(())
 }

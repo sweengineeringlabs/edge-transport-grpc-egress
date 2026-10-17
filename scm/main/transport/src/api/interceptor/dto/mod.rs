@@ -1,7 +1,9 @@
 //! `dto` of the `interceptor` theme.
 
-pub mod after_call_request;
 pub mod build_grpc_egress_interceptor_request;
+pub mod inbound_reply;
+pub mod outbound_call;
 
-pub use after_call_request::AfterCallRequest;
 pub use build_grpc_egress_interceptor_request::BuildGrpcEgressInterceptorRequest;
+pub use inbound_reply::InboundReply;
+pub use outbound_call::OutboundCall;

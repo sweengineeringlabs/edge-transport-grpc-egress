@@ -1,20 +1,26 @@
 //! `GrpcResilientFactory` -- wraps a client with retry and a circuit breaker.
 
 use grpc_egress_breaker::BreakerObservable;
-use grpc_egress_transport::GrpcEgress;
+use proto_pattern::{RawTransport, Transport};
 
 use crate::{BuildGrpcResilientRequest, ResilientTransportError};
 
-/// Wraps a bare [`GrpcEgress`] with retry, and the result with a circuit breaker, as the
-/// [`ResilienceConfig`](crate::ResilienceConfig) of the implementor says.
+/// Wraps a client with retry inside a circuit breaker (ADR-007).
 ///
-/// It is a decorator only: the caller builds the bare client. The returned client is also a
-/// [`BreakerObservable`], so the caller can read the state of the breaker. A factory only constructs:
-/// `build` returns the client, never a trait object.
+/// The client is a [`Transport`] and a [`RawTransport`]; the product is both again, and is also a
+/// [`BreakerObservable`], so a caller can ask the breaker for its state.
 pub trait GrpcResilientFactory {
-    /// Wrap `req.inner`. Fails when the policy is invalid.
-    fn build<T: GrpcEgress + Send + Sync + 'static>(
+    /// A client that retries the unary calls of `req.inner` and short-circuits when too many fail.
+    ///
+    /// # Errors
+    ///
+    /// [`ResilientTransportError::InvalidResilience`] when the policy the factory holds is not valid, and
+    /// [`ResilientTransportError::Breaker`] when the breaker cannot be built from it.
+    fn build<T: Transport + RawTransport + Send + Sync + 'static>(
         &self,
         req: BuildGrpcResilientRequest<T>,
-    ) -> Result<impl GrpcEgress + BreakerObservable + use<Self, T>, ResilientTransportError>;
+    ) -> Result<
+        impl Transport + RawTransport + BreakerObservable + use<Self, T>,
+        ResilientTransportError,
+    >;
 }

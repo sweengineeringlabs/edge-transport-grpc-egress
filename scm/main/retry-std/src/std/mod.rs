@@ -5,7 +5,7 @@ pub(crate) mod grpc_retry_config;
 pub(crate) mod grpc_retry_config_builder;
 pub(crate) mod resource_exhausted_context;
 pub(crate) mod retry_decision;
-pub(crate) mod retry_egress;
+pub(crate) mod retry_transport;
 
 pub use grpc_retry_config::GrpcRetryConfigProvider;
 pub use grpc_retry_config_builder::GrpcRetryConfigBuilder;

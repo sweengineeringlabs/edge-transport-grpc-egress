@@ -1,17 +1,18 @@
 //! `GrpcRetryFactory` -- wraps a client with retry.
 
-use grpc_egress_transport::GrpcEgress;
+use proto_pattern::{RawTransport, Transport};
 
 use crate::BuildGrpcRetryRequest;
 
-/// Wraps a [`GrpcEgress`] so that its unary calls are retried with exponential backoff and jitter on
-/// the retryable gRPC status codes. The policy is bound in the implementor's constructor.
+/// Wraps a client with retry.
 ///
-/// A factory only constructs: `build` returns the wrapped client, never a trait object.
+/// The client is a [`Transport`] and a [`RawTransport`]: the wrapper retries a unary call, typed or raw, and
+/// forwards every streaming call as it is. The product is a [`Transport`] and a [`RawTransport`] too, so it composes
+/// with the other wrappers in any order.
 pub trait GrpcRetryFactory {
-    /// Wrap `req.inner` with retry.
-    fn build<T: GrpcEgress + Send + Sync + 'static>(
+    /// A client that retries the unary calls of `req.inner` as its policy says.
+    fn build<T: Transport + RawTransport + Send + Sync + 'static>(
         &self,
         req: BuildGrpcRetryRequest<T>,
-    ) -> impl GrpcEgress + use<Self, T>;
+    ) -> impl Transport + RawTransport + use<Self, T>;
 }

@@ -4,11 +4,12 @@ use std::error::Error;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use grpc_egress_test_support::CallFixture;
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, GrpcEgress, GrpcEgressBuilder, GrpcEgressBuilderFactory,
-    GrpcRequest, TraceContextSource,
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, TraceContextSource,
 };
-use grpc_egress_transport_std::{GrpcRequestFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallRequest, RawTransport};
 
 use crate::{EchoServer, OrderInterceptor, RefusingInterceptor, ScenarioReport};
 
@@ -38,7 +39,9 @@ impl InterceptorScenario {
                 tracestate: Some("vendor=1".to_string()),
             })
             .build()?;
-        client.call_unary(Self::request()).await?;
+        client
+            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+            .await?;
 
         let order = log.lock().unwrap_or_else(PoisonError::into_inner).clone();
         report.record(
@@ -57,7 +60,9 @@ impl InterceptorScenario {
             .with_plaintext_allowed()
             .with_interceptor(Arc::new(RefusingInterceptor))
             .build()?;
-        let refused = refusing.call_unary(Self::request()).await;
+        let refused = refusing
+            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+            .await;
         report.record(
             "an interceptor that refuses stops the call before it is sent",
             refused.is_err() && server.count_requests() == before,
@@ -65,11 +70,7 @@ impl InterceptorScenario {
         Ok(report)
     }
 
-    fn request() -> GrpcRequest {
-        GrpcRequest::new(
-            "pkg.Service/Method",
-            b"ping".to_vec(),
-            Duration::from_secs(5),
-        )
+    fn request() -> CallRequest<Vec<u8>> {
+        CallFixture::request(b"ping", Duration::from_secs(5))
     }
 }

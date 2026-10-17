@@ -6,7 +6,7 @@ license.workspace      = true
 rust-version.workspace = true
 authors.workspace      = true
 repository.workspace   = true
-description  = "edge — resilience decorator for gRPC egress: wraps a bare GrpcEgress in retry + circuit breaker"
+description  = "edge — resilience decorator for gRPC egress: wraps a bare client (a Transport and a RawTransport) in retry + circuit breaker"
 keywords     = ["grpc", "resilience", "retry", "circuit-breaker", "swe"]
 categories   = ["network-programming"]
 
@@ -21,6 +21,7 @@ service_type     = "processor"
 [dependencies]
 grpc-egress-resilient = { path = "../resilient" }
 grpc-egress-transport = { path = "../transport" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.10.0" }
 grpc-egress-retry = { path = "../retry" }
 grpc-egress-retry-std = { path = "../retry-std" }
 grpc-egress-breaker = { path = "../breaker" }
@@ -28,6 +29,7 @@ grpc-egress-breaker-std = { path = "../breaker-std" }
 toml = "0.8"
 [dev-dependencies]
 grpc-egress-transport-std = { path = "../transport-std" }
+grpc-egress-test-support = { path = "../test-support" }
 tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 futures = "0.3"
 

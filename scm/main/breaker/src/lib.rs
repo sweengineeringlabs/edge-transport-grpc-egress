@@ -1,6 +1,6 @@
 //! `grpc_egress_breaker` -- the circuit-breaker domain: the contracts, requests, responses, errors and
-//! the breaker policy value. The implementation (the decorator that wraps a `GrpcEgress`) is in
-//! `grpc-egress-breaker-std`.
+//! the breaker policy value. The implementation (the decorator that wraps a `Transport` and a `RawTransport` of
+//! `proto-pattern`) is in `grpc-egress-breaker-std`.
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]

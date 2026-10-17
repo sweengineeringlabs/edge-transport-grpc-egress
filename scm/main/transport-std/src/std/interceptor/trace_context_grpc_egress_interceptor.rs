@@ -1,13 +1,13 @@
-//! W3C Trace Context outbound interceptor — value object declaration.
+//! W3C Trace Context outbound interceptor.
 
 use grpc_egress_transport::{
-    AfterCallRequest, GrpcEgressError, GrpcEgressInterceptor, GrpcRequest, TraceContextSource,
+    GrpcEgressInterceptor, InboundReply, OutboundCall, TraceContextSource,
 };
+use proto_pattern::CallError;
 
-/// W3C Trace Context propagation interceptor for outbound gRPC.
-///
-/// Construct via [`TraceContextGrpcEgressInterceptor::pass_through`] or
-/// [`TraceContextGrpcEgressInterceptor::with_static`].
+use crate::std::OutboundCallHeaders;
+
+/// Injects the trace context of its source into every call that does not carry one.
 #[derive(Clone)]
 pub struct TraceContextGrpcEgressInterceptor {
     pub(crate) source: TraceContextSource,
@@ -17,14 +17,14 @@ const TRACEPARENT: &str = "traceparent";
 const TRACESTATE: &str = "tracestate";
 
 impl TraceContextGrpcEgressInterceptor {
-    /// Propagates an upstream `traceparent` only — does not inject.
+    /// An interceptor that adds nothing: a `traceparent` the call carries passes through.
     pub fn pass_through() -> Self {
         Self {
             source: TraceContextSource::PassThrough,
         }
     }
 
-    /// Inject a fixed `traceparent` when none is already present.
+    /// An interceptor that adds the `traceparent` (and the `tracestate`, when given) to a call that carries none.
     pub fn with_static(traceparent: impl Into<String>, tracestate: Option<String>) -> Self {
         Self {
             source: TraceContextSource::Static {
@@ -36,8 +36,8 @@ impl TraceContextGrpcEgressInterceptor {
 }
 
 impl GrpcEgressInterceptor for TraceContextGrpcEgressInterceptor {
-    fn before_call(&self, req: &mut GrpcRequest) -> Result<(), GrpcEgressError> {
-        if req.metadata.contains_key(TRACEPARENT) {
+    fn before_call(&self, call: &mut OutboundCall<'_>) -> Result<(), CallError> {
+        if call.has_header(TRACEPARENT) {
             return Ok(());
         }
         match &self.source {
@@ -46,16 +46,16 @@ impl GrpcEgressInterceptor for TraceContextGrpcEgressInterceptor {
                 traceparent,
                 tracestate,
             } => {
-                req.metadata.insert(TRACEPARENT.into(), traceparent.clone());
+                call.add_header(TRACEPARENT, traceparent)?;
                 if let Some(state) = tracestate {
-                    req.metadata.insert(TRACESTATE.into(), state.clone());
+                    call.add_header(TRACESTATE, state)?;
                 }
                 Ok(())
             }
         }
     }
 
-    fn after_call(&self, _req: AfterCallRequest<'_>) -> Result<(), GrpcEgressError> {
+    fn after_call(&self, _reply: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
     }
 }

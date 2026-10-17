@@ -6,6 +6,7 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallOptions, CallRequest, MethodPath, RawTransport};
 
 /// Loads a channel configuration from TOML text and assembles clients from it.
 pub struct CompositionRoot {
@@ -41,6 +42,17 @@ impl CompositionRoot {
             .build(BuildGrpcEgressBuilderRequest)
             .with_channel_config(&config);
         Ok(builder)
+    }
+
+    /// A call made through any client, bare or wrapped: generic over the contract's trait, never a `dyn`.
+    ///
+    /// # Errors
+    ///
+    /// The error of the path or of the call.
+    pub async fn ping<T: RawTransport>(client: &T, body: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+        let path = MethodPath::create("/pkg.Service/Method")?;
+        let request = CallRequest::create(body.to_vec(), CallOptions::default());
+        Ok(client.call_raw(path, request).await?.into_message())
     }
     // END consumer code
 }
