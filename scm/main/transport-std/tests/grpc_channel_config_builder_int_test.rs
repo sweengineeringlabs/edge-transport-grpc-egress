@@ -87,6 +87,49 @@ fn transport_struct_grpc_channel_config_builder_compression_sets_mode_int_test(
     Ok(())
 }
 
+/// @covers: GrpcChannelConfigBuilder::with_request_timeout — whole seconds are stored
+#[test]
+fn transport_struct_grpc_channel_config_builder_request_timeout_stores_whole_seconds_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cfg = new_config_builder()
+        .with_endpoint("https://example.com:443")
+        .with_request_timeout(Duration::from_secs(45))
+        .build()?;
+    assert_eq!(cfg.request_timeout_secs, Some(45));
+    Ok(())
+}
+
+/// @covers: GrpcChannelConfigBuilder::with_request_timeout — below a second is one second, never zero
+#[test]
+fn transport_struct_grpc_channel_config_builder_request_timeout_below_a_second_is_one_second_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cfg = new_config_builder()
+        .with_endpoint("https://example.com:443")
+        .with_request_timeout(Duration::from_millis(400))
+        .build()?;
+    assert_eq!(cfg.request_timeout_secs, Some(1));
+    Ok(())
+}
+
+/// @covers: GrpcChannelConfigBuilder::build — no request timeout set leaves the field unset
+#[test]
+fn transport_struct_grpc_channel_config_builder_build_without_request_timeout_leaves_it_unset_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cfg = new_config_builder()
+        .with_endpoint("https://example.com:443")
+        .build()?;
+    assert_eq!(cfg.request_timeout_secs, None);
+    assert!(
+        cfg.tls_required,
+        "TLS is required until plaintext is allowed"
+    );
+    assert_eq!(
+        cfg.max_message_bytes,
+        grpc_egress_transport::DEFAULT_MAX_MESSAGE_BYTES
+    );
+    Ok(())
+}
+
 fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
     use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory

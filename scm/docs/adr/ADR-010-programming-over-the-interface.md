@@ -57,6 +57,14 @@ The ingress and the server svc copy both with identical wording.
   contract crate they are written over (`pub use proto_pattern;`), and `std/` reaches it as
   `grpc_egress_transport::proto_pattern::...`: `std/` depends on the domain crate and nothing else. The alternative,
   letting rule 20 allow `proto_pattern`, would change the rule's wording, which the other repositories copy.
+- **A builder that validates lives with the validator.** `StdGrpcRetryConfigBuilder.build` validates through the
+  retry policy provider, whose `parse_config` reads TOML with `toml` and so lives in `spi/`; the builder is in `spi/`
+  too. Splitting the provider into a pure trait and a parsing trait was rejected: it would turn one interface of six
+  methods into two for the sake of one caller.
+- **Orphan rule for the wrappers' constructors.** A constructor taking several values is `From<(A, B)>` on the
+  `pub(crate)` type (`GrpcRetryClient`, `InterceptedTransport`, `CancellableResponseStream`), and one that builds from a
+  domain request is `From<Request>` (`CancellableTransport`, `ContextTransport`): the request envelope of the domain
+  factory is the input, so the `saf/` factory body is `Type::from(req)`.
 - **Public types of the implementation crates.** A type that has no function other than trait impls and `From` is
   allowed by rule 19 even when it is `pub` (`HealthCheck` and its messages, `TokenCancellation`,
   `SecurityContextIdentity`): a caller has to name it. Every builder, resolver, chain and classifier, which a caller
@@ -95,7 +103,7 @@ which rule 19 allows.
 | 6 | `StdFailureClassifier` | `breaker-std/src/std/failure_classifier.rs:34` | classifies a call result as breaker success or failure (`classify_result`) | 1 | domain trait `FailureClassifier` (api/traits); `StdFailureClassifier` implements it; file moves to spi/ (`tracing`, policy crate) |
 | 7 | `GrpcBreakerClient<T>` | `breaker-std/src/std/grpc_breaker_client.rs:33` | constructor of the breaker client (`new`) | 1 | `From<(T, GrpcBreakerConfig)>`; file moves to spi/ (`tokio`, `futures`, `tracing`) |
 | 8 | `GrpcRetryClient<T>` | `retry-std/src/std/grpc_retry_client.rs:44` | constructor of the retry client (`new`) | 1 | `From<(T, GrpcRetryConfig)>`; file moves to spi/ |
-| 9 | `GrpcRetryConfigBuilder` | `retry-std/src/std/grpc_retry_config_builder.rs:35` | fluent builder of `GrpcRetryConfig` | 10 | domain trait `GrpcRetryConfigBuilder` + factory trait; `StdGrpcRetryConfigBuilder` (std, `pub(crate)`) implements it; `new` is `Default`; saf `StdGrpcRetryConfigBuilderFactory` |
+| 9 | `GrpcRetryConfigBuilder` | `retry-std/src/std/grpc_retry_config_builder.rs:35` | fluent builder of `GrpcRetryConfig` | 10 | domain trait `GrpcRetryConfigBuilder` + factory trait; `StdGrpcRetryConfigBuilder` (spi, `pub(crate)`: `build` validates through the provider, which reads TOML) implements it; `new` is `Default`; saf `StdGrpcRetryConfigBuilderFactory` |
 | 10 | `ResourceExhaustedContext` | `retry-std/src/std/resource_exhausted_context.rs:31` | classifies a RESOURCE_EXHAUSTED message (`classify`) | 1 | domain trait `RetryClassifier` (api/traits) carries `classify_resource_exhausted`; the enum moves to api/vo; `StdRetryClassifier` implements it |
 | 11 | `RetryDecision` | `retry-std/src/std/retry_decision.rs:43` | per-status retry decision (`should_retry`, `is_rate_limit`, `classify`, `read_retry_after`, `parse_retry_after_hint`) | 5 | domain trait `RetryClassifier`; the enum `RetryDecision` moves to api/vo; `StdRetryClassifier` implements it; saf `StdRetryClassifierFactory` |
 | 12 | `GrpcRetryClient<T>` | `retry-std/src/std/retry_transport.rs:147` | retry loop helpers (private) | 0 | kept: private helpers; file moves to spi/ (`tokio`, `tracing`, `edge-transport-retry`) |
@@ -222,6 +230,13 @@ is created in `saf/`. That is allowed; a crate has the layers it needs.
   crate re-exports the contract instead.
 - **Keep third-party code in `std/` behind a feature.** `std/` is defaults only; a feature does not change what the
   files name.
+
+## Measured after the change
+
+`python scripts/check_layout.py` exits 0; the same script run on the tree of `6b6559b` reports 72 failures of rule 19
+(7 traits and the 65 functions above, no other) and the files of the third table for rule 20. Counts of `pub` and
+`pub(crate)` functions outside a trait impl in `std/` and `spi/` of the five `-std` crates: 65 before, 0 after; traits
+declared there: 7 before, 0 after.
 
 ## Consequences
 

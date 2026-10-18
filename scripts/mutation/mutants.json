@@ -14,8 +14,8 @@
   {
     "name": "I03 the headers an interceptor added are not sent",
     "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
-    "find": "call.into_options()",
-    "replace": "options"
+    "find": "Ok(CallOptions::from(call))",
+    "replace": "Ok(options)"
   },
   {
     "name": "I04 the interceptors never run after a call",
@@ -26,24 +26,24 @@
   {
     "name": "I05 after_call gets the trailers as headers",
     "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
-    "find": "            headers: MetadataExtender::copy(headers),\n            trailers: MetadataExtender::copy(trailers),",
-    "replace": "            headers: MetadataExtender::copy(trailers),\n            trailers: MetadataExtender::copy(headers),"
+    "find": "            headers: StdMetadataExtender.copy(headers),\n            trailers: StdMetadataExtender.copy(trailers),",
+    "replace": "            headers: StdMetadataExtender.copy(trailers),\n            trailers: StdMetadataExtender.copy(headers),"
   },
   {
     "name": "C01 after_call runs in reverse order",
-    "file": "scm/main/transport-std/src/std/interceptor/egress_interceptor_chain.rs",
+    "file": "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
     "find": "        for interceptor in &self.interceptors {\n            interceptor.after_call(reply)?;",
     "replace": "        for interceptor in self.interceptors.iter().rev() {\n            interceptor.after_call(reply)?;"
   },
   {
     "name": "C02 an error of one before_call does not stop the next",
-    "file": "scm/main/transport-std/src/std/interceptor/egress_interceptor_chain.rs",
+    "file": "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
     "find": "interceptor.before_call(call)?;",
     "replace": "let _ = interceptor.before_call(call);"
   },
   {
     "name": "C03 an error of after_call does not fail the call",
-    "file": "scm/main/transport-std/src/std/interceptor/egress_interceptor_chain.rs",
+    "file": "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
     "find": "interceptor.after_call(reply)?;",
     "replace": "let _ = interceptor.after_call(reply);"
   },
@@ -67,13 +67,13 @@
   },
   {
     "name": "M01 an extension overwrites a header the call carries",
-    "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
+    "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
     "find": "            if source.get_values(key).is_empty() {",
     "replace": "            if true {"
   },
   {
     "name": "M02 binary entries are lost when metadata is extended",
-    "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
+    "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
     "find": "        for entry in MetadataView::get_binary_entries(source).flatten() {",
     "replace": "        for entry in MetadataView::get_binary_entries(source).flatten().filter(|_| false) {"
   },
@@ -97,25 +97,25 @@
   },
   {
     "name": "X01 a raised signal does not end a call",
-    "file": "scm/main/transport-std/src/std/cancellation/cancellable_transport.rs",
+    "file": "scm/main/transport-std/src/spi/cancellation/signal/cancellable_transport.rs",
     "find": "() = self.signal.wait_cancelled() => Err(Self::cancelled(path)),",
     "replace": "() = std::future::pending::<()>() => Err(Self::cancelled(path)),"
   },
   {
     "name": "X02 a raised signal does not end a message read",
-    "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
+    "file": "scm/main/transport-std/src/spi/cancellation/signal/cancellable_response_stream.rs",
     "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            message = self.inner.read_message() => message,",
     "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            message = self.inner.read_message() => message,"
   },
   {
     "name": "X03 a raised signal does not end the read of the trailers",
-    "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
+    "file": "scm/main/transport-std/src/spi/cancellation/signal/cancellable_response_stream.rs",
     "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,",
     "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,"
   },
   {
     "name": "X04 a cancelled call fails with another code",
-    "file": "scm/main/transport-std/src/std/cancellation/cancellable_transport.rs",
+    "file": "scm/main/transport-std/src/spi/cancellation/signal/cancellable_transport.rs",
     "find": "            code: StatusCode::Cancelled,",
     "replace": "            code: StatusCode::Aborted,"
   },
@@ -127,7 +127,7 @@
   },
   {
     "name": "Y02 an unauthenticated context offers its token",
-    "file": "scm/main/transport-std/src/std/context/security_context_identity.rs",
+    "file": "scm/main/transport-std/src/spi/context/security/security_context_identity.rs",
     "find": "        if self.context.authenticated {\n            self.context.token.as_deref()",
     "replace": "        if true {\n            self.context.token.as_deref()"
   },
@@ -145,19 +145,19 @@
   },
   {
     "name": "L01 the root CA file is ignored",
-    "file": "scm/main/transport-std/src/std/channel/tls_settings_resolver.rs",
+    "file": "scm/main/transport-std/src/std/channel/std_tls_settings_resolver.rs",
     "find": "        let roots = match root_ca {",
     "replace": "        let roots = match root_ca.filter(|_| false) {"
   },
   {
     "name": "L02 the identity files are ignored",
-    "file": "scm/main/transport-std/src/std/channel/tls_settings_resolver.rs",
+    "file": "scm/main/transport-std/src/std/channel/std_tls_settings_resolver.rs",
     "find": "        let identity = match identity {",
     "replace": "        let identity = match identity.filter(|_| false) {"
   },
   {
     "name": "L03 a file with no PEM item is accepted",
-    "file": "scm/main/transport-std/src/std/channel/tls_settings_resolver.rs",
+    "file": "scm/main/transport-std/src/std/channel/std_tls_settings_resolver.rs",
     "find": "        if !text.contains(marker) {",
     "replace": "        if false {"
   },
@@ -230,114 +230,114 @@
   {
     "name": "B13 the CA of the file configuration is not trusted",
     "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
-    "find": "TlsSettingsResolver::resolve(Some(mtls), mtls.ca_pem_path.as_deref())",
-    "replace": "TlsSettingsResolver::resolve(Some(mtls), None)"
+    "find": "root_ca: mtls.ca_pem_path.as_deref(),",
+    "replace": "root_ca: None,"
   },
   {
     "name": "N01 the health request names the service in another field",
-    "file": "scm/main/transport-std/src/std/client/dto/health_check_request.rs",
+    "file": "scm/main/transport-std/src/spi/client/health/dto/health_check_request.rs",
     "find": "    #[prost(string, tag = \"1\")]",
     "replace": "    #[prost(string, tag = \"2\")]"
   },
   {
     "name": "N02 the health call goes to Watch",
-    "file": "scm/main/transport-std/src/std/client/health_check.rs",
+    "file": "scm/main/transport-std/src/spi/client/health/health_check.rs",
     "find": "\"/grpc.health.v1.Health/Check\"",
     "replace": "\"/grpc.health.v1.Health/Watch\""
   },
   {
     "name": "RT01 a connection that failed is not retried",
-    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
     "find": "                StatusCode::Unavailable | StatusCode::Unknown => RetryDecision::Retry,",
     "replace": "                StatusCode::Unavailable => RetryDecision::Retry,"
   },
   {
     "name": "RT02 an Unavailable status is not retried",
-    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
     "find": "            StatusCode::Unavailable => RetryDecision::Retry,\n            StatusCode::ResourceExhausted =>",
     "replace": "            StatusCode::Unavailable => RetryDecision::Terminal,\n            StatusCode::ResourceExhausted =>"
   },
   {
     "name": "RT03 a hard quota is retried",
-    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
     "find": "                ResourceExhaustedContext::HardQuota => RetryDecision::Terminal,",
     "replace": "                ResourceExhaustedContext::HardQuota => RetryDecision::Retry,"
   },
   {
     "name": "RT04 a rate limit is retried on the standard track",
-    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
     "find": "                ResourceExhaustedContext::RateLimit => RetryDecision::RetryRateLimit,",
     "replace": "                ResourceExhaustedContext::RateLimit => RetryDecision::Retry,"
   },
   {
     "name": "RT05 an encode or decode failure is retried",
-    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
     "find": "            Err(CallError::Encode(_) | CallError::Decode(_)) => RetryDecision::Terminal,",
     "replace": "            Err(CallError::Encode(_) | CallError::Decode(_)) => RetryDecision::Retry,"
   },
   {
     "name": "RT06 the retry-after trailer is not read",
-    "file": "scm/main/retry-std/src/std/retry_decision.rs",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
     "find": "[\"retry-after\", \"x-ratelimit-reset-requests\"]",
     "replace": "[\"retry-afterx\", \"x-ratelimit-reset-requestsx\"]"
   },
   {
     "name": "RT07 one attempt more than the limit is made",
-    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "file": "scm/main/retry-std/src/spi/decorator/retry_transport.rs",
     "find": "                    if next_attempt >= max_attempts {",
     "replace": "                    if next_attempt > max_attempts {"
   },
   {
     "name": "RT08 the total budget never shrinks",
-    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "file": "scm/main/retry-std/src/spi/decorator/retry_transport.rs",
     "find": "                Some(budget) => match budget.checked_sub(started.elapsed()) {",
     "replace": "                Some(budget) => match Some(budget) {"
   },
   {
     "name": "RT09 a pause that does not fit the budget is taken",
-    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "file": "scm/main/retry-std/src/spi/decorator/retry_transport.rs",
     "find": "            .is_some_and(|t| t < budget);",
     "replace": "            .is_some_and(|t| t < budget || true);"
   },
   {
     "name": "RT10 the budget exhausted before an attempt reports another code",
-    "file": "scm/main/retry-std/src/std/retry_transport.rs",
+    "file": "scm/main/retry-std/src/spi/decorator/retry_transport.rs",
     "find": "                            code: StatusCode::DeadlineExceeded,\n                            reason: \"deadline exhausted before retry could be issued\".to_string(),",
     "replace": "                            code: StatusCode::Internal,\n                            reason: \"deadline exhausted before retry could be issued\".to_string(),"
   },
   {
     "name": "BR01 an Unavailable status does not count as a failure",
-    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "file": "scm/main/breaker-std/src/spi/decorator/std_failure_classifier.rs",
     "find": "                matches!(code, StatusCode::Unavailable | StatusCode::Internal)\n            }",
     "replace": "                matches!(code, StatusCode::Internal)\n            }"
   },
   {
     "name": "BR02 a transport Unavailable does not count as a failure",
-    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "file": "scm/main/breaker-std/src/spi/decorator/std_failure_classifier.rs",
     "find": "                StatusCode::Unavailable | StatusCode::Unknown | StatusCode::Internal\n            ),",
     "replace": "                StatusCode::Unknown | StatusCode::Internal\n            ),"
   },
   {
     "name": "BR03 a response that cannot be decoded does not count as a failure",
-    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "file": "scm/main/breaker-std/src/spi/decorator/std_failure_classifier.rs",
     "find": "            Err(CallError::Decode(_)) => true,",
     "replace": "            Err(CallError::Decode(_)) => false,"
   },
   {
     "name": "BR04 an encode failure counts as a failure",
-    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "file": "scm/main/breaker-std/src/spi/decorator/std_failure_classifier.rs",
     "find": "            Err(CallError::Encode(_)) => false,",
     "replace": "            Err(CallError::Encode(_)) => true,"
   },
   {
     "name": "BR05 a failure is recorded as a success",
-    "file": "scm/main/breaker-std/src/std/failure_classifier.rs",
+    "file": "scm/main/breaker-std/src/spi/decorator/std_failure_classifier.rs",
     "find": "        if is_breaker_failure {\n            Outcome::Failure",
     "replace": "        if !is_breaker_failure {\n            Outcome::Failure"
   },
   {
     "name": "BR06 an admitted call is refused",
-    "file": "scm/main/breaker-std/src/std/breaker_egress.rs",
+    "file": "scm/main/breaker-std/src/spi/decorator/breaker_egress.rs",
     "find": "            Admission::Proceed => Ok(()),",
     "replace": "            Admission::Proceed => Err(Self::refuse(path, StatusCode::Unavailable, String::new())),"
   },
@@ -364,5 +364,281 @@
     "file": "scm/main/auth-bearer-std/src/spi/jsonwebtoken/bearer_egress_interceptor.rs",
     "find": "                code: StatusCode::Internal,",
     "replace": "                code: StatusCode::Unauthenticated,"
+  },
+  {
+    "name": "D01 allow_plaintext does not relax the TLS requirement",
+    "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+    "find": "self.tls_required = false;",
+    "replace": "self.tls_required = true;"
+  },
+  {
+    "name": "D02 the request timeout of the builder is dropped",
+    "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+    "find": "Some(timeout.as_secs().max(1))",
+    "replace": "None"
+  },
+  {
+    "name": "D03 a request timeout below a second is not rounded up",
+    "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+    "find": "timeout.as_secs().max(1)",
+    "replace": "timeout.as_secs()"
+  },
+  {
+    "name": "D04 the builder drops the compression",
+    "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+    "find": "compression: self.compression.unwrap_or(CompressionMode::None),",
+    "replace": "compression: CompressionMode::None,"
+  },
+  {
+    "name": "D05 the builder drops the keep-alive",
+    "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+    "find": "keep_alive: self.keep_alive,",
+    "replace": "keep_alive: None,"
+  },
+  {
+    "name": "D06 the builder default message cap is zero",
+    "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+    "find": "self.max_message_bytes.unwrap_or(DEFAULT_MAX_MESSAGE_BYTES)",
+    "replace": "self.max_message_bytes.unwrap_or(0)"
+  },
+  {
+    "name": "D07 the builder builds without an endpoint",
+    "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+    "find": "self.endpoint.ok_or(\"endpoint required\")?",
+    "replace": "self.endpoint.unwrap_or_default()"
+  },
+  {
+    "name": "D08 the mutual-TLS factory drops the CA",
+    "file": "scm/main/transport-std/src/saf/channel/std_mtls_config_factory.rs",
+    "find": "ca_pem_path: req.ca_pem_path,",
+    "replace": "ca_pem_path: None,"
+  },
+  {
+    "name": "D09 the mutual-TLS factory swaps the certificate and the key",
+    "file": "scm/main/transport-std/src/saf/channel/std_mtls_config_factory.rs",
+    "find": "cert_pem_path: req.cert_pem_path,\n            key_pem_path: req.key_pem_path,",
+    "replace": "cert_pem_path: req.key_pem_path,\n            key_pem_path: req.cert_pem_path,"
+  },
+  {
+    "name": "D10 the load balancer settings provider returns no backends",
+    "file": "scm/main/transport-std/src/spi/loadbalancer/settings/loadbalancer_settings_provider.rs",
+    "find": "Ok(document.loadbalancer)",
+    "replace": "Ok(LoadbalancerSettings { backends: Vec::new(), ..document.loadbalancer })"
+  },
+  {
+    "name": "D11 the chain drops a pushed interceptor",
+    "file": "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
+    "find": "self.interceptors.push(interceptor);",
+    "replace": "let _ = interceptor;"
+  },
+  {
+    "name": "D12 the chain reports no interceptor",
+    "file": "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
+    "find": "self.interceptors.len()",
+    "replace": "0"
+  },
+  {
+    "name": "D13 the chain is never empty",
+    "file": "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
+    "find": "self.interceptors.is_empty()",
+    "replace": "false"
+  },
+  {
+    "name": "D14 copying metadata loses the text entries",
+    "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
+    "find": "for entry in source.get_entries() {\n            // A key and value read from valid metadata are valid; if the check ever disagrees the entry is left out.",
+    "replace": "for entry in source.get_entries().take(0) {\n            // A key and value read from valid metadata are valid; if the check ever disagrees the entry is left out."
+  },
+  {
+    "name": "D15 a pending call forgets the timeout of the options",
+    "file": "scm/main/transport-std/src/std/interceptor/pending_call.rs",
+    "find": "timeout: options.get_timeout(),",
+    "replace": "timeout: None,"
+  },
+  {
+    "name": "D16 the options made from a pending call lose the timeout an interceptor set",
+    "file": "scm/main/transport-std/src/std/interceptor/pending_call.rs",
+    "find": "CallOptions::create(call.timeout, call.metadata)",
+    "replace": "CallOptions::create(None, call.metadata)"
+  },
+  {
+    "name": "D17 the trace-context interceptor ignores its source",
+    "file": "scm/main/transport-std/src/std/interceptor/trace_context_grpc_egress_interceptor.rs",
+    "find": "Self { source }",
+    "replace": "Self { source: TraceContextSource::PassThrough }"
+  },
+  {
+    "name": "D18 the bearer token header has no scheme",
+    "file": "scm/main/transport-std/src/std/context/context_headers.rs",
+    "find": "format!(\"Bearer {token}\")",
+    "replace": "token.to_string()"
+  },
+  {
+    "name": "D19 a caller identity view carries no headers",
+    "file": "scm/main/transport-std/src/std/context/context_transport.rs",
+    "find": "headers: ContextHeaders::from(req.identity).entries,",
+    "replace": "headers: Vec::new(),"
+  },
+  {
+    "name": "D20 a token cancellation never fires",
+    "file": "scm/main/transport-std/src/spi/cancellation/signal/token_cancellation.rs",
+    "find": "self.token.cancelled().await;",
+    "replace": "std::future::pending::<()>().await;"
+  },
+  {
+    "name": "D21 a balanced endpoint builds no pool",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/endpoint_transport.rs",
+    "find": "Some(settings) => Some(Arc::new(Self::create_pool(settings)?)),",
+    "replace": "Some(_) => None,"
+  },
+  {
+    "name": "D22 a new client builder allows plaintext",
+    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
+    "find": "plaintext_allowed: false,",
+    "replace": "plaintext_allowed: true,"
+  },
+  {
+    "name": "D23 the builder factory ignores its endpoint",
+    "file": "scm/main/transport-std/src/saf/client/grpc_egress_builder_spi_factory.rs",
+    "find": "GrpcEgressBuilderImpl::from(self.endpoint.clone())",
+    "replace": "GrpcEgressBuilderImpl::from(String::new())"
+  },
+  {
+    "name": "D24 the interceptor factory ignores its source",
+    "file": "scm/main/transport-std/src/saf/interceptor/std_grpc_egress_interceptor_factory.rs",
+    "find": "TraceContextGrpcEgressInterceptor::from(self.source.clone())",
+    "replace": "TraceContextGrpcEgressInterceptor::from(TraceContextSource::PassThrough)"
+  },
+  {
+    "name": "RT11 should_retry is true for a terminal decision",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
+    "find": "matches!(\n            decision,\n            RetryDecision::Retry | RetryDecision::RetryRateLimit\n        )",
+    "replace": "true"
+  },
+  {
+    "name": "RT12 every decision is a rate limit",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
+    "find": "matches!(decision, RetryDecision::RetryRateLimit)",
+    "replace": "true"
+  },
+  {
+    "name": "RT13 the retry-after hint is read in minutes",
+    "file": "scm/main/retry-std/src/std/std_retry_classifier.rs",
+    "find": "let secs: u64 = rest[..end].parse().ok()?;\n        Some(Duration::from_secs(secs))",
+    "replace": "let secs: u64 = rest[..end].parse().ok()?;\n        Some(Duration::from_secs(secs * 60))"
+  },
+  {
+    "name": "RT14 the retry policy accepts zero attempts",
+    "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_provider.rs",
+    "find": "if config.max_attempts == 0 {",
+    "replace": "if false {"
+  },
+  {
+    "name": "RT15 the initial backoff is read in seconds",
+    "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_provider.rs",
+    "find": "Duration::from_millis(config.initial_backoff_ms)",
+    "replace": "Duration::from_secs(config.initial_backoff_ms)"
+  },
+  {
+    "name": "RT16 a parsed retry policy is not validated",
+    "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_provider.rs",
+    "find": "self.validate(&cfg)?;",
+    "replace": ""
+  },
+  {
+    "name": "RT17 the retry policy builder does not validate",
+    "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_builder.rs",
+    "find": "StdGrpcRetryConfigProvider.validate(&self.config)?;",
+    "replace": ""
+  },
+  {
+    "name": "RT18 the retry policy builder ignores max_attempts",
+    "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_builder.rs",
+    "find": "self.config.max_attempts = v;",
+    "replace": "let _ = v;"
+  },
+  {
+    "name": "RT19 the retry client drops the supplied policy",
+    "file": "scm/main/retry-std/src/spi/decorator/grpc_retry_client.rs",
+    "find": "config: Arc::new(config),",
+    "replace": "config: Arc::new(GrpcRetryConfig::default()),"
+  },
+  {
+    "name": "BR07 the breaker policy accepts a zero threshold",
+    "file": "scm/main/breaker-std/src/spi/config/std_grpc_breaker_config_provider.rs",
+    "find": "if config.failure_threshold == 0 {",
+    "replace": "if false {"
+  },
+  {
+    "name": "BR08 the breaker cool-down is read in milliseconds",
+    "file": "scm/main/breaker-std/src/spi/config/std_grpc_breaker_config_provider.rs",
+    "find": "Duration::from_secs(config.cool_down_seconds)",
+    "replace": "Duration::from_millis(config.cool_down_seconds)"
+  },
+  {
+    "name": "BR09 a new breaker starts open",
+    "file": "scm/main/breaker-std/src/spi/decorator/grpc_breaker_client.rs",
+    "find": "state: BreakerState::Closed,",
+    "replace": "state: BreakerState::Open,"
+  },
+  {
+    "name": "BR10 the breaker client drops the supplied policy",
+    "file": "scm/main/breaker-std/src/spi/decorator/grpc_breaker_client.rs",
+    "find": "config: Arc::new(config),",
+    "replace": "config: Arc::new(GrpcBreakerConfig::default()),"
+  },
+  {
+    "name": "BR11 the breaker factory does not validate the policy",
+    "file": "scm/main/breaker-std/src/saf/std_grpc_breaker_factory.rs",
+    "find": "StdGrpcBreakerConfigProvider.validate(&self.config)?;",
+    "replace": ""
+  },
+  {
+    "name": "RS01 the resilience policy accepts zero attempts",
+    "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
+    "find": "if config.max_attempts == 0 {",
+    "replace": "if false {"
+  },
+  {
+    "name": "RS02 the retry projection swaps the rate-limit backoffs",
+    "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
+    "find": "rate_limit_initial_backoff_ms: config.rate_limit_initial_backoff_ms,\n            rate_limit_max_backoff_ms: config.rate_limit_max_backoff_ms,",
+    "replace": "rate_limit_initial_backoff_ms: config.rate_limit_max_backoff_ms,\n            rate_limit_max_backoff_ms: config.rate_limit_initial_backoff_ms,"
+  },
+  {
+    "name": "RS03 the breaker projection takes the threshold from the probe count",
+    "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
+    "find": "failure_threshold: config.failure_threshold,",
+    "replace": "failure_threshold: config.half_open_probe_count,"
+  },
+  {
+    "name": "RS04 a parsed resilience policy is not validated",
+    "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
+    "find": "self.validate(&cfg)?;",
+    "replace": ""
+  },
+  {
+    "name": "RS05 the resilient factory does not validate the policy",
+    "file": "scm/main/resilient-std/src/saf/std_grpc_resilient_factory.rs",
+    "find": "provider.validate(&self.config)?;",
+    "replace": ""
+  },
+  {
+    "name": "BA05 secrets of different algorithms compare equal",
+    "file": "scm/main/auth-bearer-std/src/spi/subtle/std_bearer_secret_guard.rs",
+    "find": "_ => false,",
+    "replace": "_ => true,"
+  },
+  {
+    "name": "BA06 the outbound config builder drops the subject",
+    "file": "scm/main/auth-bearer-std/src/std/std_bearer_egress_config_builder.rs",
+    "find": "subject: self.subject.ok_or(\"subject is required\")?,",
+    "replace": "subject: String::new(),"
+  },
+  {
+    "name": "BA07 the claims builder takes the issuer from the audience",
+    "file": "scm/main/auth-bearer-std/src/std/std_jwt_claims_builder.rs",
+    "find": "iss: self.iss.ok_or(\"iss is required\")?,",
+    "replace": "iss: self.aud.clone().ok_or(\"iss is required\")?,"
   }
 ]
