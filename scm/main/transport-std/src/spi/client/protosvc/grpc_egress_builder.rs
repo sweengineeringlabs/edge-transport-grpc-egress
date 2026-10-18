@@ -18,9 +18,13 @@ use grpc_egress_transport::{
     DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 
+use grpc_egress_transport::{
+    GrpcEgressInterceptorChain, ResolveTlsSettingsRequest, TlsSettingsResolver,
+};
+
 use super::EndpointTransport;
 use crate::std::{
-    GrpcEgressInterceptorChain, InterceptedTransport, TlsSettingsResolver,
+    InterceptedTransport, StdGrpcEgressInterceptorChain, StdTlsSettingsResolver,
     TraceContextGrpcEgressInterceptor,
 };
 
@@ -45,17 +49,17 @@ pub(crate) struct GrpcEgressBuilderImpl {
     max_encoding_message_size: Option<usize>,
     send_compression: Option<Compression>,
     accept_compression: Vec<Compression>,
-    interceptors: GrpcEgressInterceptorChain,
+    interceptors: StdGrpcEgressInterceptorChain,
     tls: Option<TlsSource>,
     keep_alive: Option<KeepAliveConfig>,
     loadbalancer: Option<LoadbalancerSettings>,
 }
 
-impl GrpcEgressBuilderImpl {
-    /// A builder for `endpoint` with every option at its default.
-    pub(crate) fn new(endpoint: impl Into<String>) -> Self {
+impl From<String> for GrpcEgressBuilderImpl {
+    /// A builder for the endpoint with every option at its default.
+    fn from(endpoint: String) -> Self {
         Self {
-            endpoint: endpoint.into(),
+            endpoint,
             endpoint_explicit: false,
             plaintext_allowed: false,
             request_timeout: Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS),
@@ -63,7 +67,7 @@ impl GrpcEgressBuilderImpl {
             max_encoding_message_size: None,
             send_compression: None,
             accept_compression: Vec::new(),
-            interceptors: GrpcEgressInterceptorChain::new(),
+            interceptors: StdGrpcEgressInterceptorChain::default(),
             tls: None,
             keep_alive: None,
             loadbalancer: None,
@@ -150,14 +154,7 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
     }
 
     fn with_trace_context(self, source: TraceContextSource) -> Self {
-        let interceptor = match source {
-            TraceContextSource::PassThrough => TraceContextGrpcEgressInterceptor::pass_through(),
-            TraceContextSource::Static {
-                traceparent,
-                tracestate,
-            } => TraceContextGrpcEgressInterceptor::with_static(traceparent, tracestate),
-        };
-        self.with_interceptor(Arc::new(interceptor))
+        self.with_interceptor(Arc::new(TraceContextGrpcEgressInterceptor::from(source)))
     }
 
     fn with_channel_config(self, config: &GrpcChannelConfig) -> Self {
@@ -205,8 +202,8 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
         for url in &targets {
             clients.push((url.clone(), self.create_client(url, &tls)?));
         }
-        let endpoint = EndpointTransport::create(clients, self.loadbalancer.as_ref())?;
-        Ok(InterceptedTransport::create(endpoint, self.interceptors))
+        let endpoint = EndpointTransport::try_from((clients, self.loadbalancer.as_ref()))?;
+        Ok(InterceptedTransport::from((endpoint, self.interceptors)))
     }
 }
 
@@ -304,7 +301,10 @@ impl GrpcEgressBuilderImpl {
         match &self.tls {
             Some(TlsSource::Settings(settings)) => Ok(settings.clone()),
             Some(TlsSource::Files(mtls)) => {
-                TlsSettingsResolver::resolve(Some(mtls), mtls.ca_pem_path.as_deref())
+                StdTlsSettingsResolver.resolve(ResolveTlsSettingsRequest {
+                    identity: Some(mtls),
+                    root_ca: mtls.ca_pem_path.as_deref(),
+                })
             }
             None => Ok(TlsSettings::create(None, Vec::new(), None)),
         }

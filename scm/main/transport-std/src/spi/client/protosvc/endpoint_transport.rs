@@ -31,24 +31,27 @@ struct Pick<'a, T> {
     backend: Option<Backend>,
 }
 
-impl<T> EndpointTransport<T> {
-    /// An endpoint over `clients` (the client of each URL). With `balancing`, calls are spread over them; without it
-    /// the first client takes every call.
+impl<T> TryFrom<(Vec<(String, T)>, Option<&LoadbalancerSettings>)> for EndpointTransport<T> {
+    type Error = GrpcChannelConfigError;
+
+    /// An endpoint over the clients (the client of each URL). With balancing settings, calls are spread over them;
+    /// without them the first client takes every call.
     ///
     /// # Errors
     ///
     /// `InvalidOptionValue` for `loadbalancer` when the pool cannot be built from the settings.
-    pub(crate) fn create(
-        clients: Vec<(String, T)>,
-        balancing: Option<&LoadbalancerSettings>,
-    ) -> Result<Self, GrpcChannelConfigError> {
+    fn try_from(
+        (clients, balancing): (Vec<(String, T)>, Option<&LoadbalancerSettings>),
+    ) -> Result<Self, Self::Error> {
         let pool = match balancing {
             Some(settings) => Some(Arc::new(Self::create_pool(settings)?)),
             None => None,
         };
         Ok(Self { clients, pool })
     }
+}
 
+impl<T> EndpointTransport<T> {
     fn create_pool(
         settings: &LoadbalancerSettings,
     ) -> Result<BackendPoolInstance, GrpcChannelConfigError> {

@@ -7,6 +7,7 @@
 //! [`BearerEgressConfig`]: grpc_egress_auth_bearer::BearerEgressConfig
 //! [`GrpcEgressInterceptorChain`]: grpc_egress_transport_std::GrpcEgressInterceptorChain
 
+use grpc_egress_transport::GrpcEgressInterceptorChain as _;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,7 +17,6 @@ use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, OutboundCall,
 };
-use grpc_egress_transport_std::GrpcEgressInterceptorChain;
 use proto_pattern::Metadata;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .lifetime_seconds(60)
         .build()?;
 
-    let chain = GrpcEgressInterceptorChain::new().push(Arc::new(
+    let chain = new_chain().push(Arc::new(
         StdBearerInterceptorFactory::new(config).build(BuildGrpcEgressInterceptorRequest),
     ));
 
@@ -55,4 +55,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("authorization: Bearer <jwt of {} characters>", token.len());
     Ok(())
+}
+
+fn new_chain() -> impl grpc_egress_transport::GrpcEgressInterceptorChain {
+    use grpc_egress_transport::GrpcEgressInterceptorChainFactory;
+    grpc_egress_transport_std::StdGrpcEgressInterceptorChainFactory
+        .build(grpc_egress_transport::BuildGrpcEgressInterceptorChainRequest)
 }

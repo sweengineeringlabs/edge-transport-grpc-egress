@@ -39,7 +39,7 @@ impl SecurityContextScenario {
         ctx.token = Some("jwt-abc".to_string());
         let bound = StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
             inner: &client,
-            identity: &SecurityContextIdentity::new(&ctx),
+            identity: &SecurityContextIdentity::from(&ctx),
         });
         bound
             .call_raw(
@@ -70,7 +70,7 @@ impl SecurityContextScenario {
         let unauthenticated =
             StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
                 inner: &client,
-                identity: &SecurityContextIdentity::new(&ctx),
+                identity: &SecurityContextIdentity::from(&ctx),
             });
         unauthenticated
             .call_raw(

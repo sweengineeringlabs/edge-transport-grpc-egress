@@ -6,11 +6,12 @@ use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, PeerBehaviour, PeerServer, TestPki, TlsServerMode};
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig,
-    MtlsConfig, TraceContextSource,
+    BuildGrpcEgressBuilderRequest, BuildMtlsConfigRequest, BuildTlsSettingsResolverRequest,
+    GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig, MtlsConfigFactory,
+    ResolveTlsSettingsRequest, TlsSettingsResolver, TlsSettingsResolverFactory, TraceContextSource,
 };
 use grpc_egress_transport_std::{
-    MtlsConfigFactory, TlsSettingsResolver, TonicGrpcEgressBuilderSpiFactory,
+    StdMtlsConfigFactory, StdTlsSettingsResolverFactory, TonicGrpcEgressBuilderSpiFactory,
 };
 use proto_pattern::{CallError, CallRequest, Compression, RawTransport, StatusCode};
 
@@ -155,14 +156,20 @@ impl AllOptionsScenario {
             TlsServerMode::ClientAuthRequired,
         )
         .await?;
-        let mtls = MtlsConfig::with_root_ca(
-            pki.get_client_cert_pem_path()
+        let mtls = StdMtlsConfigFactory.build(BuildMtlsConfigRequest {
+            cert_pem_path: pki
+                .get_client_cert_pem_path()
                 .to_string_lossy()
                 .into_owned(),
-            pki.get_client_key_pem_path().to_string_lossy().into_owned(),
-            pki.get_ca_pem_path().to_string_lossy().into_owned(),
-        );
-        let tls = TlsSettingsResolver::resolve(Some(&mtls), mtls.ca_pem_path.as_deref())?;
+            key_pem_path: pki.get_client_key_pem_path().to_string_lossy().into_owned(),
+            ca_pem_path: Some(pki.get_ca_pem_path().to_string_lossy().into_owned()),
+        });
+        let tls = StdTlsSettingsResolverFactory
+            .build(BuildTlsSettingsResolverRequest)
+            .resolve(ResolveTlsSettingsRequest {
+                identity: Some(&mtls),
+                root_ca: mtls.ca_pem_path.as_deref(),
+            })?;
         let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_https_endpoint())
             .build(BuildGrpcEgressBuilderRequest)
             .with_tls(tls)

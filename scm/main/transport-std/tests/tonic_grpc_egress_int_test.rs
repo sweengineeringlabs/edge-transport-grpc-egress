@@ -3,12 +3,12 @@
 //! Each test pins what one option of `GrpcChannelConfig` does, so that a change cannot slip in silently, and
 //! each fails when its option is ignored or changed.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use grpc_egress_transport::CompressionMode;
 use proto_pattern::{CallError, RawTransport, StatusCode};
 
 const SHORT: Duration = Duration::from_secs(5);
@@ -19,9 +19,10 @@ async fn test_call_response_at_max_message_bytes_returns_the_message() -> Result
 {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(vec![7u8; 1024])).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_max_message_bytes(1024);
+        .with_max_message_bytes(1024)
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let response = client
@@ -43,9 +44,10 @@ async fn test_call_response_one_byte_over_max_message_bytes_returns_out_of_range
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(vec![7u8; 1025])).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_max_message_bytes(1024);
+        .with_max_message_bytes(1024)
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
@@ -78,9 +80,10 @@ async fn test_call_request_one_byte_over_max_message_bytes_fails_before_it_reach
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_max_message_bytes(1024);
+        .with_max_message_bytes(1024)
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
@@ -108,7 +111,9 @@ async fn test_call_slower_than_the_timeout_returns_status_deadline_exceeded_at_t
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_secs(3))).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext();
+    let config = config_builder(peer.get_endpoint())
+        .allow_plaintext()
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let started = Instant::now();
@@ -146,9 +151,10 @@ async fn test_call_request_timeout_shorter_than_the_call_timeout_returns_status_
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_millis(3000))).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_request_timeout(Duration::from_millis(300));
+        .with_request_timeout(Duration::from_millis(300))
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let started = Instant::now();
@@ -186,9 +192,10 @@ async fn test_call_request_timeout_longer_than_the_call_timeout_keeps_the_call_t
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Delay(Duration::from_millis(3000))).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_request_timeout(Duration::from_secs(30));
+        .with_request_timeout(Duration::from_secs(30))
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let started = Instant::now();
@@ -224,9 +231,10 @@ async fn test_call_without_compression_sends_no_encoding_header_and_the_message_
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Echo).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_compression(CompressionMode::None);
+        .with_compression(CompressionMode::None)
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
     let payload = vec![b'a'; 4096];
 
@@ -255,7 +263,9 @@ async fn test_call_sends_the_request_to_the_endpoint_of_the_config_with_a_leadin
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Echo).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext();
+    let config = config_builder(peer.get_endpoint())
+        .allow_plaintext()
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     client
@@ -277,7 +287,9 @@ async fn test_call_to_a_closed_endpoint_returns_transport_unavailable() -> Resul
 {
     Fixture::ensure_tls_provider();
     let closed = Fixture::reserve_closed_port()?;
-    let config = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
+    let config = config_builder(closed.get_endpoint())
+        .allow_plaintext()
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
@@ -299,4 +311,16 @@ async fn test_call_to_a_closed_endpoint_returns_transport_unavailable() -> Resul
         result.as_ref().err()
     );
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

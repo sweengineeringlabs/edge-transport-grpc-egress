@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use grpc_egress_transport::OutboundCall;
-use proto_pattern::{CallError, CallOptions, Metadata, StatusCode};
+use grpc_egress_transport::proto_pattern::{CallError, CallOptions, Metadata, StatusCode};
+use grpc_egress_transport::{MetadataExtender, OutboundCall};
 
-use crate::std::client::MetadataExtender;
+use crate::std::client::StdMetadataExtender;
 
 /// The path, the timeout and the headers of a call about to be sent, which the interceptors of the chain may change.
 pub(crate) struct PendingCall<'a> {
@@ -14,19 +14,21 @@ pub(crate) struct PendingCall<'a> {
     metadata: Metadata,
 }
 
-impl<'a> PendingCall<'a> {
-    /// The call to `path` that `options` describe.
-    pub(crate) fn create(path: &'a str, options: &CallOptions) -> Self {
+impl<'a> From<(&'a str, &CallOptions)> for PendingCall<'a> {
+    /// The call to the path that the options describe.
+    fn from((path, options): (&'a str, &CallOptions)) -> Self {
         Self {
             path,
             timeout: options.get_timeout(),
             metadata: options.get_metadata().clone(),
         }
     }
+}
 
+impl From<PendingCall<'_>> for CallOptions {
     /// The options the call carries once the interceptors have run.
-    pub(crate) fn into_options(self) -> CallOptions {
-        CallOptions::create(self.timeout, self.metadata)
+    fn from(call: PendingCall<'_>) -> Self {
+        CallOptions::create(call.timeout, call.metadata)
     }
 }
 
@@ -52,13 +54,13 @@ impl OutboundCall for PendingCall<'_> {
     }
 
     fn add_header(&mut self, key: &str, value: &str) -> Result<(), CallError> {
-        self.metadata = MetadataExtender::append(&self.metadata, key, value).map_err(|e| {
-            CallError::Transport {
+        self.metadata = StdMetadataExtender
+            .append(&self.metadata, key, value)
+            .map_err(|e| CallError::Transport {
                 path: self.path.into(),
                 code: StatusCode::InvalidArgument,
                 reason: e.to_string(),
-            }
-        })?;
+            })?;
         Ok(())
     }
 }

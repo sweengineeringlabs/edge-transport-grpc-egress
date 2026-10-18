@@ -2,6 +2,7 @@
 //! what the engine reports for a refused connection and for the statuses a peer answers is what the breaker
 //! classifies, and an open circuit keeps calls away from the peer.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::Duration;
 
@@ -13,8 +14,6 @@ use grpc_egress_breaker_std::{GrpcBreakerConfigProvider, StdGrpcBreakerFactory};
 use grpc_egress_test_support::{
     CallFixture, ClientFixture, ClosedPort, Fixture, PeerBehaviour, PeerServer, RunningPeer,
 };
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
 use proto_pattern::{
     CallError, DecodeError, EncodeError, MessageStream, Method, Payload, RawTransport, StatusCode,
     Transport, UnaryMethod,
@@ -68,7 +67,7 @@ fn guarded(
     endpoint: &str,
 ) -> Result<impl Transport + RawTransport + BreakerObservable, Box<dyn Error>> {
     Fixture::ensure_tls_provider();
-    let config = GrpcChannelConfig::new(endpoint).allow_plaintext();
+    let config = config_builder(endpoint).allow_plaintext().build()?;
     let client = ClientFixture::from_config(&config)?;
     Ok(StdGrpcBreakerFactory::new(fast_config()?)
         .build(BuildGrpcBreakerRequest { inner: client })?)
@@ -331,4 +330,16 @@ async fn test_call_typed_answered_call_returns_the_typed_response_and_keeps_the_
     assert_eq!(response.get_message(), &Bytes(b"pong".to_vec()));
     assert_eq!(state_of(&client).await?, BreakerState::Closed);
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

@@ -21,6 +21,6 @@ impl GrpcCallerIdentityFactory for StdGrpcCallerIdentityFactory {
         &self,
         req: BuildGrpcCallerIdentityRequest<'a, 'c, T>,
     ) -> impl Transport + RawTransport + use<'a, T> {
-        ContextTransport::create(req.inner, req.identity)
+        ContextTransport::from(req)
     }
 }

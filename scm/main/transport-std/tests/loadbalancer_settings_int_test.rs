@@ -3,10 +3,7 @@
 
 use std::error::Error;
 
-use grpc_egress_transport::{
-    BackendTarget, BalancingStrategy, GrpcChannelConfigError, LoadbalancerSettings,
-};
-use grpc_egress_transport_std::LoadbalancerSettingsProvider;
+use grpc_egress_transport::{BackendTarget, BalancingStrategy, GrpcChannelConfigError};
 
 const FULL: &str = r#"
 [loadbalancer]
@@ -25,7 +22,7 @@ weight = 2
 #[test]
 fn test_from_config_full_table_returns_the_strategy_and_every_backend() -> Result<(), Box<dyn Error>>
 {
-    let settings = LoadbalancerSettings::from_config(FULL)?;
+    let settings = read_settings(FULL)?;
 
     assert_eq!(settings.strategy, BalancingStrategy::Weighted);
     assert_eq!(
@@ -54,11 +51,7 @@ fn test_from_config_every_strategy_name_is_understood() -> Result<(), Box<dyn Er
     ] {
         let text = format!("[loadbalancer]\nstrategy = \"{name}\"\nbackends = []\n");
 
-        assert_eq!(
-            LoadbalancerSettings::from_config(&text)?.strategy,
-            expected,
-            "{name}"
-        );
+        assert_eq!(read_settings(&text)?.strategy, expected, "{name}");
     }
     Ok(())
 }
@@ -68,7 +61,7 @@ fn test_from_config_every_strategy_name_is_understood() -> Result<(), Box<dyn Er
 fn test_from_config_unknown_strategy_names_the_option() {
     let text = "[loadbalancer]\nstrategy = \"random\"\nbackends = []\n";
 
-    match LoadbalancerSettings::from_config(text) {
+    match read_settings(text) {
         Err(GrpcChannelConfigError::InvalidOptionValue { option, reason }) => {
             assert_eq!(option, "loadbalancer");
             assert!(reason.contains("random"), "{reason}");
@@ -83,7 +76,7 @@ fn test_from_config_unknown_key_is_refused() {
     let text = "[loadbalancer]\nstrategy = \"weighted\"\nbackends = []\nretries = 3\n";
 
     assert!(matches!(
-        LoadbalancerSettings::from_config(text),
+        read_settings(text),
         Err(GrpcChannelConfigError::InvalidOptionValue { .. })
     ));
 }
@@ -92,7 +85,7 @@ fn test_from_config_unknown_key_is_refused() {
 #[test]
 fn test_from_config_text_without_the_table_is_refused() {
     assert!(matches!(
-        LoadbalancerSettings::from_config("[other]\nkey = 1\n"),
+        read_settings("[other]\nkey = 1\n"),
         Err(GrpcChannelConfigError::InvalidOptionValue { .. })
     ));
 }
@@ -122,7 +115,7 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
     let client = TonicGrpcEgressBuilderSpiFactory::new("")
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
-        .with_loadbalancer(LoadbalancerSettings::from_config(&text)?)
+        .with_loadbalancer(read_settings(&text)?)
         .build()?;
 
     for _ in 0..6 {
@@ -143,4 +136,19 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
         "backend two saw no call"
     );
     Ok(())
+}
+
+fn read_settings(
+    text: &str,
+) -> Result<
+    grpc_egress_transport::LoadbalancerSettings,
+    grpc_egress_transport::GrpcChannelConfigError,
+> {
+    use grpc_egress_transport::{
+        BuildLoadbalancerSettingsProviderRequest, LoadbalancerSettingsProvider,
+        LoadbalancerSettingsProviderFactory,
+    };
+    grpc_egress_transport_std::StdLoadbalancerSettingsProviderFactory
+        .build(BuildLoadbalancerSettingsProviderRequest)
+        .parse_config(text)
 }

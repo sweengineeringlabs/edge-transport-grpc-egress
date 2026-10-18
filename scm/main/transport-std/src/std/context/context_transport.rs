@@ -1,14 +1,14 @@
 //! `ContextTransport` -- a view of a client whose calls carry the headers of a caller's identity.
 
-use proto_pattern::{
+use grpc_egress_transport::proto_pattern::{
     BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
     MessageStream, MethodPath, RawTransport, ResponseStream, ServerStreamMethod, StatusCode,
     Transport, UnaryMethod,
 };
 
 use super::ContextHeaders;
-use crate::std::client::MetadataExtender;
-use grpc_egress_transport::CallerIdentity;
+use crate::std::client::StdMetadataExtender;
+use grpc_egress_transport::{BuildGrpcCallerIdentityRequest, MetadataExtender};
 
 /// A view of `inner` bound to an identity: every call carries the headers derived from it, except one the call
 /// already carries. The headers are derived when the view is made, so a call pays one copy of its own headers.
@@ -20,29 +20,32 @@ pub(crate) struct ContextTransport<'a, T> {
     headers: Vec<(String, String)>,
 }
 
-impl<'a, T> ContextTransport<'a, T> {
-    /// A view of `inner` that carries the headers of `identity`.
-    pub(crate) fn create(inner: &'a T, identity: &dyn CallerIdentity) -> Self {
+impl<'a, T> From<BuildGrpcCallerIdentityRequest<'a, '_, T>> for ContextTransport<'a, T> {
+    /// A view of the client that carries the headers of the identity.
+    fn from(req: BuildGrpcCallerIdentityRequest<'a, '_, T>) -> Self {
         Self {
-            inner,
-            headers: ContextHeaders::derive(identity),
+            inner: req.inner,
+            headers: ContextHeaders::from(req.identity).entries,
         }
     }
+}
 
+impl<T> ContextTransport<'_, T> {
     /// `options` with the headers of the context added.
     fn add_headers(&self, path: &str, options: CallOptions) -> Result<CallOptions, CallError> {
         if self.headers.is_empty() {
             return Ok(options);
         }
-        let metadata = MetadataExtender::extend(
-            options.get_metadata(),
-            self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str())),
-        )
-        .map_err(|e| CallError::Transport {
-            path: path.into(),
-            code: StatusCode::InvalidArgument,
-            reason: format!("the identity holds a header that is not valid: {e}"),
-        })?;
+        let metadata = StdMetadataExtender
+            .extend(
+                options.get_metadata(),
+                self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str())),
+            )
+            .map_err(|e| CallError::Transport {
+                path: path.into(),
+                code: StatusCode::InvalidArgument,
+                reason: format!("the identity holds a header that is not valid: {e}"),
+            })?;
         Ok(CallOptions::create(options.get_timeout(), metadata))
     }
 }

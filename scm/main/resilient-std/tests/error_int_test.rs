@@ -5,15 +5,16 @@ use grpc_egress_breaker::{BreakerObservable, BreakerState, ObserveStateRequest};
 use grpc_egress_resilient::{BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig};
 use grpc_egress_resilient_std::StdGrpcResilientFactory;
 use grpc_egress_test_support::{ClientFixture, Fixture};
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use proto_pattern::{RawTransport, Transport};
 
 /// A real client built through the public builder; no connection is made until a call is.
 fn built_client() -> Result<impl Transport + RawTransport, Box<dyn std::error::Error>> {
     Fixture::ensure_tls_provider();
     Ok(ClientFixture::from_config(
-        &GrpcChannelConfig::new("http://127.0.0.1:1").allow_plaintext(),
+        &config_builder("http://127.0.0.1:1")
+            .allow_plaintext()
+            .build()?,
     )?)
 }
 
@@ -56,4 +57,16 @@ async fn test_build_valid_config_returns_a_client_whose_breaker_is_closed(
         "a fresh stack has not tripped"
     );
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

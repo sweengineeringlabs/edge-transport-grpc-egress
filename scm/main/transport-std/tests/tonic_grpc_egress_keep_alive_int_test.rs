@@ -3,7 +3,7 @@
 //! client can notice is by a PING that is not answered, and the proxy sees the client close.
 
 use grpc_egress_test_support::{CallFixture, ClientFixture};
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::{Duration, Instant};
 
@@ -11,8 +11,7 @@ use grpc_egress_test_support::{
     Fixture, FreezableProxy, PeerBehaviour, PeerServer, RunningPeer, RunningProxy,
 };
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
-    KeepAliveConfig,
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{CallError, RawTransport, StatusCode, Transport};
@@ -184,9 +183,10 @@ async fn test_with_keep_alive_without_permit_without_calls_idle_connection_is_le
 async fn test_with_channel_config_keep_alive_is_applied_to_the_client_happy(
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
-    let config = GrpcChannelConfig::new(proxy.get_endpoint())
+    let config = config_builder(proxy.get_endpoint())
         .allow_plaintext()
-        .with_keep_alive(keep_alive(false));
+        .with_keep_alive(keep_alive(false))
+        .build()?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(proxy.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_channel_config(&config)
@@ -207,9 +207,10 @@ async fn test_with_channel_config_keep_alive_is_applied_to_the_client_happy(
 async fn test_from_config_keep_alive_is_applied_to_the_client_the_caller_gets_happy(
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
-    let config = GrpcChannelConfig::new(proxy.get_endpoint())
+    let config = config_builder(proxy.get_endpoint())
         .allow_plaintext()
-        .with_keep_alive(keep_alive(false));
+        .with_keep_alive(keep_alive(false))
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     let (result, elapsed) = freeze_during_a_call(client, &proxy, Duration::from_secs(20)).await;
@@ -220,4 +221,16 @@ async fn test_from_config_keep_alive_is_applied_to_the_client_the_caller_gets_ha
     );
     assert!(elapsed < Duration::from_secs(4), "took {elapsed:?}");
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

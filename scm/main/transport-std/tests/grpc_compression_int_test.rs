@@ -1,12 +1,12 @@
 //! The compression of a channel configuration, end to end: `with_compression(Gzip)` makes the client send gzip
 //! and list gzip as accepted (`grpc-encoding` and `grpc-accept-encoding`), and `None` makes it send neither.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use grpc_egress_transport::CompressionMode;
 use proto_pattern::RawTransport;
 
 const SHORT: Duration = Duration::from_secs(2);
@@ -18,9 +18,10 @@ async fn test_call_raw_with_gzip_in_the_config_advertises_grpc_encoding_gzip_and
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
     let client = ClientFixture::from_config(
-        &GrpcChannelConfig::new(peer.get_endpoint())
+        &config_builder(peer.get_endpoint())
             .allow_plaintext()
-            .with_compression(CompressionMode::Gzip),
+            .with_compression(CompressionMode::Gzip)
+            .build()?,
     )?;
 
     client
@@ -50,8 +51,11 @@ async fn test_call_raw_with_no_compression_in_the_config_sets_no_grpc_encoding(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
-    let client =
-        ClientFixture::from_config(&GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext())?;
+    let client = ClientFixture::from_config(
+        &config_builder(peer.get_endpoint())
+            .allow_plaintext()
+            .build()?,
+    )?;
 
     client
         .call_raw(
@@ -68,4 +72,16 @@ async fn test_call_raw_with_no_compression_in_the_config_sets_no_grpc_encoding(
         "client must NOT set grpc-encoding when compression is None"
     );
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

@@ -21,12 +21,6 @@ impl StdGrpcEgressInterceptorFactory {
 
 impl GrpcEgressInterceptorFactory for StdGrpcEgressInterceptorFactory {
     fn build(&self, _req: BuildGrpcEgressInterceptorRequest) -> impl GrpcEgressInterceptor + use<> {
-        match self.source.clone() {
-            TraceContextSource::PassThrough => TraceContextGrpcEgressInterceptor::pass_through(),
-            TraceContextSource::Static {
-                traceparent,
-                tracestate,
-            } => TraceContextGrpcEgressInterceptor::with_static(traceparent, tracestate),
-        }
+        TraceContextGrpcEgressInterceptor::from(self.source.clone())
     }
 }

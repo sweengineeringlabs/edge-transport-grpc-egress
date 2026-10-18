@@ -1,14 +1,14 @@
 //! `InterceptedTransport` -- a client whose calls run through a chain of interceptors.
 
-use grpc_egress_transport::InboundReply;
-use proto_pattern::{
+use grpc_egress_transport::proto_pattern::{
     BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
     MessageStream, MetadataView, MethodPath, RawTransport, ResponseStream, ServerStreamMethod,
     Transport, UnaryMethod,
 };
+use grpc_egress_transport::{GrpcEgressInterceptorChain, InboundReply, MetadataExtender};
 
-use crate::std::client::MetadataExtender;
-use crate::std::{GrpcEgressInterceptorChain, PendingCall};
+use crate::std::client::StdMetadataExtender;
+use crate::std::{PendingCall, StdGrpcEgressInterceptorChain};
 
 /// Runs `chain` around every call of `inner`: `before_call` on every shape before anything is sent, `after_call`
 /// after a unary or client-streaming response. A call with no interceptor in the chain is forwarded as it is.
@@ -17,23 +17,25 @@ use crate::std::{GrpcEgressInterceptorChain, PendingCall};
 /// here.
 pub(crate) struct InterceptedTransport<T> {
     inner: T,
-    chain: GrpcEgressInterceptorChain,
+    chain: StdGrpcEgressInterceptorChain,
+}
+
+impl<T> From<(T, StdGrpcEgressInterceptorChain)> for InterceptedTransport<T> {
+    /// The client with the chain around its calls.
+    fn from((inner, chain): (T, StdGrpcEgressInterceptorChain)) -> Self {
+        Self { inner, chain }
+    }
 }
 
 impl<T> InterceptedTransport<T> {
-    /// `inner` with `chain` around its calls.
-    pub(crate) fn create(inner: T, chain: GrpcEgressInterceptorChain) -> Self {
-        Self { inner, chain }
-    }
-
     /// The options a call carries after every `before_call` has run.
     fn run_before(&self, path: &str, options: CallOptions) -> Result<CallOptions, CallError> {
         if self.chain.is_empty() {
             return Ok(options);
         }
-        let mut call = PendingCall::create(path, &options);
+        let mut call = PendingCall::from((path, &options));
         self.chain.run_before(&mut call)?;
-        Ok(call.into_options())
+        Ok(CallOptions::from(call))
     }
 
     /// Run every `after_call` on a response with a message.
@@ -48,8 +50,8 @@ impl<T> InterceptedTransport<T> {
         }
         self.chain.run_after(&InboundReply {
             path,
-            headers: MetadataExtender::copy(headers),
-            trailers: MetadataExtender::copy(trailers),
+            headers: StdMetadataExtender.copy(headers),
+            trailers: StdMetadataExtender.copy(trailers),
         })
     }
 }

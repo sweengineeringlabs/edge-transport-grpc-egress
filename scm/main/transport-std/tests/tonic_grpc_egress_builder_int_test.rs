@@ -1,17 +1,18 @@
 //! Tests of the builder of the client over the `proto-svc` engine, through its public factory, against a real
 //! in-process peer: every option must reach the call it describes, and none may be ignored.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError,
-    GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
+    BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfigError, GrpcEgressBuilder,
+    GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
     TraceContextSource,
 };
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{
     CallError, CallRequest, CallResponse, Compression, Metadata, MetadataEntry, MethodPath,
     RawTransport, StatusCode,
@@ -532,7 +533,7 @@ async fn test_with_trace_context_pass_through_adds_no_traceparent_edge(
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
-        .with_trace_context(TraceContextSource::PassThrough)
+        .with_trace_context(grpc_egress_transport::TraceContextSource::PassThrough)
         .build()?;
 
     send(&client, ping()).await?;
@@ -550,9 +551,10 @@ async fn test_with_channel_config_applies_endpoint_plaintext_and_decoding_limit_
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(vec![7u8; 1025])).await?;
     let closed = Fixture::reserve_closed_port()?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_max_message_bytes(1024);
+        .with_max_message_bytes(1024)
+        .build()?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(closed.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_channel_config(&config)
@@ -578,9 +580,10 @@ async fn test_with_channel_config_max_message_bytes_also_limits_the_request_erro
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_max_message_bytes(1024);
+        .with_max_message_bytes(1024)
+        .build()?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_channel_config(&config)
@@ -603,9 +606,10 @@ async fn test_with_channel_config_compression_gzip_sends_and_announces_gzip_happ
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_compression(CompressionMode::Gzip);
+        .with_compression(CompressionMode::Gzip)
+        .build()?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_channel_config(&config)
@@ -626,7 +630,7 @@ async fn test_with_channel_config_compression_gzip_sends_and_announces_gzip_happ
 #[tokio::test]
 async fn test_with_channel_config_requiring_tls_for_a_plaintext_endpoint_returns_plaintext_rejected_error(
 ) -> Result<(), Box<dyn Error>> {
-    let config = GrpcChannelConfig::new("http://127.0.0.1:1");
+    let config = config_builder("http://127.0.0.1:1").build()?;
 
     let result = TonicGrpcEgressBuilderSpiFactory::new("https://elsewhere.example:443")
         .build(BuildGrpcEgressBuilderRequest)
@@ -646,9 +650,10 @@ async fn test_with_channel_config_then_a_single_option_the_later_call_wins_edge(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(vec![7u8; 1025])).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint())
+    let config = config_builder(peer.get_endpoint())
         .allow_plaintext()
-        .with_max_message_bytes(1024);
+        .with_max_message_bytes(1024)
+        .build()?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_channel_config(&config)
@@ -720,4 +725,16 @@ async fn test_options_set_in_a_different_order_behave_the_same_edge() -> Result<
     assert!(is_out_of_range(&first), "got {first:?}");
     assert!(is_out_of_range(&second), "got {second:?}");
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

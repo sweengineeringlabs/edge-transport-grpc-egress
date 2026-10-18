@@ -4,4 +4,4 @@ pub mod dto;
 pub mod traits;
 
 pub use dto::BuildGrpcEgressBuilderRequest;
-pub use traits::{GrpcEgressBuilder, GrpcEgressBuilderFactory};
+pub use traits::{GrpcEgressBuilder, GrpcEgressBuilderFactory, MetadataExtender};

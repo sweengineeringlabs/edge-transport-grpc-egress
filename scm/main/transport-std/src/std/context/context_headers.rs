@@ -2,13 +2,16 @@
 
 use grpc_egress_transport::CallerIdentity;
 
-/// The headers derived from a [`CallerIdentity`].
-pub(crate) struct ContextHeaders;
+/// The headers derived from a [`CallerIdentity`]: `x-trace-id` and `x-tenant-id` when the identity has them,
+/// `authorization: Bearer <token>` when it holds a token to send, then the further headers it lists, in the order it
+/// lists them.
+pub(crate) struct ContextHeaders {
+    /// The `(name, value)` pairs, in the order they are sent.
+    pub(crate) entries: Vec<(String, String)>,
+}
 
-impl ContextHeaders {
-    /// `x-trace-id` and `x-tenant-id` when the identity has them, `authorization: Bearer <token>` when it holds a token to
-    /// send, then the further headers it lists, in the order it lists them.
-    pub(crate) fn derive(identity: &dyn CallerIdentity) -> Vec<(String, String)> {
+impl From<&dyn CallerIdentity> for ContextHeaders {
+    fn from(identity: &dyn CallerIdentity) -> Self {
         let mut headers = Vec::new();
         if let Some(trace_id) = identity.get_trace_id() {
             headers.push(("x-trace-id".to_string(), trace_id.to_string()));
@@ -25,6 +28,6 @@ impl ContextHeaders {
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), v.to_string())),
         );
-        headers
+        Self { entries: headers }
     }
 }

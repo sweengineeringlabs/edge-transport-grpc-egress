@@ -2,6 +2,7 @@
 //! client certificate is presented, the configured root CA is the only one trusted, the server name is checked,
 //! and a file that cannot be used fails when the client is built, naming its path.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::Duration;
 
@@ -10,13 +11,10 @@ use grpc_egress_test_support::{
     TlsServerMode,
 };
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressBuilder,
+    BuildGrpcEgressBuilderRequest, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, MtlsConfig,
 };
-use grpc_egress_transport_std::{
-    GrpcChannelConfigFactory, MtlsConfigFactory, TlsSettingsResolver,
-    TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{CallError, RawTransport, TlsIdentity, TlsSettings};
 
 fn path_of(path: std::path::PathBuf) -> String {
@@ -58,7 +56,7 @@ fn identity_of(pki: &TestPki) -> Result<TlsIdentity, Box<dyn Error>> {
 
 /// The paths of the client identity and the authority, as a configuration file names them.
 fn mtls_files_of(pki: &TestPki) -> MtlsConfig {
-    MtlsConfig::with_root_ca(
+    mtls_config_with_ca(
         path_of(pki.get_client_cert_pem_path()),
         path_of(pki.get_client_key_pem_path()),
         path_of(pki.get_ca_pem_path()),
@@ -260,7 +258,9 @@ async fn test_with_channel_config_mtls_files_are_read_and_the_identity_is_presen
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
-    let config = GrpcChannelConfig::new(peer.get_https_endpoint()).with_mtls(mtls_files_of(&pki));
+    let config = config_builder(peer.get_https_endpoint())
+        .with_mtls(mtls_files_of(&pki))
+        .build()?;
 
     let client = builder_for(&peer).with_channel_config(&config).build()?;
 
@@ -274,7 +274,9 @@ async fn test_from_config_mtls_files_are_applied_to_the_client_the_caller_gets_h
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
-    let config = GrpcChannelConfig::new(peer.get_https_endpoint()).with_mtls(mtls_files_of(&pki));
+    let config = config_builder(peer.get_https_endpoint())
+        .with_mtls(mtls_files_of(&pki))
+        .build()?;
     let client = ClientFixture::from_config(&config)?;
 
     assert_eq!(call(&client).await?, b"secure");
@@ -290,12 +292,13 @@ async fn test_with_channel_config_mtls_ca_file_of_another_authority_refuses_the_
     let pki = TestPki::create()?;
     let other = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
-    let config =
-        GrpcChannelConfig::new(peer.get_https_endpoint()).with_mtls(MtlsConfig::with_root_ca(
+    let config = config_builder(peer.get_https_endpoint())
+        .with_mtls(mtls_config_with_ca(
             path_of(pki.get_client_cert_pem_path()),
             path_of(pki.get_client_key_pem_path()),
             path_of(other.get_ca_pem_path()),
-        ));
+        ))
+        .build()?;
     let client = builder_for(&peer).with_channel_config(&config).build()?;
 
     let result = call(&client).await;
@@ -310,10 +313,12 @@ async fn test_build_mtls_certificate_file_that_does_not_exist_fails_naming_the_p
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
     let missing = path_of(pki.get_dir().join("no-such-client.pem"));
-    let config = GrpcChannelConfig::new("https://127.0.0.1:1").with_mtls(MtlsConfig::new(
-        missing.clone(),
-        path_of(pki.get_client_key_pem_path()),
-    ));
+    let config = config_builder("https://127.0.0.1:1")
+        .with_mtls(mtls_config(
+            missing.clone(),
+            path_of(pki.get_client_key_pem_path()),
+        ))
+        .build()?;
 
     let result = ClientFixture::from_config(&config);
 
@@ -334,10 +339,12 @@ async fn test_build_mtls_key_file_without_a_key_fails_naming_the_path_error(
     let pki = TestPki::create()?;
     // The certificate file holds no private key.
     let not_a_key = path_of(pki.get_client_cert_pem_path());
-    let config = GrpcChannelConfig::new("https://127.0.0.1:1").with_mtls(MtlsConfig::new(
-        path_of(pki.get_client_cert_pem_path()),
-        not_a_key.clone(),
-    ));
+    let config = config_builder("https://127.0.0.1:1")
+        .with_mtls(mtls_config(
+            path_of(pki.get_client_cert_pem_path()),
+            not_a_key.clone(),
+        ))
+        .build()?;
 
     let result = ClientFixture::from_config(&config);
 
@@ -359,11 +366,13 @@ async fn test_build_mtls_ca_file_without_a_certificate_fails_naming_the_path_err
     let empty = pki.get_dir().join("empty-ca.pem");
     std::fs::write(&empty, "")?;
     let empty = path_of(empty);
-    let config = GrpcChannelConfig::new("https://127.0.0.1:1").with_mtls(MtlsConfig::with_root_ca(
-        path_of(pki.get_client_cert_pem_path()),
-        path_of(pki.get_client_key_pem_path()),
-        empty.clone(),
-    ));
+    let config = config_builder("https://127.0.0.1:1")
+        .with_mtls(mtls_config_with_ca(
+            path_of(pki.get_client_cert_pem_path()),
+            path_of(pki.get_client_key_pem_path()),
+            empty.clone(),
+        ))
+        .build()?;
 
     let result = ClientFixture::from_config(&config);
 
@@ -386,7 +395,7 @@ fn test_resolve_identity_and_root_ca_reads_the_bytes_of_every_file_happy(
     let pki = TestPki::create()?;
     let mtls = mtls_files_of(&pki);
 
-    let settings = TlsSettingsResolver::resolve(Some(&mtls), mtls.ca_pem_path.as_deref())?;
+    let settings = resolve_tls(Some(&mtls), mtls.ca_pem_path.as_deref())?;
 
     assert_eq!(
         settings.get_trust_roots_pem(),
@@ -411,7 +420,7 @@ fn test_resolve_root_ca_alone_has_a_root_and_no_identity_edge() -> Result<(), Bo
     let pki = TestPki::create()?;
     let ca = path_of(pki.get_ca_pem_path());
 
-    let settings = TlsSettingsResolver::resolve(None, Some(&ca))?;
+    let settings = resolve_tls(None, Some(&ca))?;
 
     assert_eq!(settings.get_trust_roots_pem().len(), 1);
     assert!(settings.get_identity().is_none());
@@ -422,7 +431,7 @@ fn test_resolve_root_ca_alone_has_a_root_and_no_identity_edge() -> Result<(), Bo
 #[test]
 fn test_resolve_nothing_returns_the_system_roots_and_no_identity_edge() -> Result<(), Box<dyn Error>>
 {
-    let settings = TlsSettingsResolver::resolve(None, None)?;
+    let settings = resolve_tls(None, None)?;
 
     assert!(
         settings.get_trust_roots_pem().is_empty(),
@@ -440,7 +449,7 @@ fn test_resolve_root_ca_file_that_does_not_exist_returns_unusable_tls_file_namin
     let pki = TestPki::create()?;
     let missing = path_of(pki.get_dir().join("gone.pem"));
 
-    let result = TlsSettingsResolver::resolve(None, Some(&missing));
+    let result = resolve_tls(None, Some(&missing));
 
     match result {
         Err(GrpcChannelConfigError::UnusableTlsFile { path, .. }) => assert_eq!(path, missing),
@@ -459,9 +468,9 @@ fn test_resolve_identity_key_file_with_text_but_no_key_returns_unusable_tls_file
     let text = pki.get_dir().join("not-a-key.pem");
     std::fs::write(&text, "this is not a key")?;
     let text = path_of(text);
-    let mtls = MtlsConfig::new(path_of(pki.get_client_cert_pem_path()), text.clone());
+    let mtls = mtls_config(path_of(pki.get_client_cert_pem_path()), text.clone());
 
-    let result = TlsSettingsResolver::resolve(Some(&mtls), None);
+    let result = resolve_tls(Some(&mtls), None);
 
     match result {
         Err(GrpcChannelConfigError::UnusableTlsFile { path, reason }) => {
@@ -471,4 +480,58 @@ fn test_resolve_identity_key_file_with_text_but_no_key_returns_unusable_tls_file
         other => panic!("expected UnusableTlsFile, got {:?}", other.err()),
     }
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+}
+
+fn mtls_config(
+    cert: impl Into<String>,
+    key: impl Into<String>,
+) -> grpc_egress_transport::MtlsConfig {
+    use grpc_egress_transport::MtlsConfigFactory;
+    grpc_egress_transport_std::StdMtlsConfigFactory.build(
+        grpc_egress_transport::BuildMtlsConfigRequest {
+            cert_pem_path: cert.into(),
+            key_pem_path: key.into(),
+            ca_pem_path: None,
+        },
+    )
+}
+
+fn mtls_config_with_ca(
+    cert: impl Into<String>,
+    key: impl Into<String>,
+    ca: impl Into<String>,
+) -> grpc_egress_transport::MtlsConfig {
+    use grpc_egress_transport::MtlsConfigFactory;
+    grpc_egress_transport_std::StdMtlsConfigFactory.build(
+        grpc_egress_transport::BuildMtlsConfigRequest {
+            cert_pem_path: cert.into(),
+            key_pem_path: key.into(),
+            ca_pem_path: Some(ca.into()),
+        },
+    )
+}
+
+fn resolve_tls(
+    identity: Option<&grpc_egress_transport::MtlsConfig>,
+    root_ca: Option<&str>,
+) -> Result<proto_pattern::TlsSettings, grpc_egress_transport::GrpcChannelConfigError> {
+    use grpc_egress_transport::{
+        BuildTlsSettingsResolverRequest, ResolveTlsSettingsRequest, TlsSettingsResolver,
+        TlsSettingsResolverFactory,
+    };
+    grpc_egress_transport_std::StdTlsSettingsResolverFactory
+        .build(BuildTlsSettingsResolverRequest)
+        .resolve(ResolveTlsSettingsRequest { identity, root_ca })
 }

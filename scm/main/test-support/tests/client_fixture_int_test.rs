@@ -1,12 +1,12 @@
 //! `ClientFixture::from_config` builds a client from a channel configuration, through the public
 //! builder, and the client reaches a peer.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{GrpcChannelConfig, GrpcChannelConfigError};
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use grpc_egress_transport::GrpcChannelConfigError;
 use proto_pattern::RawTransport;
 
 /// @covers: ClientFixture::from_config
@@ -15,7 +15,9 @@ async fn test_from_config_plaintext_endpoint_builds_a_client_that_reaches_the_pe
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let peer = PeerServer::start(PeerBehaviour::Reply(b"pong".to_vec())).await?;
-    let config = GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext();
+    let config = config_builder(peer.get_endpoint())
+        .allow_plaintext()
+        .build()?;
 
     let client = ClientFixture::from_config(&config)?;
     let response = client
@@ -32,9 +34,10 @@ async fn test_from_config_plaintext_endpoint_builds_a_client_that_reaches_the_pe
 
 /// @covers: ClientFixture::from_config
 #[test]
-fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused() {
+fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused(
+) -> Result<(), Box<dyn std::error::Error>> {
     Fixture::ensure_tls_provider();
-    let config = GrpcChannelConfig::new("http://127.0.0.1:1");
+    let config = config_builder("http://127.0.0.1:1").build()?;
 
     let result = ClientFixture::from_config(&config);
 
@@ -42,6 +45,7 @@ fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused() {
         result,
         Err(GrpcChannelConfigError::PlaintextRejected(_))
     ));
+    Ok(())
 }
 
 /// @covers: CallFixture::path
@@ -51,4 +55,16 @@ fn test_path_with_and_without_the_leading_slash_is_the_same_path() {
         CallFixture::path("pkg.Service/Method"),
         CallFixture::path("/pkg.Service/Method")
     );
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

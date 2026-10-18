@@ -3,6 +3,8 @@
 //! Verifies the **fail-closed TLS-by-default invariant** at the
 //! public-facade boundary via the `create_transport_from_config` factory.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport::GrpcEgressInterceptorChain as _;
 use std::sync::Arc;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture};
@@ -10,10 +12,7 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError,
     GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
 };
-use grpc_egress_transport_std::{
-    GrpcChannelConfigFactory, GrpcEgressInterceptorChain, TonicGrpcEgressBuilderSpiFactory,
-    TraceContextGrpcEgressInterceptor,
-};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{CallError, CallResponse, Metadata, RawTransport, StatusCode};
 
 fn ensure_rustls_provider() {
@@ -33,9 +32,10 @@ fn transport_struct_channel_config_default_requires_tls_int_test() {
 
 /// @covers: create_transport_from_config — plaintext endpoint rejected when tls_required.
 #[test]
-fn transport_struct_channel_config_from_config_rejects_plaintext_int_test() {
+fn transport_struct_channel_config_from_config_rejects_plaintext_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let cfg = GrpcChannelConfig::new("http://localhost:50051");
+    let cfg = config_builder("http://localhost:50051").build()?;
     let result = ClientFixture::from_config(&cfg);
     match result {
         Err(GrpcChannelConfigError::PlaintextRejected(endpoint)) => {
@@ -47,6 +47,7 @@ fn transport_struct_channel_config_from_config_rejects_plaintext_int_test() {
         Err(other) => panic!("expected PlaintextRejected, got: {other}"),
         Ok(_) => panic!("must reject plaintext when tls_required=true"),
     }
+    Ok(())
 }
 
 /// @covers: create_transport_from_config — plaintext accepted with allow_plaintext().
@@ -55,7 +56,9 @@ async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_
 ) -> Result<(), Box<dyn std::error::Error>> {
     Fixture::ensure_tls_provider();
     let closed = Fixture::reserve_closed_port()?;
-    let cfg = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
+    let cfg = config_builder(closed.get_endpoint())
+        .allow_plaintext()
+        .build()?;
     let transport = ClientFixture::from_config(&cfg)?;
     // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
@@ -82,12 +85,13 @@ async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_
 /// @covers: create_transport_from_config — https endpoint accepted, unlike
 /// plaintext without opt-in — proves tls_required is genuinely scheme-derived, not ignored.
 #[test]
-fn transport_struct_channel_config_from_config_accepts_https_int_test() {
+fn transport_struct_channel_config_from_config_accepts_https_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
     ensure_rustls_provider();
-    let https_cfg = GrpcChannelConfig::new("https://example.com:443");
+    let https_cfg = config_builder("https://example.com:443").build()?;
     assert!(ClientFixture::from_config(&https_cfg).is_ok());
 
-    let plaintext_cfg = GrpcChannelConfig::new("http://example.com:80");
+    let plaintext_cfg = config_builder("http://example.com:80").build()?;
     assert!(
         matches!(
             ClientFixture::from_config(&plaintext_cfg),
@@ -95,13 +99,15 @@ fn transport_struct_channel_config_from_config_accepts_https_int_test() {
         ),
         "same construction path must still reject plaintext without allow_plaintext()"
     );
+    Ok(())
 }
 
 /// @covers: GrpcEgressInterceptorChain — accepts a TraceContextGrpcEgressInterceptor.
 #[test]
 fn transport_struct_channel_config_with_interceptors_accepts_chain_int_test() {
-    let chain = GrpcEgressInterceptorChain::new()
-        .push(Arc::new(TraceContextGrpcEgressInterceptor::pass_through()));
+    let chain = new_chain().push(Arc::new(trace_interceptor(
+        grpc_egress_transport::TraceContextSource::PassThrough,
+    )));
     assert_eq!(chain.len(), 1);
 }
 
@@ -159,7 +165,37 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
 
 /// @covers: GrpcChannelConfig::with_compression — sets mode.
 #[test]
-fn transport_struct_channel_config_with_compression_overrides_mode_int_test() {
-    let cfg = GrpcChannelConfig::new("http://localhost:0").with_compression(CompressionMode::Gzip);
+fn transport_struct_channel_config_with_compression_overrides_mode_int_test(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cfg = config_builder("http://localhost:0")
+        .with_compression(CompressionMode::Gzip)
+        .build()?;
     assert_eq!(cfg.compression, CompressionMode::Gzip);
+    Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+}
+
+fn new_chain() -> impl grpc_egress_transport::GrpcEgressInterceptorChain {
+    use grpc_egress_transport::GrpcEgressInterceptorChainFactory;
+    grpc_egress_transport_std::StdGrpcEgressInterceptorChainFactory
+        .build(grpc_egress_transport::BuildGrpcEgressInterceptorChainRequest)
+}
+
+fn trace_interceptor(
+    source: grpc_egress_transport::TraceContextSource,
+) -> impl grpc_egress_transport::GrpcEgressInterceptor {
+    use grpc_egress_transport::GrpcEgressInterceptorFactory;
+    grpc_egress_transport_std::StdGrpcEgressInterceptorFactory::new(source)
+        .build(grpc_egress_transport::BuildGrpcEgressInterceptorRequest)
 }

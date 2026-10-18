@@ -40,7 +40,7 @@ impl Fixture {
     ) -> impl Transport + RawTransport + use<'a, T> {
         StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
             inner: client,
-            identity: &SecurityContextIdentity::new(ctx),
+            identity: &SecurityContextIdentity::from(ctx),
         })
     }
 

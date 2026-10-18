@@ -1,20 +1,24 @@
 //! `grpc_egress_transport_std` -- the implementation of the gRPC egress domain
 //! (`grpc-egress-transport`): the client over the `proto-svc` engine, its builder and factory, the interceptor,
-//! cancellation and security-context wrappers, the load balancer, the health-check call, and the constructors and
-//! builders of the domain's data types.
+//! cancellation and security-context wrappers, the load balancer and the health-check call.
+//!
+//! Everything a caller uses is an interface of the domain crate; this crate implements those interfaces on
+//! `pub(crate)` types and creates them in `saf/`: a factory is a public type implementing a domain factory trait.
+//! `std/` holds the standard implementations (defaults over the domain crate only); `spi/` holds the code that names
+//! third-party crates.
 
 mod saf;
 mod spi;
 mod std;
 
-pub use crate::std::{
-    GrpcChannelConfigBuilder, GrpcChannelConfigFactory, GrpcEgressInterceptorChain, HealthCheck,
-    HealthCheckRequest, HealthCheckResponse, HealthStatus, LoadbalancerSettingsProvider,
-    MtlsConfigFactory, SecurityContextIdentity, TlsSettingsResolver, TokenCancellation,
-    TraceContextGrpcEgressInterceptor,
-};
 pub use edge_security_runtime::SecurityContext;
 pub use saf::{
-    StdGrpcCallerIdentityFactory, StdGrpcCancellationFactory, StdGrpcEgressInterceptorFactory,
+    StdGrpcCallerIdentityFactory, StdGrpcCancellationFactory, StdGrpcChannelConfigBuilderFactory,
+    StdGrpcEgressInterceptorChainFactory, StdGrpcEgressInterceptorFactory,
+    StdLoadbalancerSettingsProviderFactory, StdMtlsConfigFactory, StdTlsSettingsResolverFactory,
     TonicGrpcEgressBuilderSpiFactory,
+};
+pub use spi::{
+    HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus, SecurityContextIdentity,
+    TokenCancellation,
 };

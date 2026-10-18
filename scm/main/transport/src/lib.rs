@@ -15,13 +15,26 @@ pub use api::cancellation::{
     BuildGrpcCancellationRequest, CancellationSignal, GrpcCancellationFactory,
 };
 pub use api::channel::{
-    CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, KeepAliveConfig, MtlsConfig,
+    BuildGrpcChannelConfigBuilderRequest, BuildMtlsConfigRequest, BuildTlsSettingsResolverRequest,
+    CompressionMode, GrpcChannelConfig, GrpcChannelConfigBuilder, GrpcChannelConfigBuilderFactory,
+    GrpcChannelConfigError, KeepAliveConfig, MtlsConfig, MtlsConfigFactory,
+    ResolveTlsSettingsRequest, TlsSettingsResolver, TlsSettingsResolverFactory,
     DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
-pub use api::client::{BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory};
+pub use api::client::{
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, MetadataExtender,
+};
 pub use api::context::{BuildGrpcCallerIdentityRequest, CallerIdentity, GrpcCallerIdentityFactory};
 pub use api::interceptor::{
-    BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
-    InboundReply, OutboundCall, TraceContextSource,
+    BuildGrpcEgressInterceptorChainRequest, BuildGrpcEgressInterceptorRequest,
+    GrpcEgressInterceptor, GrpcEgressInterceptorChain, GrpcEgressInterceptorChainFactory,
+    GrpcEgressInterceptorFactory, InboundReply, OutboundCall, TraceContextSource,
 };
-pub use api::loadbalancer::{BackendTarget, BalancingStrategy, LoadbalancerSettings};
+pub use api::loadbalancer::{
+    BackendTarget, BalancingStrategy, BuildLoadbalancerSettingsProviderRequest,
+    LoadbalancerSettings, LoadbalancerSettingsProvider, LoadbalancerSettingsProviderFactory,
+};
+
+/// The contract the interfaces of this crate are written over: an implementation names `CallError`, `Metadata`,
+/// `Transport` and the rest through the domain crate, and so depends on nothing but the domain crate.
+pub use proto_pattern;

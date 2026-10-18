@@ -7,14 +7,15 @@ use grpc_egress_breaker::{
 };
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{ClientFixture, Fixture};
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use proto_pattern::{RawTransport, Transport};
 
 /// A real client for an endpoint nothing listens on: building a client sends nothing, and the tests never call it.
 fn idle_client() -> Result<impl Transport + RawTransport, Box<dyn std::error::Error>> {
     Fixture::ensure_tls_provider();
-    let config = GrpcChannelConfig::new("http://127.0.0.1:1").allow_plaintext();
+    let config = config_builder("http://127.0.0.1:1")
+        .allow_plaintext()
+        .build()?;
     Ok(ClientFixture::from_config(&config)?)
 }
 
@@ -74,4 +75,16 @@ fn test_build_zero_probe_count_returns_invalid_config_error(
         Ok(_) => panic!("a probe count of zero must be refused"),
     }
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

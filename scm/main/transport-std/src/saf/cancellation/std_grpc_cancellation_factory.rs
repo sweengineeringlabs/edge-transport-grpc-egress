@@ -5,7 +5,7 @@ use grpc_egress_transport::{
 };
 use proto_pattern::{RawTransport, Transport};
 
-use crate::std::CancellableTransport;
+use crate::spi::cancellation::CancellableTransport;
 
 /// Binds clients to cancellation signals.
 #[derive(Debug, Clone, Copy, Default)]
@@ -23,6 +23,6 @@ impl GrpcCancellationFactory for StdGrpcCancellationFactory {
         &self,
         req: BuildGrpcCancellationRequest<'a, T, S>,
     ) -> impl Transport + RawTransport + use<'a, T, S> {
-        CancellableTransport::create(req.inner, req.signal)
+        CancellableTransport::from(req)
     }
 }

@@ -7,6 +7,7 @@
 
 mod tonic_peer;
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -14,11 +15,10 @@ use std::time::{Duration, Instant};
 use grpc_egress_test_support::{CallFixture, ClosedPort, Fixture};
 use grpc_egress_transport::{
     BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, GrpcCancellationFactory,
-    GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::{
-    GrpcChannelConfigFactory, StdGrpcCancellationFactory, TokenCancellation,
-    TonicGrpcEgressBuilderSpiFactory,
+    StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
 };
 use proto_pattern::{
     BinaryMetadataEntry, CallError, CallOptions, CallRequest, MessageStream, Metadata,
@@ -262,7 +262,9 @@ async fn test_call_raw_to_a_refused_connection_returns_transport_unavailable(
 ) -> Result<(), Box<dyn Error>> {
     Fixture::ensure_tls_provider();
     let closed = ClosedPort::reserve()?;
-    let config = GrpcChannelConfig::new(closed.get_endpoint()).allow_plaintext();
+    let config = config_builder(closed.get_endpoint())
+        .allow_plaintext()
+        .build()?;
     let client = grpc_egress_test_support::ClientFixture::from_config(&config)?;
 
     let error = client
@@ -504,7 +506,9 @@ async fn test_call_raw_response_with_no_grpc_status_does_not_succeed() -> Result
         }
     });
     let client = grpc_egress_test_support::ClientFixture::from_config(
-        &GrpcChannelConfig::new(format!("http://{address}")).allow_plaintext(),
+        &config_builder(format!("http://{address}"))
+            .allow_plaintext()
+            .build()?,
     )?;
 
     let result = client
@@ -574,7 +578,7 @@ async fn test_call_raw_through_a_fired_token_fails_cancelled_long_before_the_pee
     let token = CancellationToken::new();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        signal: TokenCancellation::new(token.clone()),
+        signal: TokenCancellation::from(token.clone()),
     });
     let canceller = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -622,7 +626,7 @@ async fn test_call_typed_through_a_token_that_is_not_fired_returns_the_peers_ans
     let client = Fixtures::client(&peer)?;
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        signal: TokenCancellation::new(CancellationToken::new()),
+        signal: TokenCancellation::from(CancellationToken::new()),
     });
 
     let response = view
@@ -647,7 +651,7 @@ async fn test_call_server_stream_through_a_token_fired_mid_stream_keeps_the_mess
     let token = CancellationToken::new();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        signal: TokenCancellation::new(token.clone()),
+        signal: TokenCancellation::from(token.clone()),
     });
 
     let mut stream = view
@@ -701,7 +705,7 @@ async fn test_call_raw_on_the_client_after_a_token_ended_a_call_through_a_view_s
     token.cancel();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: client.as_ref(),
-        signal: TokenCancellation::new(token),
+        signal: TokenCancellation::from(token),
     });
 
     let ended = view
@@ -730,4 +734,16 @@ async fn test_call_raw_on_the_client_after_a_token_ended_a_call_through_a_view_s
         "the client, not the view, answers the second call"
     );
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

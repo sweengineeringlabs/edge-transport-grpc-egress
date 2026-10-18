@@ -4,7 +4,6 @@
 
 use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
-use grpc_egress_transport_std::TraceContextGrpcEgressInterceptor;
 use proto_pattern::{Metadata, MetadataEntry};
 
 const UPSTREAM: &str = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1-bbbbbbbbbbbbbbbb-01";
@@ -29,7 +28,7 @@ fn call_with_upstream() -> Result<OutboundCallFixture, Box<dyn std::error::Error
 #[test]
 fn test_pass_through_keeps_an_existing_upstream_traceparent(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = TraceContextGrpcEgressInterceptor::pass_through();
+    let interceptor = trace_interceptor(grpc_egress_transport::TraceContextSource::PassThrough);
     let mut call = call_with_upstream()?;
 
     interceptor.before_call(&mut call)?;
@@ -41,7 +40,7 @@ fn test_pass_through_keeps_an_existing_upstream_traceparent(
 /// @covers: TraceContextGrpcEgressInterceptor::pass_through
 #[test]
 fn test_pass_through_does_not_inject_a_traceparent() -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = TraceContextGrpcEgressInterceptor::pass_through();
+    let interceptor = trace_interceptor(grpc_egress_transport::TraceContextSource::PassThrough);
     let mut call = call();
 
     interceptor.before_call(&mut call)?;
@@ -55,7 +54,7 @@ fn test_pass_through_does_not_inject_a_traceparent() -> Result<(), Box<dyn std::
 #[test]
 fn test_with_static_injects_the_traceparent_when_absent() -> Result<(), Box<dyn std::error::Error>>
 {
-    let interceptor = TraceContextGrpcEgressInterceptor::with_static(INJECTED, None);
+    let interceptor = static_trace_interceptor(INJECTED, None);
     let mut call = call();
 
     interceptor.before_call(&mut call)?;
@@ -72,8 +71,7 @@ fn test_with_static_injects_the_traceparent_when_absent() -> Result<(), Box<dyn 
 #[test]
 fn test_with_static_injects_the_tracestate_when_configured(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor =
-        TraceContextGrpcEgressInterceptor::with_static(INJECTED, Some("v=1".to_string()));
+    let interceptor = static_trace_interceptor(INJECTED, Some("v=1".to_string()));
     let mut call = call();
 
     interceptor.before_call(&mut call)?;
@@ -86,8 +84,7 @@ fn test_with_static_injects_the_tracestate_when_configured(
 #[test]
 fn test_with_static_keeps_an_upstream_traceparent_and_adds_no_tracestate(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor =
-        TraceContextGrpcEgressInterceptor::with_static(INJECTED, Some("v=1".to_string()));
+    let interceptor = static_trace_interceptor(INJECTED, Some("v=1".to_string()));
     let mut call = call_with_upstream()?;
 
     interceptor.before_call(&mut call)?;
@@ -107,7 +104,7 @@ fn test_with_static_keeps_an_upstream_traceparent_and_adds_no_tracestate(
 /// @covers: TraceContextGrpcEgressInterceptor::after_call
 #[test]
 fn test_after_call_accepts_any_reply() {
-    let interceptor = TraceContextGrpcEgressInterceptor::pass_through();
+    let interceptor = trace_interceptor(grpc_egress_transport::TraceContextSource::PassThrough);
     let reply = InboundReply {
         path: "/svc/M",
         headers: Metadata::default(),
@@ -115,4 +112,22 @@ fn test_after_call_accepts_any_reply() {
     };
 
     assert!(interceptor.after_call(&reply).is_ok());
+}
+
+fn trace_interceptor(
+    source: grpc_egress_transport::TraceContextSource,
+) -> impl grpc_egress_transport::GrpcEgressInterceptor {
+    use grpc_egress_transport::GrpcEgressInterceptorFactory;
+    grpc_egress_transport_std::StdGrpcEgressInterceptorFactory::new(source)
+        .build(grpc_egress_transport::BuildGrpcEgressInterceptorRequest)
+}
+
+fn static_trace_interceptor(
+    traceparent: impl Into<String>,
+    tracestate: Option<String>,
+) -> impl grpc_egress_transport::GrpcEgressInterceptor {
+    trace_interceptor(grpc_egress_transport::TraceContextSource::Static {
+        traceparent: traceparent.into(),
+        tracestate,
+    })
 }

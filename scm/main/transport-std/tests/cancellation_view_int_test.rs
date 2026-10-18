@@ -57,7 +57,7 @@ impl Fixture {
     ) -> impl Transport + RawTransport + use<'a, T> {
         StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
             inner: client,
-            signal: TokenCancellation::new(token.clone()),
+            signal: TokenCancellation::from(token.clone()),
         })
     }
 

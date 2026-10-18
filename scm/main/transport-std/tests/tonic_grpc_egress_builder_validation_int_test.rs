@@ -1,17 +1,16 @@
 //! Tests of the combinations and values `build` refuses. Each error names the option, and a
 //! conflict names both options, so that a caller knows what to change. Nothing panics.
 
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::TestPki;
 use grpc_egress_transport::{
-    BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcChannelConfig,
-    GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory, LoadbalancerSettings,
-    MtlsConfig,
+    BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcChannelConfigError,
+    GrpcEgressBuilder, GrpcEgressBuilderFactory, LoadbalancerSettings,
 };
-use grpc_egress_transport_std::{MtlsConfigFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{TlsIdentity, TlsSettings};
 
 fn builder() -> impl GrpcEgressBuilder {
@@ -140,8 +139,11 @@ fn test_build_max_encoding_message_size_zero_returns_invalid_option_value_error(
 
 /// @covers: GrpcEgressBuilder::build
 #[test]
-fn test_build_channel_config_max_message_bytes_zero_returns_invalid_option_value_error() {
-    let config = GrpcChannelConfig::new("https://service.example:443").with_max_message_bytes(0);
+fn test_build_channel_config_max_message_bytes_zero_returns_invalid_option_value_error(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let config = config_builder("https://service.example:443")
+        .with_max_message_bytes(0)
+        .build()?;
 
     let result = builder().with_channel_config(&config).build();
 
@@ -156,6 +158,7 @@ fn test_build_channel_config_max_message_bytes_zero_returns_invalid_option_value
         "a zero limit of the configuration must be refused, got {}",
         describe(result)
     );
+    Ok(())
 }
 
 /// @covers: GrpcEgressBuilder::build
@@ -248,8 +251,9 @@ fn test_build_loadbalancer_with_an_endpoint_returns_conflict_naming_both_options
 
 /// @covers: GrpcEgressBuilder::build
 #[test]
-fn test_build_loadbalancer_with_a_channel_config_endpoint_returns_conflict_error() {
-    let config = GrpcChannelConfig::new("https://other.example:443");
+fn test_build_loadbalancer_with_a_channel_config_endpoint_returns_conflict_error(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let config = config_builder("https://other.example:443").build()?;
 
     let result = builder()
         .with_channel_config(&config)
@@ -268,6 +272,7 @@ fn test_build_loadbalancer_with_a_channel_config_endpoint_returns_conflict_error
         "got {}",
         describe(result)
     );
+    Ok(())
 }
 
 /// The endpoint the factory was created with is not an option the caller set.
@@ -307,10 +312,10 @@ fn test_build_loadbalancer_with_a_plaintext_backend_without_plaintext_allowed_is
 /// @covers: GrpcEgressBuilder::build
 #[test]
 fn test_build_channel_config_mtls_files_with_plaintext_allowed_returns_conflict_naming_both_options_error(
-) {
-    let mut config = GrpcChannelConfig::new("https://service.example:443");
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = config_builder("https://service.example:443").build()?;
     config.tls_required = false;
-    config.mtls = Some(MtlsConfig::new("client.pem", "client.key"));
+    config.mtls = Some(mtls_config("client.pem", "client.key"));
 
     let result = builder().with_channel_config(&config).build();
 
@@ -326,4 +331,31 @@ fn test_build_channel_config_mtls_files_with_plaintext_allowed_returns_conflict_
         "got {}",
         describe(result)
     );
+    Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+}
+
+fn mtls_config(
+    cert: impl Into<String>,
+    key: impl Into<String>,
+) -> grpc_egress_transport::MtlsConfig {
+    use grpc_egress_transport::MtlsConfigFactory;
+    grpc_egress_transport_std::StdMtlsConfigFactory.build(
+        grpc_egress_transport::BuildMtlsConfigRequest {
+            cert_pem_path: cert.into(),
+            key_pem_path: key.into(),
+            ca_pem_path: None,
+        },
+    )
 }

@@ -1,12 +1,7 @@
-//! `channel` theme: the constructors, setters and builder of the channel configuration types, and the reading of
-//! the TLS files they name.
+//! `channel` theme: the standard builder of the channel configuration, and the reading of the TLS files it names.
 
-pub(crate) mod channel_config;
-pub(crate) mod grpc_channel_config_builder;
-pub(crate) mod mtls_config;
-pub(crate) mod tls_settings_resolver;
+pub(crate) mod std_grpc_channel_config_builder;
+pub(crate) mod std_tls_settings_resolver;
 
-pub use channel_config::GrpcChannelConfigFactory;
-pub use grpc_channel_config_builder::GrpcChannelConfigBuilder;
-pub use mtls_config::MtlsConfigFactory;
-pub use tls_settings_resolver::TlsSettingsResolver;
+pub(crate) use std_grpc_channel_config_builder::StdGrpcChannelConfigBuilder;
+pub(crate) use std_tls_settings_resolver::StdTlsSettingsResolver;

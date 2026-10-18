@@ -7,6 +7,7 @@
 //! and is proved by `tests/breaker_int_test.rs`.
 //!
 //! [`StdGrpcBreakerFactory`]: grpc_egress_breaker_std::StdGrpcBreakerFactory
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::time::Duration;
 
 use grpc_egress_breaker::{
@@ -15,8 +16,6 @@ use grpc_egress_breaker::{
 };
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
 use proto_pattern::{CallError, RawTransport, StatusCode};
 
 #[tokio::main]
@@ -29,7 +28,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     })
     .await?;
     let client = ClientFixture::from_config(
-        &GrpcChannelConfig::new(upstream.get_endpoint()).allow_plaintext(),
+        &config_builder(upstream.get_endpoint())
+            .allow_plaintext()
+            .build()?,
     )?;
     let client = StdGrpcBreakerFactory::new(GrpcBreakerConfig {
         failure_threshold: 2,
@@ -83,4 +84,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "confirmed: circuit rejected the call without invoking the upstream ({after} total upstream calls)"
     );
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

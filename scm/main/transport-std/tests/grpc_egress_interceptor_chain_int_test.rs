@@ -1,12 +1,12 @@
 //! Integration tests for `GrpcEgressInterceptorChain`: the order interceptors run in, what happens when one fails,
 //! and that one interceptor sees what the one before it did to the call.
 
+use grpc_egress_transport::GrpcEgressInterceptorChain as _;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
-use grpc_egress_transport_std::GrpcEgressInterceptorChain;
 use proto_pattern::{CallError, Metadata, StatusCode};
 
 /// Records `before:<marker>` and `after:<marker>` in a shared log, in the order the chain calls it.
@@ -157,14 +157,14 @@ fn read_log(log: &Arc<Mutex<Vec<String>>>) -> Vec<String> {
 
 #[test]
 fn test_new_chain_has_no_interceptor() {
-    let chain = GrpcEgressInterceptorChain::new();
+    let chain = new_chain();
     assert_eq!(chain.len(), 0);
     assert!(chain.is_empty());
 }
 
 #[test]
 fn test_len_chain_with_one_interceptor_counts_it() {
-    let chain = GrpcEgressInterceptorChain::new().push(Arc::new(DenyBefore));
+    let chain = new_chain().push(Arc::new(DenyBefore));
     assert_eq!(chain.len(), 1);
     assert!(!chain.is_empty());
 }
@@ -172,7 +172,7 @@ fn test_len_chain_with_one_interceptor_counts_it() {
 #[test]
 fn test_run_before_runs_interceptors_in_registration_order() -> Result<(), CallError> {
     let log = Arc::new(Mutex::new(Vec::new()));
-    let chain = GrpcEgressInterceptorChain::new()
+    let chain = new_chain()
         .push(recorder("a", &log))
         .push(recorder("b", &log))
         .push(recorder("c", &log));
@@ -186,7 +186,7 @@ fn test_run_before_runs_interceptors_in_registration_order() -> Result<(), CallE
 #[test]
 fn test_run_after_runs_interceptors_in_registration_order_not_reversed() -> Result<(), CallError> {
     let log = Arc::new(Mutex::new(Vec::new()));
-    let chain = GrpcEgressInterceptorChain::new()
+    let chain = new_chain()
         .push(recorder("x", &log))
         .push(recorder("y", &log));
 
@@ -199,7 +199,7 @@ fn test_run_after_runs_interceptors_in_registration_order_not_reversed() -> Resu
 #[test]
 fn test_run_before_first_failure_stops_the_chain_and_returns_its_error() {
     let later = Arc::new(Counter::default());
-    let chain = GrpcEgressInterceptorChain::new()
+    let chain = new_chain()
         .push(Arc::new(DenyBefore))
         .push(Arc::new(CountingInterceptor(Arc::clone(&later))));
 
@@ -223,7 +223,7 @@ fn test_run_before_first_failure_stops_the_chain_and_returns_its_error() {
 #[test]
 fn test_run_after_first_failure_stops_the_chain_and_returns_its_error() {
     let later = Arc::new(Counter::default());
-    let chain = GrpcEgressInterceptorChain::new()
+    let chain = new_chain()
         .push(Arc::new(FailAfter))
         .push(Arc::new(CountingInterceptor(Arc::clone(&later))));
 
@@ -245,7 +245,7 @@ fn test_run_after_first_failure_stops_the_chain_and_returns_its_error() {
 #[test]
 fn test_run_before_later_interceptor_sees_the_header_an_earlier_one_added() -> Result<(), CallError>
 {
-    let chain = GrpcEgressInterceptorChain::new()
+    let chain = new_chain()
         .push(Arc::new(AddHeader {
             key: "x-first",
             value: "1",
@@ -262,7 +262,7 @@ fn test_run_before_later_interceptor_sees_the_header_an_earlier_one_added() -> R
 #[test]
 fn test_run_before_interceptor_that_runs_first_does_not_see_a_later_ones_header(
 ) -> Result<(), CallError> {
-    let chain = GrpcEgressInterceptorChain::new()
+    let chain = new_chain()
         .push(Arc::new(AddWhenFirstIsPresent))
         .push(Arc::new(AddHeader {
             key: "x-first",
@@ -277,4 +277,10 @@ fn test_run_before_interceptor_that_runs_first_does_not_see_a_later_ones_header(
         "the order of registration is the order of effect"
     );
     Ok(())
+}
+
+fn new_chain() -> impl grpc_egress_transport::GrpcEgressInterceptorChain {
+    use grpc_egress_transport::GrpcEgressInterceptorChainFactory;
+    grpc_egress_transport_std::StdGrpcEgressInterceptorChainFactory
+        .build(grpc_egress_transport::BuildGrpcEgressInterceptorChainRequest)
 }

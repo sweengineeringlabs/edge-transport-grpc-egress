@@ -1,6 +1,7 @@
 //! The retry decorator against a real in-process gRPC peer: what the peer sees of a retried call, a call that is not
 //! retried, and the three streaming shapes the decorator forwards.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::collections::VecDeque;
 use std::error::Error;
 use std::time::{Duration, Instant};
@@ -9,8 +10,6 @@ use edge_transport_retry::BackoffScheduler;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_std::{GrpcRetryConfigProvider, StdGrpcRetryFactory};
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
 use proto_pattern::{
     CallError, CallOptions, CallRequest, DecodeError, EncodeError, MessageStream, Method, Payload,
     RawTransport, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
@@ -108,7 +107,7 @@ fn retrying(
     config: GrpcRetryConfig,
 ) -> Result<impl Transport + RawTransport, Box<dyn Error>> {
     Fixture::ensure_tls_provider();
-    let inner = ClientFixture::from_config(&GrpcChannelConfig::new(endpoint).allow_plaintext())?;
+    let inner = ClientFixture::from_config(&config_builder(endpoint).allow_plaintext().build()?)?;
     Ok(StdGrpcRetryFactory::new(config).build(BuildGrpcRetryRequest { inner }))
 }
 
@@ -630,4 +629,16 @@ async fn test_call_raw_zero_timeout_fails_with_deadline_exceeded_and_the_peer_se
     );
     assert_eq!(peer.get_recorded_requests().len(), 0);
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

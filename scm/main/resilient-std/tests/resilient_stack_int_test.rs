@@ -5,6 +5,7 @@
 //! for every call, and these cases need a failure at a chosen call. The second group runs the whole stack against
 //! a real in-process gRPC peer and the real engine client.
 
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -22,8 +23,6 @@ use grpc_egress_resilient_std::StdGrpcResilientFactory;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
 use proto_pattern::{
     BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
     DecodeError, EncodeError, MessageStream, Metadata, Method, MethodPath, Payload, RawTransport,
@@ -656,7 +655,7 @@ fn resilient_over(
     config: ResilienceConfig,
 ) -> Result<impl Transport + RawTransport + BreakerObservable, Box<dyn std::error::Error>> {
     Fixture::ensure_tls_provider();
-    let inner = ClientFixture::from_config(&GrpcChannelConfig::new(endpoint).allow_plaintext())?;
+    let inner = ClientFixture::from_config(&config_builder(endpoint).allow_plaintext().build()?)?;
     Ok(apply_resilience(inner, config)?)
 }
 
@@ -782,4 +781,16 @@ async fn test_call_raw_unavailable_peer_is_retried_max_attempts_times_through_th
     assert!(result.is_err());
     assert_eq!(peer.get_recorded_requests().len(), 3);
     Ok(())
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

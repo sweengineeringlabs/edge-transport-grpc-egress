@@ -27,6 +27,6 @@ impl TonicGrpcEgressBuilderSpiFactory {
 
 impl GrpcEgressBuilderFactory for TonicGrpcEgressBuilderSpiFactory {
     fn build(&self, _req: BuildGrpcEgressBuilderRequest) -> impl GrpcEgressBuilder + use<> {
-        GrpcEgressBuilderImpl::new(self.endpoint.clone())
+        GrpcEgressBuilderImpl::from(self.endpoint.clone())
     }
 }
