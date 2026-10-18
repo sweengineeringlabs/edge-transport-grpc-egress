@@ -1,6 +1,7 @@
 //! The retry decorator against a real in-process gRPC peer: what the peer sees of a retried call, a call that is not
 //! retried, and the three streaming shapes the decorator forwards.
 
+use grpc_egress_retry::GrpcRetryConfigProvider as _;
 use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::collections::VecDeque;
 use std::error::Error;
@@ -8,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use edge_transport_retry::BackoffScheduler;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
-use grpc_egress_retry_std::{GrpcRetryConfigProvider, StdGrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
 use proto_pattern::{
     CallError, CallOptions, CallRequest, DecodeError, EncodeError, MessageStream, Method, Payload,
@@ -83,7 +84,7 @@ fn config(
     rate_limit_max_attempts: u32,
     rate_limit_max_backoff_ms: u64,
 ) -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
-    GrpcRetryConfig::from_config(&format!(
+    retry_provider().parse_config(&format!(
         r#"
             max_attempts = {max_attempts}
             initial_backoff_ms = {initial_backoff_ms}
@@ -318,7 +319,7 @@ async fn test_call_raw_timeout_shorter_than_the_next_backoff_stops_after_one_att
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_connection_refused_pauses_at_least_the_backoff_of_the_shared_scheduler(
 ) -> Result<(), Box<dyn Error>> {
-    let cfg = GrpcRetryConfig::from_config(
+    let cfg = retry_provider().parse_config(
         r#"
             max_attempts = 3
             initial_backoff_ms = 40
@@ -641,4 +642,10 @@ fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder 
     use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
         .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+}
+
+fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
+    use grpc_egress_retry::GrpcRetryConfigProviderFactory;
+    grpc_egress_retry_std::StdGrpcRetryConfigProviderFactory
+        .build(grpc_egress_retry::BuildGrpcRetryConfigProviderRequest)
 }

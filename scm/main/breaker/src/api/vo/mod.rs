@@ -11,3 +11,5 @@ pub use grpc_breaker_client_log_target::GRPC_BREAKER_CLIENT_LOG_TARGET;
 pub use grpc_breaker_config::GrpcBreakerConfig;
 // Moved to edge-transport-breaker-policy (ADR-004/ADR-003): the circuit-state machine's values.
 pub use edge_transport_breaker_policy::BreakerState;
+// The result of one call as the breaker's state machine counts it.
+pub use edge_transport_breaker_policy::Outcome;

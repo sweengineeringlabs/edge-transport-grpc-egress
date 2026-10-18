@@ -17,9 +17,9 @@ pub(crate) struct BearerEgressInterceptor {
     pub(crate) config: BearerEgressConfig,
 }
 
-impl BearerEgressInterceptor {
-    /// Construct from config.
-    pub(crate) fn from_config(config: BearerEgressConfig) -> Self {
+impl From<BearerEgressConfig> for BearerEgressInterceptor {
+    /// The interceptor that signs as the config says.
+    fn from(config: BearerEgressConfig) -> Self {
         Self { config }
     }
 }

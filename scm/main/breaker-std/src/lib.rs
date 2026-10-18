@@ -43,7 +43,6 @@
 #![warn(clippy::all)]
 
 mod saf;
-mod std;
+mod spi;
 
-pub use crate::std::GrpcBreakerConfigProvider;
-pub use saf::StdGrpcBreakerFactory;
+pub use saf::{StdGrpcBreakerConfigProviderFactory, StdGrpcBreakerFactory};

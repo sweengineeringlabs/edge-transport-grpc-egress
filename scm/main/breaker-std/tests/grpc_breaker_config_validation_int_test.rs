@@ -1,7 +1,7 @@
 //! Tests of `GrpcBreakerConfigProvider::validate`: the policy the breaker cannot work with is refused.
 
+use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
 use grpc_egress_breaker::{BreakerDomainError, GrpcBreakerConfig};
-use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
 
 fn valid() -> GrpcBreakerConfig {
     GrpcBreakerConfig {
@@ -19,9 +19,9 @@ fn test_validate_valid_config_returns_ok() {
         ..valid()
     };
 
-    assert!(valid().validate().is_ok());
+    assert!(breaker_provider().validate(&valid()).is_ok());
     assert!(
-        invalid.validate().is_err(),
+        breaker_provider().validate(&invalid).is_err(),
         "the same policy with no threshold must not"
     );
 }
@@ -34,7 +34,7 @@ fn test_validate_zero_failure_threshold_names_the_field() {
         ..valid()
     };
 
-    match config.validate() {
+    match breaker_provider().validate(&config) {
         Err(BreakerDomainError::InvalidConfig(message)) => {
             assert!(message.contains("failure_threshold"), "{message}");
         }
@@ -50,7 +50,7 @@ fn test_validate_zero_probe_count_names_the_field() {
         ..valid()
     };
 
-    match config.validate() {
+    match breaker_provider().validate(&config) {
         Err(BreakerDomainError::InvalidConfig(message)) => {
             assert!(message.contains("half_open_probe_count"), "{message}");
         }
@@ -64,7 +64,13 @@ fn test_from_config_zero_failure_threshold_is_refused() {
     let text = "failure_threshold = 0\ncool_down_seconds = 1\nhalf_open_probe_count = 1\n";
 
     assert!(matches!(
-        GrpcBreakerConfig::from_config(text),
+        breaker_provider().parse_config(text),
         Err(BreakerDomainError::InvalidConfig(_))
     ));
+}
+
+fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
+        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
 }

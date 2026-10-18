@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Symmetric / asymmetric secret material for JWT signing.
 ///
 /// `Hs256` carries a raw byte secret; comparisons MUST go through
-/// `BearerSecret::ct_eq_hs256` (`BearerSecretGuard` of `grpc-egress-auth-bearer-std`), which uses
+/// `BearerSecretGuard::ct_eq_hs256` (created by `StdBearerSecretGuardFactory` of `grpc-egress-auth-bearer-std`), which uses
 /// `subtle::ConstantTimeEq`.
 /// Asymmetric variants carry PEM-encoded key bytes.
 ///
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// let secret = BearerSecret::Hs256 { secret: b"my-secret".to_vec() };
 /// assert!(matches!(secret, BearerSecret::Hs256 { .. }));
 ///
-/// // The constant-time comparison, `ct_eq_hs256`, is in `grpc-egress-auth-bearer-std`.
+/// // The constant-time comparison, `BearerSecretGuard::ct_eq_hs256`, is implemented in `grpc-egress-auth-bearer-std`.
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]

@@ -1,5 +1,11 @@
 //! Factories of the bearer-auth crate.
 
+mod std_bearer_egress_config_builder_factory;
 mod std_bearer_interceptor_factory;
+mod std_bearer_secret_guard_factory;
+mod std_jwt_claims_builder_factory;
 
+pub use std_bearer_egress_config_builder_factory::StdBearerEgressConfigBuilderFactory;
 pub use std_bearer_interceptor_factory::StdBearerInterceptorFactory;
+pub use std_bearer_secret_guard_factory::StdBearerSecretGuardFactory;
+pub use std_jwt_claims_builder_factory::StdJwtClaimsBuilderFactory;

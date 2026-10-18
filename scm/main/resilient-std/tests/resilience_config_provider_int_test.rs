@@ -3,8 +3,8 @@
 
 use std::error::Error;
 
+use grpc_egress_resilient::ResilienceConfigProvider as _;
 use grpc_egress_resilient::{ResilienceConfig, ResilientTransportError};
-use grpc_egress_resilient_std::ResilienceConfigProvider;
 
 fn valid() -> ResilienceConfig {
     ResilienceConfig {
@@ -23,7 +23,7 @@ fn valid() -> ResilienceConfig {
 }
 
 fn refusal(config: &ResilienceConfig) -> Result<String, Box<dyn Error>> {
-    match config.validate() {
+    match resilience_provider().validate(config) {
         Err(ResilientTransportError::InvalidResilience(message)) => Ok(message),
         other => Err(format!("expected InvalidResilience, got {other:?}").into()),
     }
@@ -37,9 +37,9 @@ fn test_validate_valid_config_returns_ok() {
         ..valid()
     };
 
-    assert!(valid().validate().is_ok());
+    assert!(resilience_provider().validate(&valid()).is_ok());
     assert!(
-        invalid.validate().is_err(),
+        resilience_provider().validate(&invalid).is_err(),
         "the same policy with no attempts must not"
     );
 }
@@ -122,7 +122,7 @@ fn test_validate_rate_limit_max_backoff_below_initial_names_both_fields(
 fn test_to_retry_config_maps_every_retry_field() {
     let config = valid();
 
-    let retry = config.to_retry_config();
+    let retry = resilience_provider().to_retry_config(&config);
 
     assert_eq!(retry.max_attempts, 3);
     assert_eq!(retry.initial_backoff_ms, 100);
@@ -137,7 +137,7 @@ fn test_to_retry_config_maps_every_retry_field() {
 fn test_to_breaker_config_maps_every_breaker_field() {
     let config = valid();
 
-    let breaker = config.to_breaker_config();
+    let breaker = resilience_provider().to_breaker_config(&config);
 
     assert_eq!(breaker.failure_threshold, 5);
     assert_eq!(breaker.cool_down_seconds, 10);
@@ -166,13 +166,13 @@ fn test_from_config_parses_toml_into_the_retry_and_breaker_policies() -> Result<
         half_open_probe_count         = 3
     "#;
 
-    let config = ResilienceConfig::from_config(toml_text)?;
+    let config = resilience_provider().parse_config(toml_text)?;
 
-    let retry = config.to_retry_config();
+    let retry = resilience_provider().to_retry_config(&config);
     assert_eq!(retry.max_attempts, 7);
     assert_eq!(retry.rate_limit_max_attempts, 4);
     assert_eq!(retry.rate_limit_initial_backoff_ms, 2000);
-    let breaker = config.to_breaker_config();
+    let breaker = resilience_provider().to_breaker_config(&config);
     assert_eq!(breaker.failure_threshold, 9);
     assert_eq!(breaker.cool_down_seconds, 45);
     assert_eq!(breaker.half_open_probe_count, 3);
@@ -183,7 +183,7 @@ fn test_from_config_parses_toml_into_the_retry_and_breaker_policies() -> Result<
 #[test]
 fn test_from_config_malformed_toml_is_an_invalid_resilience_error() {
     assert!(matches!(
-        ResilienceConfig::from_config("not valid toml [[["),
+        resilience_provider().parse_config("not valid toml [[["),
         Err(ResilientTransportError::InvalidResilience(_))
     ));
 }
@@ -206,7 +206,13 @@ fn test_from_config_zero_max_attempts_is_an_invalid_resilience_error() {
     "#;
 
     assert!(matches!(
-        ResilienceConfig::from_config(toml_text),
+        resilience_provider().parse_config(toml_text),
         Err(ResilientTransportError::InvalidResilience(_))
     ));
+}
+
+fn resilience_provider() -> impl grpc_egress_resilient::ResilienceConfigProvider {
+    use grpc_egress_resilient::ResilienceConfigProviderFactory;
+    grpc_egress_resilient_std::StdResilienceConfigProviderFactory
+        .build(grpc_egress_resilient::BuildResilienceConfigProviderRequest)
 }

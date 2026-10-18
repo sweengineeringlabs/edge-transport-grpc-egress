@@ -8,10 +8,20 @@
 
 mod api;
 
-pub use api::dto::{BuildGrpcBreakerRequest, ObserveStateRequest, ObserveStateResponse};
-pub use api::error::{BreakerDomainError, Error};
-pub use api::traits::{BreakerObservable, GrpcBreakerFactory};
-pub use api::vo::{
-    BreakerState, GrpcBreakerConfig, BREAKER_EGRESS_LOG_PREFIX, FAILURE_CLASSIFIER_LOG_TARGET,
-    GRPC_BREAKER_CLIENT_LOG_TARGET,
+pub use api::dto::{
+    BuildGrpcBreakerConfigProviderRequest, BuildGrpcBreakerRequest, ObserveStateRequest,
+    ObserveStateResponse,
 };
+pub use api::error::{BreakerDomainError, Error};
+pub use api::traits::{
+    BreakerObservable, FailureClassifier, GrpcBreakerConfigProvider,
+    GrpcBreakerConfigProviderFactory, GrpcBreakerFactory,
+};
+pub use api::vo::{
+    BreakerState, GrpcBreakerConfig, Outcome, BREAKER_EGRESS_LOG_PREFIX,
+    FAILURE_CLASSIFIER_LOG_TARGET, GRPC_BREAKER_CLIENT_LOG_TARGET,
+};
+
+/// The contract the interfaces of this crate are written over: an implementation names `CallError`, `Transport` and the
+/// rest through the domain crate, and so depends on nothing but the domain crate.
+pub use proto_pattern;

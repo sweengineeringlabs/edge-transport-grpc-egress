@@ -20,5 +20,7 @@ mod saf;
 mod spi;
 mod std;
 
-pub use crate::saf::StdBearerInterceptorFactory;
-pub use crate::std::{BearerEgressConfigBuilder, BearerSecretGuard, JwtClaimsBuilder};
+pub use crate::saf::{
+    StdBearerEgressConfigBuilderFactory, StdBearerInterceptorFactory, StdBearerSecretGuardFactory,
+    StdJwtClaimsBuilderFactory,
+};

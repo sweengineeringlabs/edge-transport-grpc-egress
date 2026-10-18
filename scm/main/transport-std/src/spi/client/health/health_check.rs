@@ -2,8 +2,8 @@
 
 use proto_pattern::{Method, UnaryMethod};
 
-use super::health_check_request::HealthCheckRequest;
-use super::health_check_response::HealthCheckResponse;
+use super::dto::HealthCheckRequest;
+use super::dto::HealthCheckResponse;
 
 /// The standard health-checking call: `client.call::<HealthCheck>(request)` asks a server whether a service is up. It
 /// asks the service; it does not only open a connection.

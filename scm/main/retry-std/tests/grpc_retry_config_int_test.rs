@@ -1,7 +1,7 @@
 //! Coverage stub for `src/api/types/grpc/grpc_retry_config.rs`.
 
 use grpc_egress_retry::GrpcRetryConfig;
-use grpc_egress_retry_std::GrpcRetryConfigProvider;
+use grpc_egress_retry::GrpcRetryConfigProvider as _;
 
 /// @covers: GrpcRetryConfig — type is accessible and holds real fields (not zero-sized)
 #[test]
@@ -36,7 +36,13 @@ fn retry_struct_grpc_retry_config_from_config_parses_full_toml_int_test(
         rate_limit_initial_backoff_ms = 100
         rate_limit_max_backoff_ms = 5000
     "#;
-    let cfg = GrpcRetryConfig::from_config(toml)?;
+    let cfg = retry_provider().parse_config(toml)?;
     assert_eq!(cfg.max_attempts, 3);
     Ok(())
+}
+
+fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
+    use grpc_egress_retry::GrpcRetryConfigProviderFactory;
+    grpc_egress_retry_std::StdGrpcRetryConfigProviderFactory
+        .build(grpc_egress_retry::BuildGrpcRetryConfigProviderRequest)
 }

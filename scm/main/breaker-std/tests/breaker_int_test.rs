@@ -4,7 +4,7 @@
 //! The scripted transport is a test double because a real peer cannot be told to fail on the third call and
 //! recover on the fifth; what a real peer and the real engine do is in `breaker_engine_int_test.rs`.
 
-use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
+use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -303,7 +303,7 @@ async fn invoke<C: Transport + RawTransport>(client: &C, shape: Shape) -> Result
 }
 
 fn fast_cfg() -> Result<GrpcBreakerConfig, BreakerDomainError> {
-    GrpcBreakerConfig::from_config(
+    breaker_provider().parse_config(
         r#"
             failure_threshold = 3
             cool_down_seconds = 1
@@ -723,4 +723,10 @@ async fn test_call_state_after_each_failed_call_follows_the_shared_state_machine
         config.failure_threshold
     );
     Ok(())
+}
+
+fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
+        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
 }

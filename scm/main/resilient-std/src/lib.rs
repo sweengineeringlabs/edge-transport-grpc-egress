@@ -18,7 +18,6 @@
 #![deny(unsafe_code)]
 
 mod saf;
-mod std;
+mod spi;
 
-pub use crate::std::ResilienceConfigProvider;
-pub use saf::StdGrpcResilientFactory;
+pub use saf::{StdGrpcResilientFactory, StdResilienceConfigProviderFactory};

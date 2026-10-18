@@ -9,7 +9,9 @@ use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
 use proto_pattern::{RawTransport, Transport};
 
-use crate::std::ResilienceConfigProvider;
+use grpc_egress_resilient::ResilienceConfigProvider;
+
+use crate::spi::config::StdResilienceConfigProvider;
 
 /// Wraps clients with retry inside a circuit breaker, as one policy says.
 pub struct StdGrpcResilientFactory {
@@ -29,10 +31,11 @@ impl GrpcResilientFactory for StdGrpcResilientFactory {
         req: BuildGrpcResilientRequest<T>,
     ) -> Result<impl Transport + RawTransport + BreakerObservable + use<T>, ResilientTransportError>
     {
-        self.config.validate()?;
-        let with_retry = StdGrpcRetryFactory::new(self.config.to_retry_config())
+        let provider = StdResilienceConfigProvider;
+        provider.validate(&self.config)?;
+        let with_retry = StdGrpcRetryFactory::new(provider.to_retry_config(&self.config))
             .build(BuildGrpcRetryRequest { inner: req.inner });
-        let with_breaker = StdGrpcBreakerFactory::new(self.config.to_breaker_config())
+        let with_breaker = StdGrpcBreakerFactory::new(provider.to_breaker_config(&self.config))
             .build(BuildGrpcBreakerRequest { inner: with_retry })?;
         Ok(with_breaker)
     }

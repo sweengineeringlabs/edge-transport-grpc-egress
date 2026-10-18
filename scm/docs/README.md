@@ -10,7 +10,7 @@ Key capabilities:
 - **`Transport`** and **`RawTransport`** (`proto-pattern`): the client the builder returns is both: a call over a `Method`, and a call to a `MethodPath` with bytes for messages, in all four shapes (unary and the three streaming ones); a failure is a `CallError` with a `StatusCode`, metadata is `Metadata` (many values per key, binary entries)
 - **`GrpcChannelConfig`**: typed channel configuration: endpoint, TLS (required by default), keep-alive, message size limit, compression, request timeout
 - **`TonicGrpcEgressBuilderSpiFactory`**: the one way to build a client: a factory for the endpoint hands out a builder with a `with_*` option for every capability (TLS and mTLS, keep-alive, message limits, send and accept compression, request timeout, interceptors, trace context, load balancer), and `build` returns the client
-- **`GrpcEgressInterceptor`** and its chain: hooks before and after each call; **`TraceContextGrpcEgressInterceptor`** injects the W3C trace headers when `with_trace_context` attaches it
+- **`GrpcEgressInterceptor`** and its chain: hooks before and after each call; the trace-context interceptor (created by `StdGrpcEgressInterceptorFactory`) injects the W3C trace headers when `with_trace_context` attaches it
 - Workspace crates: `transport`, `retry`, `breaker`, `resilient`, `auth-bearer`, each a domain crate and an implementation crate (`<name>-std`)
 
 ## WHY

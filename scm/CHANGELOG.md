@@ -9,6 +9,44 @@ word.
 
 ## [Unreleased]
 
+Issue 60: programming over the interface (ADR-010). Everything another module calls is defined in a domain crate;
+`std/` and `spi/` only implement those traits on `pub(crate)` types; `std/` names no third-party crate. No method is
+removed and no behaviour changes: every operation below is reachable by the new way, and the tests that exercised
+the old path keep their names. `TonicGrpcEgressBuilderSpiFactory::new(endpoint)`, the builder traits and every `saf/`
+factory constructor (`StdGrpcRetryFactory::new`, `StdGrpcBreakerFactory::new`, ...) are unchanged.
+
+### Breaking (layout)
+
+Each row is a public path of a `-std` crate that no longer exists, and the way to do the same. A "factory" is a `saf/`
+type of the same crate that implements the domain factory trait of the same name; build its product with
+`factory.build(BuildXRequest)`. Import the domain trait to call its methods.
+
+| Old path | New way |
+|---|---|
+| `grpc_egress_transport_std::GrpcChannelConfigFactory` (`GrpcChannelConfig::new`, `allow_plaintext`, `with_mtls`, `with_keep_alive`, `with_max_message_bytes`, `with_compression`, `with_request_timeout`) | domain trait `grpc_egress_transport::GrpcChannelConfigBuilder`, created by `StdGrpcChannelConfigBuilderFactory`: `.with_endpoint(e).allow_plaintext()....build()?` (`build` is fallible: the endpoint is required). `GrpcChannelConfig` stays plain data with public fields |
+| `grpc_egress_transport_std::GrpcChannelConfigBuilder` (type, `new`) | the same domain trait, `GrpcChannelConfigBuilder`; `new()` is `StdGrpcChannelConfigBuilderFactory.build(BuildGrpcChannelConfigBuilderRequest)`; the builder also has `with_request_timeout` now |
+| `grpc_egress_transport_std::MtlsConfigFactory` (`MtlsConfig::new`, `MtlsConfig::with_root_ca`) | `grpc_egress_transport::MtlsConfigFactory`, implemented by `StdMtlsConfigFactory`: `build(BuildMtlsConfigRequest { cert_pem_path, key_pem_path, ca_pem_path })`, `ca_pem_path: None` for `new` |
+| `grpc_egress_transport_std::TlsSettingsResolver::resolve(identity, root_ca)` | `grpc_egress_transport::TlsSettingsResolver::resolve(ResolveTlsSettingsRequest { identity, root_ca })`, created by `StdTlsSettingsResolverFactory` |
+| `grpc_egress_transport_std::LoadbalancerSettingsProvider` (`LoadbalancerSettings::from_config`) | `grpc_egress_transport::LoadbalancerSettingsProvider::parse_config(text)`, created by `StdLoadbalancerSettingsProviderFactory` (`from_config` is renamed because clippy forbids a `from_*` method that takes `&self`) |
+| `grpc_egress_transport_std::GrpcEgressInterceptorChain` (`new`, `push`, `len`, `is_empty`, `run_before`, `run_after`) | domain trait `grpc_egress_transport::GrpcEgressInterceptorChain`, created by `StdGrpcEgressInterceptorChainFactory` |
+| `grpc_egress_transport_std::TraceContextGrpcEgressInterceptor` (`pass_through`, `with_static`) | `StdGrpcEgressInterceptorFactory::new(TraceContextSource::PassThrough or Static { .. }).build(BuildGrpcEgressInterceptorRequest)`; the type is `pub(crate)` |
+| `TokenCancellation::new(token)` | `TokenCancellation::from(token)` |
+| `SecurityContextIdentity::new(&context)` | `SecurityContextIdentity::from(&context)` |
+| `grpc_egress_retry_std::GrpcRetryConfigProvider` (`GrpcRetryConfig::from_config`, `initial_backoff`, `max_backoff`, `rate_limit_initial_backoff`, `rate_limit_max_backoff`, `validate`) | `grpc_egress_retry::GrpcRetryConfigProvider` (`parse_config(text)`, and the others take the config as an argument), created by `StdGrpcRetryConfigProviderFactory` |
+| `grpc_egress_retry_std::GrpcRetryConfigBuilder` (type, `new`) | domain trait `grpc_egress_retry::GrpcRetryConfigBuilder`, created by `StdGrpcRetryConfigBuilderFactory` |
+| `grpc_egress_retry_std::RetryDecision` (`classify`, `should_retry`, `is_rate_limit`, `read_retry_after`, `parse_retry_after_hint`) and `ResourceExhaustedContext::classify` | the enums `RetryDecision` and `ResourceExhaustedContext` are values of `grpc_egress_retry`; the operations are methods of `grpc_egress_retry::RetryClassifier` (`classify`, `should_retry(decision)`, `is_rate_limit(decision)`, `read_retry_after`, `parse_retry_after_hint`, `classify_resource_exhausted`), created by `StdRetryClassifierFactory` |
+| `grpc_egress_breaker_std::GrpcBreakerConfigProvider` (`GrpcBreakerConfig::from_config`, `cool_down`, `validate`) | `grpc_egress_breaker::GrpcBreakerConfigProvider` (`parse_config`, `cool_down(&config)`, `validate(&config)`), created by `StdGrpcBreakerConfigProviderFactory` |
+| `grpc_egress_resilient_std::ResilienceConfigProvider` (`ResilienceConfig::from_config`, `validate`, `to_retry_config`, `to_breaker_config`) | `grpc_egress_resilient::ResilienceConfigProvider` (`parse_config`, and the others take the config), created by `StdResilienceConfigProviderFactory`. `grpc-egress-resilient` now depends on `grpc-egress-retry` (a domain crate) |
+| `grpc_egress_auth_bearer_std::BearerSecretGuard` (`secret.ct_eq_hs256(&other)`) | `grpc_egress_auth_bearer::BearerSecretGuard::ct_eq_hs256(&left, &right)`, created by `StdBearerSecretGuardFactory` |
+| `grpc_egress_auth_bearer_std::BearerEgressConfigBuilder` and `JwtClaimsBuilder` (types, `new`) | domain traits of the same names in `grpc_egress_auth_bearer`, created by `StdBearerEgressConfigBuilderFactory` and `StdJwtClaimsBuilderFactory` |
+
+New in the domain crates: `pub use proto_pattern;` (the contract the interfaces are written over, so that an
+implementation depends on the domain crate only); `grpc_egress_transport::MetadataExtender`;
+`grpc_egress_breaker::FailureClassifier` and `Outcome`. In `-std` crates the code that names a third-party crate
+moved from `std/` to `spi/` (no public path changed for it, except as listed above). `scripts/check_layout.py` has
+rule 19 (`program_over_the_interface`) and rule 20 (`std_names_no_third_party`).
+
+
 Issue 18: the contract (`proto-pattern` 0.10) and the engine (`proto-svc` 0.4) are external, and the client is a
 generic bound over them. **Breaking throughout.** The design is ADR-009 (rulings of ADR-008 applied); every
 behaviour that differs from v0.8.0 and its decision is in `docs/behaviour-comparison.md`; the mapping of every public

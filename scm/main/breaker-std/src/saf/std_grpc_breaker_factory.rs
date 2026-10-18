@@ -7,7 +7,10 @@ use grpc_egress_breaker::{
 use proto_pattern::{RawTransport, Transport};
 use tracing::debug;
 
-use crate::std::{GrpcBreakerClient, GrpcBreakerConfigProvider};
+use grpc_egress_breaker::GrpcBreakerConfigProvider;
+
+use crate::spi::config::StdGrpcBreakerConfigProvider;
+use crate::spi::decorator::GrpcBreakerClient;
 
 /// Wraps clients with a circuit breaker under one [`GrpcBreakerConfig`].
 pub struct StdGrpcBreakerFactory {
@@ -27,8 +30,8 @@ impl GrpcBreakerFactory for StdGrpcBreakerFactory {
         req: BuildGrpcBreakerRequest<T>,
     ) -> Result<impl Transport + RawTransport + BreakerObservable + use<T>, BreakerDomainError>
     {
-        self.config.validate()?;
+        StdGrpcBreakerConfigProvider.validate(&self.config)?;
         debug!("grpc-breaker: wrapping inner client");
-        Ok(GrpcBreakerClient::new(req.inner, self.config.clone()))
+        Ok(GrpcBreakerClient::from((req.inner, self.config.clone())))
     }
 }

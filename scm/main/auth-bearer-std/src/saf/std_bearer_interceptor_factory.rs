@@ -22,6 +22,6 @@ impl StdBearerInterceptorFactory {
 
 impl GrpcEgressInterceptorFactory for StdBearerInterceptorFactory {
     fn build(&self, _req: BuildGrpcEgressInterceptorRequest) -> impl GrpcEgressInterceptor + use<> {
-        BearerEgressInterceptor::from_config(self.config.clone())
+        BearerEgressInterceptor::from(self.config.clone())
     }
 }

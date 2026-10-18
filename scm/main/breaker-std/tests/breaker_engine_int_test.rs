@@ -2,6 +2,7 @@
 //! what the engine reports for a refused connection and for the statuses a peer answers is what the breaker
 //! classifies, and an open circuit keeps calls away from the peer.
 
+use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
 use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::Duration;
@@ -10,7 +11,7 @@ use grpc_egress_breaker::{
     BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
     GrpcBreakerFactory, ObserveStateRequest,
 };
-use grpc_egress_breaker_std::{GrpcBreakerConfigProvider, StdGrpcBreakerFactory};
+use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{
     CallFixture, ClientFixture, ClosedPort, Fixture, PeerBehaviour, PeerServer, RunningPeer,
 };
@@ -53,7 +54,7 @@ impl Method for Ping {
 impl UnaryMethod for Ping {}
 
 fn fast_config() -> Result<GrpcBreakerConfig, Box<dyn Error>> {
-    Ok(GrpcBreakerConfig::from_config(
+    Ok(breaker_provider().parse_config(
         r#"
             failure_threshold = 3
             cool_down_seconds = 30
@@ -342,4 +343,10 @@ fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder 
     use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
         .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+}
+
+fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
+        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
 }

@@ -8,7 +8,7 @@
 //! `subtle` dependency is demonstrably tested, not just linked.
 
 use grpc_egress_auth_bearer::BearerSecret;
-use grpc_egress_auth_bearer_std::BearerSecretGuard;
+use grpc_egress_auth_bearer::BearerSecretGuard as _;
 
 /// @covers: subtle::ConstantTimeEq — the dependency's constant-time primitive directly
 #[test]
@@ -31,7 +31,7 @@ fn bearer_struct_bearer_secret_ct_eq_hs256_equal_secrets_returns_true_int_test()
         secret: b"shared-secret-value".to_vec(),
     };
     assert!(
-        a.ct_eq_hs256(&b),
+        secret_guard().ct_eq_hs256(&a, &b),
         "identical HS256 secrets must compare as equal via subtle::ConstantTimeEq",
     );
 }
@@ -46,7 +46,7 @@ fn bearer_struct_bearer_secret_ct_eq_hs256_different_secrets_returns_false_int_t
         secret: b"wrong-secret".to_vec(),
     };
     assert!(
-        !a.ct_eq_hs256(&b),
+        !secret_guard().ct_eq_hs256(&a, &b),
         "different HS256 secrets must compare as unequal via subtle::ConstantTimeEq",
     );
 }
@@ -61,7 +61,13 @@ fn bearer_struct_bearer_secret_ct_eq_hs256_variant_mismatch_returns_false_int_te
         private_pem: b"pem-bytes".to_vec(),
     };
     assert!(
-        !hs.ct_eq_hs256(&rs),
+        !secret_guard().ct_eq_hs256(&hs, &rs),
         "cross-variant comparison must return false — algorithm mismatch is never equal",
     );
+}
+
+fn secret_guard() -> impl grpc_egress_auth_bearer::BearerSecretGuard {
+    use grpc_egress_auth_bearer::BearerSecretGuardFactory;
+    grpc_egress_auth_bearer_std::StdBearerSecretGuardFactory
+        .build(grpc_egress_auth_bearer::BuildBearerSecretGuardRequest)
 }

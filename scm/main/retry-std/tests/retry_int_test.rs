@@ -4,12 +4,13 @@
 //! twice, then succeed) are made with a scripted client that implements both contract traits and counts its calls.
 //! The cases a real peer can make are in `retry_peer_int_test.rs`.
 
+use grpc_egress_retry::GrpcRetryConfigProvider as _;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
-use grpc_egress_retry_std::{GrpcRetryConfigProvider, StdGrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
 use proto_pattern::{
     BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
     DecodeError, EncodeError, MessageStream, Metadata, MetadataEntry, Method, MethodPath, Payload,
@@ -304,7 +305,7 @@ impl RawTransport for ScriptedTransport {
 }
 
 fn fast_config() -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
-    GrpcRetryConfig::from_config(
+    retry_provider().parse_config(
         r#"
             max_attempts = 5
             initial_backoff_ms = 1
@@ -511,7 +512,7 @@ async fn test_call_raw_resource_exhausted_rate_limit_retries_on_rate_limit_track
         Outcome::Status(StatusCode::ResourceExhausted, "rate limit exceeded"),
         Outcome::Ok,
     ]);
-    let cfg = GrpcRetryConfig::from_config(
+    let cfg = retry_provider().parse_config(
         r#"
             max_attempts = 5
             initial_backoff_ms = 5
@@ -576,7 +577,7 @@ async fn test_call_raw_timeout_is_the_total_budget_of_all_attempts(
         vec![Outcome::Status(StatusCode::Unavailable, "slow blip")],
         Duration::from_millis(50),
     );
-    let cfg = GrpcRetryConfig::from_config(
+    let cfg = retry_provider().parse_config(
         r#"
             max_attempts = 100
             initial_backoff_ms = 10
@@ -759,7 +760,7 @@ async fn test_call_typed_with_one_attempt_allowed_forwards_the_call_once(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (inner, seen) =
         ScriptedTransport::new(vec![Outcome::Status(StatusCode::Unavailable, "down")]);
-    let config = GrpcRetryConfig::from_config(
+    let config = retry_provider().parse_config(
         r#"
             max_attempts = 1
             initial_backoff_ms = 1
@@ -819,4 +820,10 @@ async fn test_call_typed_message_that_cannot_be_encoded_fails_before_any_attempt
 fn test_grpc_retry_config_section_name_is_grpc_retry() {
     use swe_edge_configbuilder::ConfigSection as _;
     assert_eq!(GrpcRetryConfig::section_name(), "grpc_retry");
+}
+
+fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
+    use grpc_egress_retry::GrpcRetryConfigProviderFactory;
+    grpc_egress_retry_std::StdGrpcRetryConfigProviderFactory
+        .build(grpc_egress_retry::BuildGrpcRetryConfigProviderRequest)
 }

@@ -3,6 +3,7 @@
 **Status:** Accepted (the owner, 2026-10-16); implemented on `dev`
 **Date:** 2026-10-16
 **Tracking:** [#17](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/17) tasks 3, 4, 5, 7
+**Amended by:** [ADR-010](ADR-010-programming-over-the-interface.md): the extension traits of the table below are domain traits implemented on `pub(crate)` types, not traits of the implementation crate.
 **See also:** [ADR-004](ADR-004-remove-resilience-config-from-transport-primitive.md) (the transport knows nothing of retry and breaker)
 
 ---
@@ -37,6 +38,12 @@ a type of the implementation crate. A caller keeps the call syntax by bringing t
 | `CompressionMode` | (a) plain enum; the wire name in the trait `CompressionModeProvider` |
 | `KeepAliveConfig` | (a) plain data; `Default` stays in the domain (the 10 s and 20 s of gRPC's recommendation) |
 | `GrpcEgressInterceptorChain`, `TraceContextGrpcEgressInterceptor`, `ApplicationConfigBuilder`, `Conversions`, `TransportSvc` | (c) not domain: they are implementation, declared and implemented together in std |
+
+**Superseded by ADR-010 (issue 60).** The extension traits above were declared in `std/`, which the owner's rule
+forbids ("No new definitions in spi/std"): each is now a trait of the domain crate (`GrpcChannelConfigFactory` and the
+setters are `GrpcChannelConfigBuilder`, `MtlsConfigFactory` stays in the domain with a request envelope, the
+`*ConfigProvider`s are domain traits), implemented on a `pub(crate)` type and created by a factory of `saf/`. The
+orphan rule is why: a `-std` crate cannot implement a domain trait for a domain type.
 
 Rejected: (b) keeping the methods in the domain crate. It would make the domain crate carry
 implementation, and it is the thing the audit rule `api_no_inherent_impl` flags.

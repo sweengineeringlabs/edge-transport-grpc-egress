@@ -37,9 +37,10 @@
 #![warn(clippy::all)]
 
 mod saf;
+mod spi;
 mod std;
 
-pub use crate::std::{
-    GrpcRetryConfigBuilder, GrpcRetryConfigProvider, ResourceExhaustedContext, RetryDecision,
+pub use saf::{
+    StdGrpcRetryConfigBuilderFactory, StdGrpcRetryConfigProviderFactory, StdGrpcRetryFactory,
+    StdRetryClassifierFactory,
 };
-pub use saf::StdGrpcRetryFactory;

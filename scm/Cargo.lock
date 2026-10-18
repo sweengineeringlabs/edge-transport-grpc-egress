@@ -660,6 +660,7 @@ version = "0.8.0"
 dependencies = [
  "futures",
  "grpc-egress-breaker",
+ "grpc-egress-retry",
  "grpc-egress-transport",
  "proto-pattern",
  "serde",

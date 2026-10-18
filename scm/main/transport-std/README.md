@@ -2,9 +2,11 @@
 
 Implementation of the gRPC egress domain (`grpc-egress-transport`): the client over the `proto-svc`
 engine (a private type, built through `TonicGrpcEgressBuilderSpiFactory`), the load-balanced client, the interceptor
-chain, the cancellation and security-context views, the `grpc.health.v1` health-check call, the reading of TLS files
-(`TlsSettingsResolver`), and the constructors and builders of the domain's data types (`GrpcChannelConfigFactory`,
-`MtlsConfigFactory`).
+chain, the cancellation and security-context views, the `grpc.health.v1` health-check call, the reading of TLS files,
+and the builders of the domain's data types. Everything a caller uses is an interface of `grpc-egress-transport`
+(`TlsSettingsResolver`, `GrpcChannelConfigBuilder`, `MtlsConfigFactory`, ...); this crate implements them on private
+types, and a `Std*Factory` of its `saf/` creates each one. `std/` holds the defaults and names no third-party crate;
+`spi/` holds what does (`tokio`, `tokio-util`, `prost`, `toml`, `proto-svc`).
 
 ## Usage
 

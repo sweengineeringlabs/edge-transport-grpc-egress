@@ -3,7 +3,7 @@
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use proto_pattern::{RawTransport, Transport};
 
-use crate::std::GrpcRetryClient;
+use crate::spi::decorator::GrpcRetryClient;
 
 /// Wraps clients with retry as one policy says.
 pub struct StdGrpcRetryFactory {
@@ -22,6 +22,6 @@ impl GrpcRetryFactory for StdGrpcRetryFactory {
         &self,
         req: BuildGrpcRetryRequest<T>,
     ) -> impl Transport + RawTransport + use<T> {
-        GrpcRetryClient::new(req.inner, self.config.clone())
+        GrpcRetryClient::from((req.inner, self.config.clone()))
     }
 }

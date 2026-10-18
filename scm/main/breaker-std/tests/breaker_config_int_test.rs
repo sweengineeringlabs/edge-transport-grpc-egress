@@ -1,6 +1,6 @@
 //! Tests for [`GrpcBreakerConfig`].
 
-use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
+use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
 use std::time::Duration;
 
 use grpc_egress_breaker::GrpcBreakerConfig;
@@ -14,7 +14,7 @@ fn test_from_config_parses_full_toml() -> Result<(), Box<dyn std::error::Error>>
         cool_down_seconds = 30
         half_open_probe_count = 1
     "#;
-    let cfg = GrpcBreakerConfig::from_config(toml)?;
+    let cfg = breaker_provider().parse_config(toml)?;
     assert_eq!(cfg.failure_threshold, 5);
     assert_eq!(cfg.cool_down_seconds, 30);
     assert_eq!(cfg.half_open_probe_count, 1);
@@ -30,7 +30,8 @@ fn test_from_config_unknown_key_is_error() -> Result<(), Box<dyn std::error::Err
         half_open_probe_count = 1
         unknown = 99
     "#;
-    let err = GrpcBreakerConfig::from_config(toml)
+    let err = breaker_provider()
+        .parse_config(toml)
         .err()
         .ok_or("unknown field must fail")?;
     let s = err.to_string();
@@ -49,7 +50,7 @@ fn test_zero_threshold_is_invalid() {
         cool_down_seconds = 30
         half_open_probe_count = 1
     "#;
-    let result = GrpcBreakerConfig::from_config(toml);
+    let result = breaker_provider().parse_config(toml);
     assert!(result.is_err(), "zero threshold must fail");
 }
 
@@ -61,7 +62,7 @@ fn test_zero_probe_count_is_invalid() {
         cool_down_seconds = 30
         half_open_probe_count = 0
     "#;
-    let result = GrpcBreakerConfig::from_config(toml);
+    let result = breaker_provider().parse_config(toml);
     assert!(result.is_err(), "zero probe count must fail");
 }
 
@@ -83,5 +84,14 @@ fn test_section_name_is_grpc_breaker() {
 #[test]
 fn test_cool_down_returns_duration_from_seconds() {
     let cfg = GrpcBreakerConfig::default();
-    assert_eq!(cfg.cool_down(), Duration::from_secs(cfg.cool_down_seconds));
+    assert_eq!(
+        breaker_provider().cool_down(&cfg),
+        Duration::from_secs(cfg.cool_down_seconds)
+    );
+}
+
+fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
+        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
 }

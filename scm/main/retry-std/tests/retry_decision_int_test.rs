@@ -1,8 +1,9 @@
 //! Integration tests for [`RetryDecision`] and [`ResourceExhaustedContext`].
 
+use grpc_egress_retry::RetryClassifier as _;
+use grpc_egress_retry::{ResourceExhaustedContext, RetryDecision};
 use std::time::Duration;
 
-use grpc_egress_retry_std::{ResourceExhaustedContext, RetryDecision};
 use proto_pattern::{CallError, DecodeError, EncodeError, Metadata, MetadataEntry, StatusCode};
 
 /// A status the peer answered with, carrying `trailers`.
@@ -42,19 +43,19 @@ fn trailers_of(entries: &[(&str, &str)]) -> Result<Metadata, Box<dyn std::error:
 #[test]
 fn test_classify_resource_exhausted_rate_limit_keywords() {
     assert_eq!(
-        ResourceExhaustedContext::classify("rate limit exceeded"),
+        classifier().classify_resource_exhausted("rate limit exceeded"),
         ResourceExhaustedContext::RateLimit
     );
     assert_eq!(
-        ResourceExhaustedContext::classify("too many requests"),
+        classifier().classify_resource_exhausted("too many requests"),
         ResourceExhaustedContext::RateLimit
     );
     assert_eq!(
-        ResourceExhaustedContext::classify("throttled"),
+        classifier().classify_resource_exhausted("throttled"),
         ResourceExhaustedContext::RateLimit
     );
     assert_eq!(
-        ResourceExhaustedContext::classify("RATE_LIMIT_ERROR"),
+        classifier().classify_resource_exhausted("RATE_LIMIT_ERROR"),
         ResourceExhaustedContext::RateLimit
     );
 }
@@ -63,15 +64,15 @@ fn test_classify_resource_exhausted_rate_limit_keywords() {
 #[test]
 fn test_classify_resource_exhausted_quota_keywords() {
     assert_eq!(
-        ResourceExhaustedContext::classify("quota exceeded"),
+        classifier().classify_resource_exhausted("quota exceeded"),
         ResourceExhaustedContext::HardQuota
     );
     assert_eq!(
-        ResourceExhaustedContext::classify("billing limit hit"),
+        classifier().classify_resource_exhausted("billing limit hit"),
         ResourceExhaustedContext::HardQuota
     );
     assert_eq!(
-        ResourceExhaustedContext::classify("plan limit reached"),
+        classifier().classify_resource_exhausted("plan limit reached"),
         ResourceExhaustedContext::HardQuota
     );
 }
@@ -80,15 +81,15 @@ fn test_classify_resource_exhausted_quota_keywords() {
 #[test]
 fn test_classify_resource_exhausted_unknown_defaults_to_capacity() {
     assert_eq!(
-        ResourceExhaustedContext::classify("out of memory"),
+        classifier().classify_resource_exhausted("out of memory"),
         ResourceExhaustedContext::Capacity
     );
     assert_eq!(
-        ResourceExhaustedContext::classify("server overloaded"),
+        classifier().classify_resource_exhausted("server overloaded"),
         ResourceExhaustedContext::Capacity
     );
     assert_eq!(
-        ResourceExhaustedContext::classify(""),
+        classifier().classify_resource_exhausted(""),
         ResourceExhaustedContext::Capacity
     );
 }
@@ -99,7 +100,7 @@ fn test_classify_resource_exhausted_unknown_defaults_to_capacity() {
 #[test]
 fn test_parse_retry_after_hint_extracts_seconds() {
     assert_eq!(
-        RetryDecision::parse_retry_after_hint("rate limit exceeded [retry-after=30s]"),
+        classifier().parse_retry_after_hint("rate limit exceeded [retry-after=30s]"),
         Some(Duration::from_secs(30)),
     );
 }
@@ -108,10 +109,10 @@ fn test_parse_retry_after_hint_extracts_seconds() {
 #[test]
 fn test_parse_retry_after_hint_returns_none_when_absent() {
     assert_eq!(
-        RetryDecision::parse_retry_after_hint("rate limit exceeded"),
+        classifier().parse_retry_after_hint("rate limit exceeded"),
         None
     );
-    assert_eq!(RetryDecision::parse_retry_after_hint(""), None);
+    assert_eq!(classifier().parse_retry_after_hint(""), None);
 }
 
 // ── RetryDecision::read_retry_after ─────────────────────────────────────────
@@ -125,7 +126,7 @@ fn test_read_retry_after_trailer_is_the_hint() -> Result<(), Box<dyn std::error:
         trailers_of(&[("retry-after", "7")])?,
     );
     assert_eq!(
-        RetryDecision::read_retry_after(&error),
+        classifier().read_retry_after(&error),
         Some(Duration::from_secs(7))
     );
     Ok(())
@@ -141,7 +142,7 @@ fn test_read_retry_after_ratelimit_reset_trailer_is_the_hint(
         trailers_of(&[("x-ratelimit-reset-requests", "3")])?,
     );
     assert_eq!(
-        RetryDecision::read_retry_after(&error),
+        classifier().read_retry_after(&error),
         Some(Duration::from_secs(3))
     );
     Ok(())
@@ -157,7 +158,7 @@ fn test_read_retry_after_trailer_wins_over_the_message_hint(
         trailers_of(&[("retry-after", "2")])?,
     );
     assert_eq!(
-        RetryDecision::read_retry_after(&error),
+        classifier().read_retry_after(&error),
         Some(Duration::from_secs(2))
     );
     Ok(())
@@ -173,7 +174,7 @@ fn test_read_retry_after_unusable_trailer_falls_back_to_the_message_hint(
         trailers_of(&[("retry-after", "Wed, 21 Oct 2026 07:28:00 GMT")])?,
     );
     assert_eq!(
-        RetryDecision::read_retry_after(&error),
+        classifier().read_retry_after(&error),
         Some(Duration::from_secs(30))
     );
     Ok(())
@@ -187,7 +188,7 @@ fn test_read_retry_after_no_hint_anywhere_returns_none() {
         "rate limit exceeded",
         Metadata::default(),
     );
-    assert_eq!(RetryDecision::read_retry_after(&error), None);
+    assert_eq!(classifier().read_retry_after(&error), None);
 }
 
 /// @covers: RetryDecision::read_retry_after
@@ -198,7 +199,7 @@ fn test_read_retry_after_failure_that_is_not_a_status_returns_none() {
         code: StatusCode::Unavailable,
         reason: "refused [retry-after=9s]".to_string(),
     };
-    assert_eq!(RetryDecision::read_retry_after(&error), None);
+    assert_eq!(classifier().read_retry_after(&error), None);
 }
 
 // ── RetryDecision::classify ─────────────────────────────────────────────────
@@ -207,7 +208,7 @@ fn test_read_retry_after_failure_that_is_not_a_status_returns_none() {
 #[test]
 fn test_classify_status_unavailable_returns_retry() {
     assert_eq!(
-        RetryDecision::classify(&status(StatusCode::Unavailable, "lb")),
+        classifier().classify(&status(StatusCode::Unavailable, "lb")),
         RetryDecision::Retry
     );
 }
@@ -216,48 +217,48 @@ fn test_classify_status_unavailable_returns_retry() {
 #[test]
 fn test_classify_resource_exhausted_rate_limit_returns_retry_rate_limit() {
     let r = status(StatusCode::ResourceExhausted, "rate limit exceeded");
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::RetryRateLimit);
-    assert!(RetryDecision::classify(&r).is_rate_limit());
-    assert!(RetryDecision::classify(&r).should_retry());
+    assert_eq!(classifier().classify(&r), RetryDecision::RetryRateLimit);
+    assert!(classifier().is_rate_limit(classifier().classify(&r)));
+    assert!(classifier().should_retry(classifier().classify(&r)));
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_resource_exhausted_capacity_returns_retry() {
     let r = status(StatusCode::ResourceExhausted, "server overloaded");
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Retry);
-    assert!(!RetryDecision::classify(&r).is_rate_limit());
+    assert_eq!(classifier().classify(&r), RetryDecision::Retry);
+    assert!(!classifier().is_rate_limit(classifier().classify(&r)));
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_resource_exhausted_hard_quota_is_terminal() {
     let r = status(StatusCode::ResourceExhausted, "quota exceeded");
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
-    assert!(!RetryDecision::classify(&r).should_retry());
+    assert_eq!(classifier().classify(&r), RetryDecision::Terminal);
+    assert!(!classifier().should_retry(classifier().classify(&r)));
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_permission_denied_is_terminal() {
     let r = status(StatusCode::PermissionDenied, "no");
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
-    assert!(!RetryDecision::classify(&r).should_retry());
+    assert_eq!(classifier().classify(&r), RetryDecision::Terminal);
+    assert!(!classifier().should_retry(classifier().classify(&r)));
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_unauthenticated_is_terminal() {
     let r = status(StatusCode::Unauthenticated, "bad token");
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
-    assert!(!RetryDecision::classify(&r).should_retry());
+    assert_eq!(classifier().classify(&r), RetryDecision::Terminal);
+    assert!(!classifier().should_retry(classifier().classify(&r)));
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_status_deadline_exceeded_is_terminal() {
     assert_eq!(
-        RetryDecision::classify(&status(StatusCode::DeadlineExceeded, "tick")),
+        classifier().classify(&status(StatusCode::DeadlineExceeded, "tick")),
         RetryDecision::Terminal
     );
 }
@@ -266,7 +267,7 @@ fn test_classify_status_deadline_exceeded_is_terminal() {
 #[test]
 fn test_classify_status_internal_is_terminal() {
     assert_eq!(
-        RetryDecision::classify(&status(StatusCode::Internal, "bug")),
+        classifier().classify(&status(StatusCode::Internal, "bug")),
         RetryDecision::Terminal
     );
 }
@@ -277,7 +278,7 @@ fn test_classify_status_internal_is_terminal() {
 #[test]
 fn test_classify_transport_unavailable_retries() {
     assert_eq!(
-        RetryDecision::classify(&transport(StatusCode::Unavailable)),
+        classifier().classify(&transport(StatusCode::Unavailable)),
         RetryDecision::Retry
     );
 }
@@ -288,7 +289,7 @@ fn test_classify_transport_unavailable_retries() {
 #[test]
 fn test_classify_transport_unknown_retries() {
     assert_eq!(
-        RetryDecision::classify(&transport(StatusCode::Unknown)),
+        classifier().classify(&transport(StatusCode::Unknown)),
         RetryDecision::Retry
     );
 }
@@ -300,11 +301,11 @@ fn test_classify_transport_unknown_retries() {
 #[test]
 fn test_classify_status_unknown_is_terminal_while_transport_unknown_retries() {
     assert_eq!(
-        RetryDecision::classify(&status(StatusCode::Unknown, "x")),
+        classifier().classify(&status(StatusCode::Unknown, "x")),
         RetryDecision::Terminal
     );
     assert_eq!(
-        RetryDecision::classify(&transport(StatusCode::Unknown)),
+        classifier().classify(&transport(StatusCode::Unknown)),
         RetryDecision::Retry
     );
 }
@@ -320,7 +321,7 @@ fn test_classify_transport_failure_of_any_other_code_is_terminal() {
         StatusCode::Internal,
     ] {
         assert_eq!(
-            RetryDecision::classify(&transport(code)),
+            classifier().classify(&transport(code)),
             RetryDecision::Terminal,
             "expected a transport failure of {code:?} to be Terminal",
         );
@@ -331,22 +332,22 @@ fn test_classify_transport_failure_of_any_other_code_is_terminal() {
 #[test]
 fn test_classify_encode_failure_is_terminal() {
     let r: Result<(), CallError> = Err(CallError::Encode(EncodeError::create("t.Message", "x")));
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
+    assert_eq!(classifier().classify(&r), RetryDecision::Terminal);
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_decode_failure_is_terminal() {
     let r: Result<(), CallError> = Err(CallError::Decode(DecodeError::create("t.Message", "x")));
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Terminal);
+    assert_eq!(classifier().classify(&r), RetryDecision::Terminal);
 }
 
 /// @covers: RetryDecision::classify
 #[test]
 fn test_classify_ok_returns_success() {
     let r: Result<i32, CallError> = Ok(42);
-    assert_eq!(RetryDecision::classify(&r), RetryDecision::Success);
-    assert!(!RetryDecision::classify(&r).should_retry());
+    assert_eq!(classifier().classify(&r), RetryDecision::Success);
+    assert!(!classifier().should_retry(classifier().classify(&r)));
 }
 
 // ── RetryDecision::should_retry ─────────────────────────────────────────────
@@ -354,10 +355,10 @@ fn test_classify_ok_returns_success() {
 /// @covers: RetryDecision::should_retry
 #[test]
 fn test_should_retry_true_for_retry_variants() {
-    assert!(RetryDecision::Retry.should_retry());
-    assert!(RetryDecision::RetryRateLimit.should_retry());
-    assert!(!RetryDecision::Success.should_retry());
-    assert!(!RetryDecision::Terminal.should_retry());
+    assert!(classifier().should_retry(RetryDecision::Retry));
+    assert!(classifier().should_retry(RetryDecision::RetryRateLimit));
+    assert!(!classifier().should_retry(RetryDecision::Success));
+    assert!(!classifier().should_retry(RetryDecision::Terminal));
 }
 
 // ── RetryDecision::is_rate_limit ────────────────────────────────────────────
@@ -365,10 +366,10 @@ fn test_should_retry_true_for_retry_variants() {
 /// @covers: RetryDecision::is_rate_limit
 #[test]
 fn test_is_rate_limit_only_true_for_rate_limit_variant() {
-    assert!(RetryDecision::RetryRateLimit.is_rate_limit());
-    assert!(!RetryDecision::Retry.is_rate_limit());
-    assert!(!RetryDecision::Success.is_rate_limit());
-    assert!(!RetryDecision::Terminal.is_rate_limit());
+    assert!(classifier().is_rate_limit(RetryDecision::RetryRateLimit));
+    assert!(!classifier().is_rate_limit(RetryDecision::Retry));
+    assert!(!classifier().is_rate_limit(RetryDecision::Success));
+    assert!(!classifier().is_rate_limit(RetryDecision::Terminal));
 }
 
 /// @covers: RetryDecision::classify
@@ -387,9 +388,15 @@ fn test_classify_non_retry_status_codes_all_terminal() {
         StatusCode::DataLoss,
     ] {
         assert_eq!(
-            RetryDecision::classify(&status(code, "x")),
+            classifier().classify(&status(code, "x")),
             RetryDecision::Terminal,
             "expected {code:?} to be Terminal",
         );
     }
+}
+
+fn classifier() -> impl grpc_egress_retry::RetryClassifier {
+    use grpc_egress_retry::RetryClassifierFactory;
+    grpc_egress_retry_std::StdRetryClassifierFactory
+        .build(grpc_egress_retry::BuildRetryClassifierRequest)
 }

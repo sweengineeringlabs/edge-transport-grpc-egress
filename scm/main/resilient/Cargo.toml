@@ -22,6 +22,7 @@ service_type     = "processor"
 grpc-egress-transport = { path = "../transport" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.10.0" }
 grpc-egress-breaker = { path = "../breaker" }
+grpc-egress-retry = { path = "../retry" }
 thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }

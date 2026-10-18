@@ -1,15 +1,6 @@
-//! Implementations of the retry contracts and the types that carry behaviour.
+//! `std` layer: the standard implementation, defaults only. It names the domain crate, `core`, `std` and `alloc`, and no
+//! third-party crate; code that needs one is in `spi/`.
 
-pub(crate) mod grpc_retry_client;
-pub(crate) mod grpc_retry_config;
-pub(crate) mod grpc_retry_config_builder;
-pub(crate) mod resource_exhausted_context;
-pub(crate) mod retry_decision;
-pub(crate) mod retry_transport;
+pub(crate) mod std_retry_classifier;
 
-pub use grpc_retry_config::GrpcRetryConfigProvider;
-pub use grpc_retry_config_builder::GrpcRetryConfigBuilder;
-pub use resource_exhausted_context::ResourceExhaustedContext;
-pub use retry_decision::RetryDecision;
-
-pub(crate) use grpc_retry_client::GrpcRetryClient;
+pub(crate) use std_retry_classifier::StdRetryClassifier;

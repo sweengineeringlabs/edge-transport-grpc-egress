@@ -3,13 +3,13 @@
 //! Exercises the `classify` method that discriminates `RESOURCE_EXHAUSTED`
 //! gRPC status messages into Capacity / RateLimit / HardQuota contexts.
 
-use grpc_egress_retry_std::ResourceExhaustedContext;
-
 /// @covers: ResourceExhaustedContext::classify — quota message classifies as HardQuota
+use grpc_egress_retry::ResourceExhaustedContext;
+use grpc_egress_retry::RetryClassifier as _;
 #[test]
 fn retry_struct_resource_exhausted_context_quota_message_classifies_as_hard_quota_int_test() {
     assert_eq!(
-        ResourceExhaustedContext::classify("billing quota exceeded"),
+        classifier().classify_resource_exhausted("billing quota exceeded"),
         ResourceExhaustedContext::HardQuota,
         "billing/quota keyword must classify as HardQuota"
     );
@@ -19,7 +19,7 @@ fn retry_struct_resource_exhausted_context_quota_message_classifies_as_hard_quot
 #[test]
 fn retry_struct_resource_exhausted_context_rate_message_classifies_as_rate_limit_int_test() {
     assert_eq!(
-        ResourceExhaustedContext::classify("too many requests"),
+        classifier().classify_resource_exhausted("too many requests"),
         ResourceExhaustedContext::RateLimit,
         "rate/throttle keyword must classify as RateLimit"
     );
@@ -29,7 +29,7 @@ fn retry_struct_resource_exhausted_context_rate_message_classifies_as_rate_limit
 #[test]
 fn retry_struct_resource_exhausted_context_unknown_message_classifies_as_capacity_int_test() {
     assert_eq!(
-        ResourceExhaustedContext::classify("server overloaded"),
+        classifier().classify_resource_exhausted("server overloaded"),
         ResourceExhaustedContext::Capacity,
         "unknown message must default to Capacity"
     );
@@ -50,4 +50,10 @@ fn retry_struct_resource_exhausted_context_is_accessible_int_test() {
         ResourceExhaustedContext::Capacity,
         ResourceExhaustedContext::HardQuota
     );
+}
+
+fn classifier() -> impl grpc_egress_retry::RetryClassifier {
+    use grpc_egress_retry::RetryClassifierFactory;
+    grpc_egress_retry_std::StdRetryClassifierFactory
+        .build(grpc_egress_retry::BuildRetryClassifierRequest)
 }

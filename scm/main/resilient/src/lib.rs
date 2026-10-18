@@ -7,7 +7,9 @@
 
 mod api;
 
-pub use api::dto::BuildGrpcResilientRequest;
+pub use api::dto::{BuildGrpcResilientRequest, BuildResilienceConfigProviderRequest};
 pub use api::error::ResilientTransportError;
-pub use api::traits::GrpcResilientFactory;
+pub use api::traits::{
+    GrpcResilientFactory, ResilienceConfigProvider, ResilienceConfigProviderFactory,
+};
 pub use api::vo::ResilienceConfig;

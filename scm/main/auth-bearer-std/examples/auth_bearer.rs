@@ -7,12 +7,13 @@
 //! [`BearerEgressConfig`]: grpc_egress_auth_bearer::BearerEgressConfig
 //! [`GrpcEgressInterceptorChain`]: grpc_egress_transport_std::GrpcEgressInterceptorChain
 
+use grpc_egress_auth_bearer::BearerEgressConfigBuilder as _;
 use grpc_egress_transport::GrpcEgressInterceptorChain as _;
 use std::sync::Arc;
 use std::time::Duration;
 
 use grpc_egress_auth_bearer::{BearerSecret, AUTHORIZATION_HEADER};
-use grpc_egress_auth_bearer_std::{BearerEgressConfigBuilder, StdBearerInterceptorFactory};
+use grpc_egress_auth_bearer_std::StdBearerInterceptorFactory;
 use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, OutboundCall,
@@ -20,7 +21,7 @@ use grpc_egress_transport::{
 use proto_pattern::Metadata;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = BearerEgressConfigBuilder::new()
+    let config = egress_config_builder()
         .secret(BearerSecret::Hs256 {
             secret: b"an-example-secret-of-32-bytes!!!".to_vec(),
         })
@@ -61,4 +62,10 @@ fn new_chain() -> impl grpc_egress_transport::GrpcEgressInterceptorChain {
     use grpc_egress_transport::GrpcEgressInterceptorChainFactory;
     grpc_egress_transport_std::StdGrpcEgressInterceptorChainFactory
         .build(grpc_egress_transport::BuildGrpcEgressInterceptorChainRequest)
+}
+
+fn egress_config_builder() -> impl grpc_egress_auth_bearer::BearerEgressConfigBuilder {
+    use grpc_egress_auth_bearer::BearerEgressConfigBuilderFactory;
+    grpc_egress_auth_bearer_std::StdBearerEgressConfigBuilderFactory
+        .build(grpc_egress_auth_bearer::BuildBearerEgressConfigBuilderRequest)
 }

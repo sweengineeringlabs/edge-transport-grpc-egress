@@ -8,7 +8,17 @@
 
 mod api;
 
-pub use api::dto::BuildGrpcRetryRequest;
+pub use api::dto::{
+    BuildGrpcRetryConfigBuilderRequest, BuildGrpcRetryConfigProviderRequest, BuildGrpcRetryRequest,
+    BuildRetryClassifierRequest,
+};
 pub use api::error::Error;
-pub use api::traits::GrpcRetryFactory;
-pub use api::vo::GrpcRetryConfig;
+pub use api::traits::{
+    GrpcRetryConfigBuilder, GrpcRetryConfigBuilderFactory, GrpcRetryConfigProvider,
+    GrpcRetryConfigProviderFactory, GrpcRetryFactory, RetryClassifier, RetryClassifierFactory,
+};
+pub use api::vo::{GrpcRetryConfig, ResourceExhaustedContext, RetryDecision};
+
+/// The contract the interfaces of this crate are written over: an implementation names `CallError`, `StatusCode`,
+/// `Transport` and the rest through the domain crate, and so depends on nothing but the domain crate.
+pub use proto_pattern;

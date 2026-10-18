@@ -11,8 +11,15 @@
 
 mod api;
 
+pub use api::dto::{
+    BuildBearerEgressConfigBuilderRequest, BuildBearerSecretGuardRequest,
+    BuildJwtClaimsBuilderRequest,
+};
 pub use api::error::BearerAuthError;
-pub use api::traits::Validator;
+pub use api::traits::{
+    BearerEgressConfigBuilder, BearerEgressConfigBuilderFactory, BearerSecretGuard,
+    BearerSecretGuardFactory, JwtClaimsBuilder, JwtClaimsBuilderFactory, Validator,
+};
 pub use api::vo::{
     BearerEgressConfig, BearerSecret, JwtClaims, AUTHORIZATION_HEADER, EXTRACTED_BEARER_SUBJECT,
 };
