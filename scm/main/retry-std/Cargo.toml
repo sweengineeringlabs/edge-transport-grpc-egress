@@ -1,0 +1,44 @@
+[package]
+name = "grpc-egress-retry-std"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Decorator: gRPC-aware retry around any client that is a Transport and a RawTransport"
+keywords = ["grpc", "retry", "tonic", "decorator", "swe"]
+categories = ["network-programming"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type = "processor"
+
+[package.metadata.arch]
+application_type = "lib"
+service_type = "processor"
+
+[dependencies]
+grpc-egress-retry = { path = "../retry" }
+grpc-egress-transport = { path = "../transport" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.10.0" }
+edge-transport-retry = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
+# `from_config` parses the policy from the TOML text a consumer passes in.
+toml = "0.8"
+tokio = { version = "1.52", features = ["macros", "net", "rt", "sync", "time"] }
+tracing = "0.1"
+
+[dev-dependencies]
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+grpc-egress-transport-std = { path = "../transport-std" }
+grpc-egress-test-support = { path = "../test-support" }
+futures = "0.3"
+tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+
+[lints.rust]
+unsafe_code  = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

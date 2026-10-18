@@ -1,12 +1,27 @@
 [workspace]
 resolver = "2"
-members  = ["transport", "auth-bearer", "breaker", "resilient", "retry"]
+# Listed one by one: a glob over main/* would also match main/examples, which holds example crates
+# one level deeper and has no manifest of its own. scripts/check_layout.py checks that every crate is listed.
+members = [
+    "main/auth-bearer",
+    "main/auth-bearer-std",
+    "main/breaker",
+    "main/breaker-std",
+    "main/resilient",
+    "main/resilient-std",
+    "main/retry",
+    "main/retry-std",
+    "main/test-support",
+    "main/transport",
+    "main/transport-std",
+    "main/examples/composition-root",
+]
 
 [workspace.package]
-version      = "0.5.0"
+version      = "0.8.0"
 edition      = "2021"
 license      = "MIT OR Apache-2.0"
-rust-version = "1.95"
+rust-version = "1.99"
 authors      = ["SWE Engineering Labs"]
 repository   = "https://github.com/sweengineeringlabs/edge-transport-grpc-egress"
 
@@ -17,25 +32,3 @@ missing_docs = "warn"
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
-
-[workspace.dependencies]
-edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
-swe-edge-security      = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22", package = "edge-security-transport-egress-grpc" }
-edge-transport-grpc-egress             = { package = "edge-transport-grpc-egress-transport", path = "transport" }
-edge-transport-grpc-egress-auth-bearer = { path = "auth-bearer" }
-edge-transport-grpc-egress-breaker     = { path = "breaker" }
-edge-transport-grpc-egress-resilient   = { path = "resilient" }
-edge-transport-grpc-egress-retry       = { path = "retry" }
-edge-transport-breaker-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
-edge-transport-breaker        = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
-edge-transport-retry-policy   = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
-edge-transport-retry          = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
-swe-edge-loadbalancer  = { git = "https://github.com/sweengineeringlabs/edge-loadbalancer.git", tag = "v0.4.0" }
-serde       = { version = "1.0", features = ["derive"] }
-thiserror   = "2"
-futures     = "0.3"
-tokio       = { version = "1.52", features = ["rt", "sync", "time", "macros", "net"] }
-tracing     = "0.1"
-toml        = "0.8"
-http        = "1"

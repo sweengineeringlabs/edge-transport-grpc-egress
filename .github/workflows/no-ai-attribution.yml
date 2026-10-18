@@ -4,7 +4,7 @@ name: No AI Attribution
 # (Co-Authored-By trailers, "Generated with ...", the 🤖 footer, anthropic/openai
 # noreply addresses, claude.com/claude-code links).
 #
-# Server-side counterpart to the local scripts/hooks/commit-msg guard — this one
+# Server-side counterpart to the local .githooks/commit-msg guard — this one
 # cannot be skipped with `git commit --no-verify`, and it also covers the PR
 # description, which git hooks never see.
 on:

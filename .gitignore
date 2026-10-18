@@ -1,1 +1,6 @@
 target/
+*.log
+audit_*.txt
+structural_audit_*.json
+__pycache__/
+*.pyc
