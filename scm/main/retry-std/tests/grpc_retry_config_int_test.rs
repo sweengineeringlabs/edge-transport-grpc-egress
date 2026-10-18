@@ -41,6 +41,70 @@ fn retry_struct_grpc_retry_config_from_config_parses_full_toml_int_test(
     Ok(())
 }
 
+/// @covers: GrpcRetryConfigProvider::validate — a policy that allows no attempt is refused
+#[test]
+fn retry_struct_grpc_retry_config_validate_zero_attempts_is_refused_and_the_default_is_accepted_int_test(
+) {
+    let provider = retry_provider();
+    let zero = GrpcRetryConfig {
+        max_attempts: 0,
+        ..GrpcRetryConfig::default()
+    };
+
+    assert!(provider.validate(&GrpcRetryConfig::default()).is_ok());
+    assert!(
+        matches!(provider.validate(&zero), Err(grpc_egress_retry::Error::InvalidConfig(ref m)) if m.contains("max_attempts"))
+    );
+}
+
+/// @covers: GrpcRetryConfigProvider::parse_config — a policy with zero attempts is refused as text too
+#[test]
+fn retry_struct_grpc_retry_config_parse_config_zero_attempts_is_refused_int_test() {
+    let toml = r#"
+        max_attempts = 0
+        initial_backoff_ms = 50
+        backoff_multiplier = 2.0
+        jitter_factor = 0.1
+        max_backoff_ms = 1000
+        rate_limit_max_attempts = 2
+        rate_limit_initial_backoff_ms = 100
+        rate_limit_max_backoff_ms = 5000
+    "#;
+    assert!(matches!(
+        retry_provider().parse_config(toml),
+        Err(grpc_egress_retry::Error::InvalidConfig(_))
+    ));
+}
+
+/// @covers: GrpcRetryConfigProvider::initial_backoff — milliseconds
+#[test]
+fn retry_struct_grpc_retry_config_initial_backoff_is_read_in_milliseconds_int_test() {
+    let provider = retry_provider();
+    let config = GrpcRetryConfig {
+        initial_backoff_ms: 250,
+        max_backoff_ms: 7_000,
+        rate_limit_initial_backoff_ms: 1_500,
+        rate_limit_max_backoff_ms: 9_000,
+        ..GrpcRetryConfig::default()
+    };
+    assert_eq!(
+        provider.initial_backoff(&config),
+        std::time::Duration::from_millis(250)
+    );
+    assert_eq!(
+        provider.max_backoff(&config),
+        std::time::Duration::from_millis(7_000)
+    );
+    assert_eq!(
+        provider.rate_limit_initial_backoff(&config),
+        std::time::Duration::from_millis(1_500)
+    );
+    assert_eq!(
+        provider.rate_limit_max_backoff(&config),
+        std::time::Duration::from_millis(9_000)
+    );
+}
+
 fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
     use grpc_egress_retry::GrpcRetryConfigProviderFactory;
     grpc_egress_retry_std::StdGrpcRetryConfigProviderFactory

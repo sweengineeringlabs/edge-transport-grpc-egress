@@ -23,6 +23,17 @@ use tonic_health::ServingStatus;
 
 const SHORT: Duration = Duration::from_secs(5);
 
+/// How long a test waits for a call that should have ended: a call that does not end fails the test, it does not hang it.
+const LIMIT: Duration = Duration::from_secs(30);
+
+async fn bounded<T>(
+    call: impl std::future::Future<Output = Result<T, CallError>>,
+) -> Result<Result<T, CallError>, Box<dyn Error>> {
+    Ok(tokio::time::timeout(LIMIT, call)
+        .await
+        .map_err(|_| "the call did not end within the limit")?)
+}
+
 /// A running health service: the address, the reporter that sets the statuses, and the sender that stops it.
 struct HealthServer {
     address: SocketAddr,
@@ -88,7 +99,7 @@ async fn test_call_health_check_server_that_is_serving_returns_serving(
     let server = HealthServer::start().await?;
     let client = client_for(server.get_endpoint())?;
 
-    let response = client.call::<HealthCheck>(ask("")).await?;
+    let response = bounded(client.call::<HealthCheck>(ask(""))).await??;
 
     assert_eq!(response.get_message().status(), HealthStatus::Serving);
     Ok(())
@@ -105,7 +116,7 @@ async fn test_call_health_check_after_the_server_reports_not_serving_returns_not
         .await;
     let client = client_for(server.get_endpoint())?;
 
-    let response = client.call::<HealthCheck>(ask("")).await?;
+    let response = bounded(client.call::<HealthCheck>(ask(""))).await??;
 
     assert_eq!(response.get_message().status(), HealthStatus::NotServing);
     Ok(())
@@ -126,9 +137,9 @@ async fn test_call_health_check_named_service_reports_its_own_status_apart_from_
         .await;
     let client = client_for(server.get_endpoint())?;
 
-    let down = client.call::<HealthCheck>(ask("pkg.Down")).await?;
-    let up = client.call::<HealthCheck>(ask("pkg.Up")).await?;
-    let whole = client.call::<HealthCheck>(ask("")).await?;
+    let down = bounded(client.call::<HealthCheck>(ask("pkg.Down"))).await??;
+    let up = bounded(client.call::<HealthCheck>(ask("pkg.Up"))).await??;
+    let whole = bounded(client.call::<HealthCheck>(ask(""))).await??;
 
     assert_eq!(down.get_message().status(), HealthStatus::NotServing);
     assert_eq!(up.get_message().status(), HealthStatus::Serving);
@@ -143,9 +154,8 @@ async fn test_call_health_check_unknown_service_returns_status_not_found(
     let server = HealthServer::start().await?;
     let client = client_for(server.get_endpoint())?;
 
-    let error = client
-        .call::<HealthCheck>(ask("pkg.Nobody"))
-        .await
+    let error = bounded(client.call::<HealthCheck>(ask("pkg.Nobody")))
+        .await?
         .err()
         .ok_or("a service nobody registered has no health")?;
 
@@ -169,9 +179,8 @@ async fn test_call_health_check_to_a_refused_connection_returns_transport_unavai
     let closed = ClosedPort::reserve()?;
     let client = client_for(closed.get_endpoint())?;
 
-    let error = client
-        .call::<HealthCheck>(ask(""))
-        .await
+    let error = bounded(client.call::<HealthCheck>(ask("")))
+        .await?
         .err()
         .ok_or("nothing listens on the port")?;
 

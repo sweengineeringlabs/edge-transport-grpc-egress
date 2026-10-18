@@ -576,10 +576,10 @@
     "replace": "Duration::from_millis(config.cool_down_seconds)"
   },
   {
-    "name": "BR09 a new breaker starts open",
+    "name": "BR09 a new breaker starts half-open",
     "file": "scm/main/breaker-std/src/spi/decorator/grpc_breaker_client.rs",
     "find": "state: BreakerState::Closed,",
-    "replace": "state: BreakerState::Open,"
+    "replace": "state: BreakerState::HalfOpen,"
   },
   {
     "name": "BR10 the breaker client drops the supplied policy",

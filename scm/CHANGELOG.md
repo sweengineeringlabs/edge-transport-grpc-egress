@@ -40,6 +40,18 @@ type of the same crate that implements the domain factory trait of the same name
 | `grpc_egress_auth_bearer_std::BearerSecretGuard` (`secret.ct_eq_hs256(&other)`) | `grpc_egress_auth_bearer::BearerSecretGuard::ct_eq_hs256(&left, &right)`, created by `StdBearerSecretGuardFactory` |
 | `grpc_egress_auth_bearer_std::BearerEgressConfigBuilder` and `JwtClaimsBuilder` (types, `new`) | domain traits of the same names in `grpc_egress_auth_bearer`, created by `StdBearerEgressConfigBuilderFactory` and `StdJwtClaimsBuilderFactory` |
 
+### Downstream (issue 60, task 9)
+
+- **In this workspace**, every consumer builds and passes: the five domain and five `-std` crates, `grpc-egress-test-support`,
+  the example `grpc-egress-example-composition-root` and the five `examples/` of the `-std` crates
+  (`cargo build --workspace --examples` and each run, exit 0). The example and the tests use the public path only.
+- **External**, none migrated here, none affected before it bumps the tag: `edge-bootstrap` (pins
+  `edge-transport-grpc-egress-transport` 0.6.2 plus retry and breaker), `edge-bench` (pins 0.5.1 of the old
+  `edge-egress-grpc`), and JustRag (#53), which builds through `TonicGrpcEgressBuilderSpiFactory::new(endpoint)` and the
+  builder traits `GrpcEgressBuilderFactory` and `GrpcEgressBuilder`: both are unchanged by issue 60 (same crate, same
+  path, same methods), so JustRag needs no change for this issue. Anything it calls from the table above (a channel
+  configuration, `MtlsConfig`, a retry or breaker policy parsed from TOML) changes as the table says.
+
 New in the domain crates: `pub use proto_pattern;` (the contract the interfaces are written over, so that an
 implementation depends on the domain crate only); `grpc_egress_transport::MetadataExtender`;
 `grpc_egress_breaker::FailureClassifier` and `Outcome`. In `-std` crates the code that names a third-party crate

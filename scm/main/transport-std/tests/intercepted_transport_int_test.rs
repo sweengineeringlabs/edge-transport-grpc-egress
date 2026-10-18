@@ -164,6 +164,23 @@ impl GrpcEgressInterceptor for SetTimeout {
     }
 }
 
+/// Records the timeout the call carries when the interceptor sees it.
+struct SeeTimeout(Arc<Mutex<Vec<Option<Duration>>>>);
+
+impl GrpcEgressInterceptor for SeeTimeout {
+    fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(call.get_timeout());
+        Ok(())
+    }
+
+    fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
+        Ok(())
+    }
+}
+
 // ---- what the tests send
 
 struct Fixture;
@@ -691,6 +708,37 @@ async fn test_call_interceptor_that_sets_a_timeout_ends_the_call_at_it(
         "the call must end at the timeout the interceptor set, took {:?}",
         started.elapsed()
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_call_interceptor_sees_the_timeout_the_caller_set_and_none_when_the_caller_set_none(
+) -> Result<(), Box<dyn Error>> {
+    let peer = RunningPeer::start().await;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Fixture::client(&peer, vec![Arc::new(SeeTimeout(Arc::clone(&seen)))])?;
+
+    client
+        .call_raw(
+            CallFixture::path("/test.Peer/Echo"),
+            CallRequest::create(
+                prost::Message::encode_to_vec(&Say::of("a")),
+                CallOptions::create(Some(Duration::from_secs(7)), Metadata::default()),
+            ),
+        )
+        .await?;
+    client
+        .call_raw(
+            CallFixture::path("/test.Peer/Echo"),
+            Fixture::raw(&Say::of("b")),
+        )
+        .await?;
+
+    let seen = seen
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    assert_eq!(seen, [Some(Duration::from_secs(7)), None]);
     Ok(())
 }
 

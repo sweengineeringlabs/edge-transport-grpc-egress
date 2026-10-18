@@ -1,7 +1,8 @@
 //! Coverage stub for `src/api/types/grpc/grpc_retry_config_builder.rs`.
 
-/// @covers: GrpcRetryConfigBuilder — type is accessible and holds real fields (not zero-sized)
 use grpc_egress_retry::GrpcRetryConfigBuilder as _;
+
+/// @covers: GrpcRetryConfigBuilder — type is accessible and holds real fields (not zero-sized)
 #[test]
 fn retry_struct_grpc_retry_config_builder_is_accessible_int_test() {
     assert!(
@@ -26,6 +27,30 @@ fn retry_struct_grpc_retry_config_builder_max_attempts_override_int_test(
     let cfg = retry_config_builder().max_attempts(3).build()?;
     assert_eq!(cfg.max_attempts, 3);
     Ok(())
+}
+
+/// @covers: GrpcRetryConfigBuilder::build — a policy that allows no attempt is refused
+#[test]
+fn retry_struct_grpc_retry_config_builder_build_with_zero_attempts_is_refused_int_test() {
+    let result = retry_config_builder().max_attempts(0).build();
+    assert!(
+        matches!(result, Err(grpc_egress_retry::Error::InvalidConfig(ref m)) if m.contains("max_attempts")),
+        "got {result:?}"
+    );
+}
+
+/// @covers: GrpcRetryConfigBuilder::build — a backoff ceiling below the first backoff is refused
+#[test]
+fn retry_struct_grpc_retry_config_builder_build_with_ceiling_below_first_backoff_is_refused_int_test(
+) {
+    let result = retry_config_builder()
+        .initial_backoff_ms(500)
+        .max_backoff_ms(100)
+        .build();
+    assert!(
+        matches!(result, Err(grpc_egress_retry::Error::InvalidConfig(_))),
+        "got {result:?}"
+    );
 }
 
 fn retry_config_builder() -> impl grpc_egress_retry::GrpcRetryConfigBuilder {

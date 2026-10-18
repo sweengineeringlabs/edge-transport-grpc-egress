@@ -16,8 +16,25 @@ fn bearer_struct_bearer_egress_config_builder_builds_valid_config_int_test() -> 
         .lifetime_seconds(3600)
         .build()?;
     assert_eq!(config.issuer, "iss");
+    assert_eq!(config.audience, "aud");
+    assert_eq!(config.subject, "sub");
     assert_eq!(config.lifetime_seconds, 3600);
+    assert!(matches!(config.secret, BearerSecret::Hs256 { ref secret } if secret == b"key"));
     Ok(())
+}
+
+/// @covers: BearerEgressConfigBuilder::build — a field that was not set is named in the refusal
+#[test]
+fn bearer_struct_bearer_egress_config_builder_build_without_a_subject_names_it_int_test() {
+    let result = egress_config_builder()
+        .secret(BearerSecret::Hs256 {
+            secret: b"key".to_vec(),
+        })
+        .issuer("iss")
+        .audience("aud")
+        .lifetime_seconds(60)
+        .build();
+    assert_eq!(result.err().as_deref(), Some("subject is required"));
 }
 
 fn egress_config_builder() -> impl grpc_egress_auth_bearer::BearerEgressConfigBuilder {
