@@ -56,7 +56,7 @@ New in the domain crates: `pub use proto_pattern;` (the contract the interfaces 
 implementation depends on the domain crate only); `grpc_egress_transport::MetadataExtender`;
 `grpc_egress_breaker::FailureClassifier` and `Outcome`. In `-std` crates the code that names a third-party crate
 moved from `std/` to `spi/` (no public path changed for it, except as listed above). `scripts/check_layout.py` has
-rule 19 (`program_over_the_interface`) and rule 20 (`std_names_no_third_party`).
+rules 19 (`program_over_the_interface`), 20 (`std_names_no_third_party`) and 21 (`every_function_a_method`: no free function in `src/`). `deny.toml` lists the two git repositories (`proto-pattern`, `proto-svc`) that made `cargo deny check` fail on `sources`.
 
 
 Issue 18: the contract (`proto-pattern` 0.10) and the engine (`proto-svc` 0.4) are external, and the client is a

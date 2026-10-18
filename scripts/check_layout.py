@@ -15,6 +15,9 @@ Rule 19, `program_over_the_interface` (#60): nothing new is defined in `std/` or
 under `api/` (checked in every crate, the test-support crate and the examples included); a `pub` or `pub(crate)`
 function, or an inherent impl that exposes one, in `std/` or `spi/` must be a trait impl.
 
+Rule 21, `every_function_a_method` (#60): no free function in `src/` of any crate; every function is a method on a type
+(`fn main` of a binary excepted). Tests, benches and examples are not read.
+
 Rule 20, `std_names_no_third_party` (#60): a file under `std/` of an implementation crate names no crate other than
 the domain crate, `core`, `std`, `alloc` and the crate itself. Code that needs another crate is in `spi/`.
 """
@@ -35,7 +38,7 @@ TEST_CONFIG = re.compile(r"#\[cfg\(test\)\]")
 INHERITED_DEPENDENCY = re.compile(r"^\s*[A-Za-z0-9_-]+\s*(?:=\s*\{\s*workspace\s*=\s*true|\.workspace\s*=\s*true)")
 PACKAGE_KEYS = ("version", "edition", "license", "rust-version", "authors", "repository", "description", "keywords", "categories")
 TRAIT_DECL = re.compile(r"(?:^|(?<=[;{}\]\s]))(?:pub(?:\s*\([^)]*\))?\s+)?(?:unsafe\s+)?(?:auto\s+)?trait\s+([A-Za-z0-9_]+)")
-PUBLIC_FN = re.compile(r"\b(pub(?:\s*\([^)]*\))?)\s+(?:(?:const|async|unsafe|default)\s+)*fn\s+([A-Za-z0-9_]+)")
+ANY_FN = re.compile(r"\b(?:(pub(?:\s*\([^)]*\)))\s+|(pub)\s+)?(?:(?:const|async|unsafe|default)\s+)*fn\s+([A-Za-z0-9_]+)")
 IMPL_TRAIT_FOR = re.compile(r"\bfor\b(?!\s*<)")
 PRIMITIVES = {"bool", "char", "str", "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize", "f32", "f64"}
 PATH_KEYWORDS = {"crate", "self", "super", "core", "std", "alloc"}
@@ -120,6 +123,7 @@ class LayoutChecker:
             self.check_no_attributes(crate_dir)
             self.check_program_over_the_interface(crate_dir)
             self.check_std_names_no_third_party(crate_dir, package)
+            self.check_every_function_a_method(crate_dir)
         return self.failures
 
     def check_crate_location(self, crate_dir, main):
@@ -364,7 +368,23 @@ class LayoutChecker:
 
     def list_public_functions(self, text):
         """(position, visibility, name, where) of every `pub` / `pub(..)` function outside a trait impl."""
-        functions = {m.start(): m for m in PUBLIC_FN.finditer(text)}
+        found = []
+        for position, visibility, name, governing in self.list_functions(text):
+            if not visibility:
+                continue
+            if governing == "inherent_impl":
+                found.append((position, visibility, name, "in an inherent impl"))
+            elif governing is None:
+                found.append((position, visibility, name, "as a free function"))
+        return found
+
+    def list_functions(self, text):
+        """(position, visibility, name, governing block) of every `fn` of `text` (comments and strings blanked out).
+        The governing block is the nearest enclosing `trait`, `trait_impl` or `inherent_impl`, or None at module level."""
+        functions = {}
+        for m in ANY_FN.finditer(text):
+            visibility = (m.group(1) or m.group(2) or "").replace(" ", "")
+            functions[m.start()] = (visibility, m.group(3))
         headers = {}
         for m in re.finditer(r"\b(impl|trait)\b", text):
             before = text[: m.start()].rstrip()
@@ -386,17 +406,27 @@ class LayoutChecker:
         stack = []
         for position, char in enumerate(text):
             if position in functions:
-                m = functions[position]
+                visibility, name = functions[position]
                 governing = next((k for k in reversed(stack) if k != "other"), None)
-                if governing == "inherent_impl":
-                    found.append((position, m.group(1).replace(" ", ""), m.group(2), "in an inherent impl"))
-                elif governing is None:
-                    found.append((position, m.group(1).replace(" ", ""), m.group(2), "as a free function"))
+                found.append((position, visibility, name, governing))
             if char == "{":
                 stack.append(headers.get(position, "other"))
             elif char == "}" and stack:
                 stack.pop()
         return found
+
+    def check_every_function_a_method(self, crate_dir):
+        """Rule 21: no free function in src/ -- every function is a method on a type (`fn main` of a binary excepted)."""
+        src = os.path.join(crate_dir, "src")
+        if not os.path.isdir(src):
+            return
+        for path in self.list_rust_files(src):
+            rel = os.path.relpath(path, src).replace("\\", "/")
+            is_binary = rel == "main.rs" or rel.startswith("bin/")
+            text = self.blank_out(self.read_text(path))
+            for position, visibility, name, governing in self.list_functions(text):
+                if governing is None and not (is_binary and name == "main"):
+                    self.fail(path, "every_function_a_method", "line %d declares the free function %s: no free function in src: every function is a method on a type" % (self.line_of(text, position), name))
 
     @staticmethod
     def find_header_end(text, start):

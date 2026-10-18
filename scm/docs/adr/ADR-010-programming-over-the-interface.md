@@ -25,14 +25,14 @@ crate; `spi/` is the only layer that does.
 | Layer | What it is | May depend on | May define |
 |---|---|---|---|
 | `api/` (the domain crate) | the interface: traits, dto, vo, error, by theme | only what its interface types need; never an engine library (`tonic`, `hyper`, `hyper-util`, `hyper-rustls`, `rustls`, `tower`, `h2`, `prost`, the load balancer, a `tokio` runtime) | everything another module calls |
-| `std/` | the standard implementation: defaults only | the domain crate, `core`, `std`, `alloc`; no third-party crate | nothing new: implementations of domain traits on `pub(crate)` types, and private helper functions |
-| `spi/` | the service provider implementation: the only layer with third-party dependencies | any library | nothing new: implementations of domain traits on `pub(crate)` types, and private helper functions |
+| `std/` | the standard implementation: defaults only | the domain crate, `core`, `std`, `alloc`; no third-party crate | nothing new: implementations of domain traits on `pub(crate)` types, and private helper methods (no free function) |
+| `spi/` | the service provider implementation: the only layer with third-party dependencies | any library | nothing new: implementations of domain traits on `pub(crate)` types, and private helper methods (no free function) |
 | `saf/` | the factories | the domain crate and the two layers above | one public type per factory, implementing a domain factory trait; no logic, no re-exports |
 
 ### What is allowed in `std/` and `spi/`
 
 - Implementations of domain traits, and of standard-library traits (`From`, `TryFrom`, `Default`, `Display`, `Drop`) on `pub(crate)` types.
-- Module-private helper functions (no `pub`, no `pub(crate)`), also inside an inherent `impl` block.
+- Private helper methods (no `pub`, no `pub(crate)`) in an inherent `impl` block of a type. Owner's ruling (2026-10-18): "No free function. Only types": a helper is a private method, never a free function (rule 21).
 - Nothing else: no new trait, no inherent associated function visible outside its own module. A constructor is a
   `From` / `TryFrom` / `Default` impl or a domain factory trait method; an operation is a domain trait method.
 - In `std/` additionally: no third-party crate. Code that needs one is in `spi/`, or is a plain default.
@@ -42,7 +42,7 @@ crate; `spi/` is the only layer that does.
 `scripts/check_layout.py` has rule 19, `program_over_the_interface` (a trait declared outside `api/`; a `pub` or
 `pub(crate)` function or inherent impl in `std/` or `spi/` that is not a trait impl), and rule 20, `std_names_no_third_party`
 (a file under `std/` that names a crate other than the domain crate, `core`, `std`, `alloc` and the crate itself).
-The ingress and the server svc copy both with identical wording.
+Rule 21, `every_function_a_method` (no free function in `src/` of any crate: every function is a method on a type; `fn main` of a binary excepted) completes them. The ingress and the engine copy the three with identical wording.
 
 ### Decisions the rule forced
 
@@ -89,8 +89,8 @@ The ingress and the server svc copy both with identical wording.
 
 ### 28 inherent `impl` blocks and 65 functions
 
-Each block, then each `pub` / `pub(crate)` function in it. A block whose destination says "kept" holds private helpers only,
-which rule 19 allows.
+Each block, then each `pub` / `pub(crate)` function in it. A block whose destination says "kept" holds private helper methods only,
+which rule 19 allows and the owner's ruling requires (helpers are methods of types).
 
 
 | # | Block | File (at 6b6559b) | What it does | Public fns | Destination |
@@ -237,6 +237,16 @@ is created in `saf/`. That is allowed; a crate has the layers it needs.
 (7 traits and the 65 functions above, no other) and the files of the third table for rule 20. Counts of `pub` and
 `pub(crate)` functions outside a trait impl in `std/` and `spi/` of the five `-std` crates: 65 before, 0 after; traits
 declared there: 7 before, 0 after.
+
+After the change 12 inherent `impl` blocks remain in the `-std` crates, each with private methods only: `StdRetryClassifier`
+(`classify_status`), `InterceptedTransport`, `StdTlsSettingsResolver`, `StdMetadataExtender`, `ContextTransport`,
+`BearerEgressInterceptor`, `GrpcBreakerClient` (`breaker_egress.rs`), `GrpcRetryClient` (`retry_transport.rs`),
+`GrpcEgressBuilderImpl` (validation helpers), `EndpointTransport`, `CancellableTransport` and
+`CancellableResponseStream`. The 28 blocks of the first table are 16 fewer; 12 hold helpers and are the correct form.
+Rule 21 finds no free function in any crate.
+
+`cargo deny check` passes: `deny.toml` allows exactly the seven `sweengineeringlabs` git repositories in use, named one by
+one (it failed on `sources` at 6b6559b because `proto-pattern` and `proto-svc` were not listed).
 
 ## Consequences
 

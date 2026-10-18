@@ -455,5 +455,110 @@ class StdNamesNoThirdPartyTest(unittest.TestCase):
         self.assertEqual(offending, [])
 
 
+class EveryFunctionAMethodTest(unittest.TestCase):
+    """Rule 21: no free function in src/; every function is a method on a type."""
+
+    def failures(self, **files):
+        tree = Tree({**GOOD, **files})
+        self.addCleanup(tree.close)
+        return [f for f in tree.check() if f.rule == "every_function_a_method"]
+
+    def test_check_all_free_function_in_std_fails(self):
+        found = self.failures(**{STD: "fn helper() {}\n"})
+        self.assertEqual(len(found), 1)
+        self.assertIn("no free function in src: every function is a method on a type", found[0].detail)
+
+    def test_check_all_free_function_in_the_domain_api_fails(self):
+        self.assertEqual(len(self.failures(**{"scm/main/foo/src/api/client/dto/foo_request.rs": "pub fn make() {}\n"})), 1)
+
+    def test_check_all_free_function_in_saf_fails(self):
+        self.assertEqual(len(self.failures(**{SAF: "pub(crate) fn make() {}\n"})), 1)
+
+    def test_check_all_free_function_in_lib_rs_fails(self):
+        self.assertEqual(len(self.failures(**{"scm/main/foo-std/src/lib.rs": "mod std;\nmod saf;\nfn make() {}\n"})), 1)
+
+    def test_check_all_async_const_and_unsafe_free_functions_fail(self):
+        text = "async fn a() {}\nconst fn b() {}\nunsafe fn c() {}\npub async fn d() {}\n"
+        self.assertEqual(len(self.failures(**{STD: text})), 4)
+
+    def test_check_all_free_function_in_an_inline_module_fails(self):
+        self.assertEqual(len(self.failures(**{STD: "mod inner {\n    fn helper() {}\n}\n"})), 1)
+
+    def test_check_all_free_function_in_the_test_support_crate_fails(self):
+        files = {
+            "scm/main/test-support/Cargo.toml": manifest("grpc-egress-test-support"),
+            "scm/main/test-support/src/lib.rs": "mod fixtures;\n",
+            "scm/main/test-support/src/fixtures.rs": "pub fn fixture() {}\n",
+        }
+        self.assertEqual(len(self.failures(**files)), 1)
+
+    def test_check_all_free_function_in_an_example_crate_fails(self):
+        files = {
+            "scm/main/examples/demo/Cargo.toml": manifest("grpc-egress-example-demo"),
+            "scm/main/examples/demo/src/lib.rs": "mod scenario;\n",
+            "scm/main/examples/demo/src/scenario.rs": "fn run() {}\n",
+        }
+        self.assertEqual(len(self.failures(**files)), 1)
+
+    def test_check_all_main_of_a_binary_passes(self):
+        files = {
+            "scm/main/examples/demo/Cargo.toml": manifest("grpc-egress-example-demo"),
+            "scm/main/examples/demo/src/main.rs": "fn main() {\n    Runner.run();\n}\n",
+        }
+        self.assertEqual(self.failures(**files), [])
+
+    def test_check_all_another_free_function_in_main_rs_fails(self):
+        files = {
+            "scm/main/examples/demo/Cargo.toml": manifest("grpc-egress-example-demo"),
+            "scm/main/examples/demo/src/main.rs": "fn main() {}\nfn helper() {}\n",
+        }
+        self.assertEqual(len(self.failures(**files)), 1)
+
+    def test_check_all_fn_main_outside_a_binary_fails(self):
+        self.assertEqual(len(self.failures(**{STD: "fn main() {}\n"})), 1)
+
+    def test_check_all_methods_in_inherent_and_trait_impls_pass(self):
+        text = "struct B;\nimpl B {\n    fn a(&self) {}\n    pub fn b() {}\n}\nimpl T for B {\n    fn c(&self) {}\n}\n"
+        self.assertEqual(self.failures(**{STD: text}), [])
+
+    def test_check_all_trait_declarations_with_and_without_a_body_pass(self):
+        text = "trait T {\n    fn a(&self);\n    fn b(&self) {}\n}\n"
+        self.assertEqual(self.failures(**{"scm/main/foo/src/api/client/traits/t.rs": text}), [])
+
+    def test_check_all_function_nested_in_a_method_passes(self):
+        text = "struct B;\nimpl B {\n    fn a(&self) {\n        fn inner() {}\n        inner();\n    }\n}\n"
+        self.assertEqual(self.failures(**{STD: text}), [])
+
+    def test_check_all_impl_with_a_where_clause_and_a_return_position_impl_trait_pass(self):
+        text = "struct W<T>(T);\nimpl<T> W<T>\nwhere\n    T: Clone,\n{\n    fn make(&self) -> impl Iterator<Item = u8> {\n        std::iter::empty()\n    }\n}\n"
+        self.assertEqual(self.failures(**{STD: text}), [])
+
+    def test_check_all_fn_pointer_types_and_fn_bounds_are_not_functions(self):
+        text = "struct B {\n    f: fn(u8) -> u8,\n}\nimpl B {\n    fn g<F: Fn(u8)>(&self, _f: F) {}\n}\n"
+        self.assertEqual(self.failures(**{STD: text}), [])
+
+    def test_check_all_fn_in_a_comment_or_a_string_passes(self):
+        text = '// fn hidden() {}\n/* fn hidden() {} */\nstruct S;\nimpl S {\n    const N: &str = "fn hidden() {}";\n}\n'
+        self.assertEqual(self.failures(**{STD: text}), [])
+
+    def test_check_all_free_function_in_tests_or_examples_folders_is_not_read(self):
+        files = {
+            "scm/main/foo/tests/foo_test.rs": "fn helper() {}\n",
+            "scm/main/foo/examples/demo.rs": "fn main() {}\nfn helper() {}\n",
+        }
+        self.assertEqual(self.failures(**files), [])
+
+    def test_check_all_failure_line_names_the_path_and_the_rule(self):
+        tree = Tree({**GOOD, STD: "fn helper() {}\n"})
+        self.addCleanup(tree.close)
+        lines = [f.format_line() for f in tree.check()]
+        self.assertTrue(any("std/client/service.rs" in l and "every_function_a_method" in l for l in lines), lines)
+
+    def test_check_all_the_repository_passes_rule_21(self):
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+        offending = [f.format_line() for f in LayoutChecker(root).check_all() if f.rule == "every_function_a_method"]
+        self.assertEqual(offending, [])
+
+
 if __name__ == "__main__":
     unittest.main()
