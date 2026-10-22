@@ -1,5 +1,0 @@
-target/
-docs/7-operations/compliance/
-*.log
-audit_*.txt
-structural_audit_*.json
