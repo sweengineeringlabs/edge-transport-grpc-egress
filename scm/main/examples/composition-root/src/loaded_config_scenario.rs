@@ -1,11 +1,13 @@
 //! `LoadedConfigScenario` -- a client assembled from a loaded configuration.
 
+use proto_pattern::{
+    CallRawRequestBuilder, CallRawResponse, CallRequest, Compression, RawTransport,
+};
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::CallFixture;
 use grpc_egress_transport::GrpcEgressBuilder;
-use proto_pattern::{CallRequest, Compression, RawTransport};
 
 use crate::{CompositionRoot, EchoServer, ScenarioReport};
 
@@ -28,8 +30,16 @@ impl LoadedConfigScenario {
 
         let from_config = root.assemble()?.build()?;
         from_config
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
         report.record(
             "the compression of the file applies",
             server.get_last_header("grpc-encoding").as_deref() == Some("gzip"),
@@ -40,8 +50,16 @@ impl LoadedConfigScenario {
             .with_send_compression(Compression::Zstd)
             .build()?;
         overridden
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
         report.record(
             "an option set after the file wins over it",
             server.get_last_header("grpc-encoding").as_deref() == Some("zstd"),

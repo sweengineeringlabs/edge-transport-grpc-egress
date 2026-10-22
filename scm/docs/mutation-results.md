@@ -1,5 +1,10 @@
 # Mutation results (issue 18)
 
+The results below are from the original issue 18 migration, before the upgrades to
+`proto-pattern` v0.12.0 and `proto-svc` v0.4.2. The migration updated mutation
+targets to match the new API; the 61 mutants have not yet been rerun against these
+dependency versions.
+
 `scripts/mutation/run_mutants.py` applies each mutant of `scripts/mutation/mutants.json` to one source file, runs the
 tests of the crates that cover it, and restores the file byte for byte. A mutant is **caught** when at least one test
 fails. The list has 61 mutants over the wrappers and mappings this issue wrote.

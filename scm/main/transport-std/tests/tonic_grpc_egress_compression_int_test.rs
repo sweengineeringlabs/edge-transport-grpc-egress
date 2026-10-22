@@ -7,6 +7,12 @@
 //! `with_accept_compression` (`grpc-accept-encoding`); the protocol lets a server use only an encoding the client
 //! listed, and the engine accepts only those.
 
+use proto_pattern::{
+    CallError, CallOptions, CallRawClientStreamRequestBuilder, CallRawClientStreamResponse,
+    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequestBuilder,
+    CallRawServerStreamResponse, Compression, MessageStream, Metadata, RawTransport,
+    ReadMessageRequest, ReadMessageResponse, StatusCode,
+};
 use std::error::Error;
 use std::io::{Read as _, Write as _};
 use std::time::Duration;
@@ -16,7 +22,6 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallError, Compression, MessageStream, RawTransport, StatusCode};
 use proto_test_peer::ListStream;
 
 const SHORT: Duration = Duration::from_secs(5);
@@ -50,11 +55,16 @@ async fn send_with(send: Compression, payload: &[u8]) -> Result<RunningPeer, Box
         .with_send_compression(send)
         .build()?;
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(payload, SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(payload, SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
     Ok(peer)
 }
 
@@ -76,11 +86,16 @@ async fn call_peer_replying(
     }
     let client = builder.build()?;
     Ok(client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", SHORT),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .map(|response| response.into_message()))
 }
 
@@ -160,11 +175,16 @@ async fn test_call_raw_with_accept_compression_lists_the_encoding_in_grpc_accept
         .build()?;
 
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let accepted = requests
@@ -193,11 +213,14 @@ async fn test_call_raw_client_stream_with_gzip_sends_every_message_compressed(
 
     client
         .call_raw_client_stream(
-            CallFixture::path("pkg.Service/Method"),
-            messages,
-            proto_pattern::CallOptions::create(Some(SHORT), proto_pattern::Metadata::default()),
+            CallRawClientStreamRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_requests(messages)
+                .with_options(CallOptions::create(Some(SHORT), Metadata::default()))
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawClientStreamResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let frames = requests.first().ok_or("no request")?.get_frames();
@@ -464,13 +487,22 @@ async fn test_call_raw_server_stream_gzip_answer_to_a_client_that_accepts_gzip_i
         .build()?;
 
     let mut answer = client
-        .call_raw_server_stream(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", SHORT),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"ping", SHORT).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
 
-    let first = answer.read_message().await?.ok_or("no message")?;
+    let first = answer
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+        .ok_or("no message")?;
     assert_eq!(first, original);
     Ok(())
 }

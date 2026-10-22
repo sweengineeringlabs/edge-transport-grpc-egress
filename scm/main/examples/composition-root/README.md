@@ -16,7 +16,7 @@ This is the whole of what a root writes to start from a configuration file (`Com
 make a call through any client (`CompositionRoot::ping`); the options are added to the builder `assemble` returns,
 and `build()` ends it:
 
-```rust
+```rust,ignore
 /// Start a builder with the loaded configuration applied; the caller adds options and builds.
 ///
 /// # Errors
@@ -37,8 +37,16 @@ pub fn assemble(&self) -> Result<impl GrpcEgressBuilder, Box<dyn Error>> {
 /// The error of the path or of the call.
 pub async fn ping<T: RawTransport>(client: &T, body: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
     let path = MethodPath::create("/pkg.Service/Method")?;
-    let request = CallRequest::create(body.to_vec(), CallOptions::default());
-    Ok(client.call_raw(path, request).await?.into_message())
+    let request = CallRawRequestBuilder::new()
+        .with_path(path)
+        .with_message(body.to_vec())
+        .with_options(CallOptions::default())
+        .build();
+    Ok(client
+        .call_raw(request)
+        .await?
+        .into_response()
+        .into_message())
 }
 ```
 

@@ -7,6 +7,7 @@
 //! [`BearerEgressConfig`]: grpc_egress_auth_bearer::BearerEgressConfig
 //! [`GrpcEgressInterceptorChain`]: grpc_egress_transport_std::GrpcEgressInterceptorChain
 
+use proto_pattern::Metadata;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,7 +18,6 @@ use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, OutboundCall,
 };
 use grpc_egress_transport_std::GrpcEgressInterceptorChain;
-use proto_pattern::Metadata;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = BearerEgressConfigBuilder::new()

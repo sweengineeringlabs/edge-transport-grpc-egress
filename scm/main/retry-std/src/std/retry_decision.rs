@@ -19,10 +19,10 @@
 //! - `Internal` is not retried — server bug, retrying just
 //!   amplifies the bug and burns the deadline.
 
+use proto_pattern::{CallError, GetValuesRequest, GetValuesResponse, MetadataView, StatusCode};
 use std::time::Duration;
 
 use crate::std::ResourceExhaustedContext;
-use proto_pattern::{CallError, StatusCode};
 
 /// Trailer names that carry the time the peer asks the caller to wait, in whole seconds.
 const RETRY_AFTER_KEYS: [&str; 2] = ["retry-after", "x-ratelimit-reset-requests"];
@@ -122,7 +122,9 @@ impl RetryDecision {
         };
         let from_trailers = RETRY_AFTER_KEYS.iter().find_map(|key| {
             trailers
-                .get_values(key)
+                .get_values(GetValuesRequest::new(key))
+                .map(GetValuesResponse::into_values)
+                .unwrap_or_default()
                 .first()
                 .and_then(|value| value.trim().parse::<u64>().ok())
         });

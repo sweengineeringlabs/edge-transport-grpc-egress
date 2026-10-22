@@ -1,17 +1,25 @@
 //! The contract of `GrpcBreakerFactory`: an implementor returns a client that is a `Transport`, a `RawTransport`
 //! and a `BreakerObservable`, or refuses the policy with a `BreakerDomainError`.
 
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
+    CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequest,
+    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
+    CallServerStreamRequest, CallServerStreamResponse, ClientStreamMethod, DecodeError,
+    EncodeError, GetHeadersRequest, GetHeadersResponse, MessageStream, Metadata, Method,
+    MethodPath, Payload, RawTransport, ReadMessageRequest, ReadMessageResponse,
+    ReadTrailersRequest, ReadTrailersResponse, ResponseStream, ServerStreamMethod, StatusCode,
+    Transport, UnaryMethod,
+};
 use std::error::Error;
 
 use futures::future::BoxFuture;
 use grpc_egress_breaker::{
     BreakerDomainError, BreakerObservable, BreakerState, BuildGrpcBreakerRequest,
     GrpcBreakerConfig, GrpcBreakerFactory, ObserveStateRequest, ObserveStateResponse,
-};
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    DecodeError, EncodeError, MessageStream, Metadata, Method, MethodPath, Payload, RawTransport,
-    ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
 };
 
 /// A message that is its own bytes.
@@ -49,20 +57,29 @@ impl UnaryMethod for Ping {}
 struct NoStream(Metadata);
 
 impl<T: Send> MessageStream<T> for NoStream {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(None)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(None))
     }
 }
 
 impl<T: Send> ResponseStream<T> for NoStream {
     type Metadata = Metadata;
 
-    fn get_headers(&self) -> &Metadata {
-        &self.0
+    fn get_headers(
+        &self,
+        _request: GetHeadersRequest,
+    ) -> Result<GetHeadersResponse<'_, Metadata>, CallError> {
+        Ok(GetHeadersResponse::new(&self.0))
     }
 
-    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
-        Ok(Metadata::default())
+    async fn read_trailers(
+        &mut self,
+        _request: ReadTrailersRequest,
+    ) -> Result<ReadTrailersResponse<Metadata>, CallError> {
+        Ok(ReadTrailersResponse::new(Metadata::default()))
     }
 }
 
@@ -87,7 +104,7 @@ impl Transport for Quiet {
         _request: CallRequest<M::Request>,
     ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
         let empty = M::Response::decode(&[]).map_err(CallError::Decode)?;
-        Ok(CallResponse::create(
+        Ok(CallResponse::new(
             empty,
             Metadata::default(),
             Metadata::default(),
@@ -96,25 +113,33 @@ impl Transport for Quiet {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        _request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallServerStreamResponse::new)
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
-        Err(Self::refusal(M::PATH))
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, Metadata>, CallError> {
+        let (_requests, _options) = request.into_parts();
+        { Err(Self::refusal(M::PATH)) }.map(CallClientStreamResponse::new)
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (_requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallBidiStreamResponse::new)
     }
 }
 
@@ -123,40 +148,46 @@ impl RawTransport for Quiet {
 
     async fn call_raw(
         &self,
-        _path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        Ok(CallResponse::create(
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<Metadata>, CallError> {
+        let (_path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        Ok(CallRawResponse::new(CallResponse::new(
             Vec::new(),
             Metadata::default(),
             Metadata::default(),
-        ))
+        )))
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawServerStreamResponse::new)
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        Err(Self::refusal(path.get_path()))
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<Metadata>, CallError> {
+        let (path, _requests, _options) = request.into_parts();
+        { Err(Self::refusal(path.get_path())) }.map(CallRawClientStreamResponse::new)
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, _requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawBidiStreamResponse::new)
     }
 }
 
@@ -175,27 +206,47 @@ impl<T: Transport + RawTransport> Transport for Observed<T> {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
-        self.0.call_server_stream::<M>(request).await
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (message, options) = request.into_parts();
+        let request = CallRequest::new(message, options);
+        self.0
+            .call_server_stream::<M>({
+                let (message, options) = request.into_parts();
+                CallServerStreamRequest::new(message, options)
+            })
+            .await
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<M::Response, <Self as Transport>::Metadata>, CallError> {
-        self.0.call_client_stream::<M, S>(requests, options).await
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, <Self as Transport>::Metadata>, CallError>
+    {
+        let (requests, options) = request.into_parts();
+        self.0
+            .call_client_stream::<M, S>(CallClientStreamRequest::new(requests, options))
+            .await
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
-        self.0.call_bidi_stream::<M, S>(requests, options).await
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (requests, options) = request.into_parts();
+        self.0
+            .call_bidi_stream::<M, S>(CallBidiStreamRequest::new(requests, options))
+            .await
     }
 }
 
@@ -204,38 +255,80 @@ impl<T: Transport + RawTransport> RawTransport for Observed<T> {
 
     async fn call_raw(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
-        self.0.call_raw(path, request).await
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, message, options) = request.into_parts();
+        let request = CallRequest::new(message, options);
+        self.0
+            .call_raw({
+                let (message, options) = request.into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path)
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
-        self.0.call_raw_server_stream(path, request).await
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        let request = CallRequest::new(message, options);
+        self.0
+            .call_raw_server_stream({
+                let (message, options) = request.into_parts();
+                CallRawServerStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
-        self.0.call_raw_client_stream(path, requests, options).await
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, requests, options) = request.into_parts();
+        self.0
+            .call_raw_client_stream(
+                CallRawClientStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
+            .await
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
-        self.0.call_raw_bidi_stream(path, requests, options).await
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, requests, options) = request.into_parts();
+        self.0
+            .call_raw_bidi_stream(
+                CallRawBidiStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
+            .await
     }
 }
 
@@ -288,15 +381,16 @@ async fn test_build_valid_policy_returns_a_client_that_can_be_called_both_ways_a
 
     let raw = client
         .call_raw(
-            path(),
-            CallRequest::create(Vec::new(), CallOptions::default()),
+            CallRawRequestBuilder::new()
+                .with_path(path())
+                .with_message(Vec::new())
+                .with_options(CallOptions::default())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawResponse::into_response)?;
     let typed = client
-        .call::<Ping>(CallRequest::create(
-            Bytes(Vec::new()),
-            CallOptions::default(),
-        ))
+        .call::<Ping>(CallRequest::new(Bytes(Vec::new()), CallOptions::default()))
         .await?;
     assert_eq!(raw.get_message(), &Vec::<u8>::new());
     assert_eq!(typed.get_message(), &Bytes(Vec::new()));

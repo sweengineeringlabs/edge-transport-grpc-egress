@@ -1,12 +1,12 @@
 //! `CompositionRoot` -- assembles a client the way a composition root does.
 
+use proto_pattern::{CallOptions, CallRawRequestBuilder, MethodPath, RawTransport};
 use std::error::Error;
 
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallOptions, CallRequest, MethodPath, RawTransport};
 
 /// Loads a channel configuration from TOML text and assembles clients from it.
 pub struct CompositionRoot {
@@ -51,8 +51,16 @@ impl CompositionRoot {
     /// The error of the path or of the call.
     pub async fn ping<T: RawTransport>(client: &T, body: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
         let path = MethodPath::create("/pkg.Service/Method")?;
-        let request = CallRequest::create(body.to_vec(), CallOptions::default());
-        Ok(client.call_raw(path, request).await?.into_message())
+        let request = CallRawRequestBuilder::new()
+            .with_path(path)
+            .with_message(body.to_vec())
+            .with_options(CallOptions::default())
+            .build();
+        Ok(client
+            .call_raw(request)
+            .await?
+            .into_response()
+            .into_message())
     }
     // END consumer code
 }

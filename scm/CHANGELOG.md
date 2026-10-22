@@ -9,6 +9,17 @@ word.
 
 ## [Unreleased]
 
+### Proto dependency upgrade
+
+- Pin every consumer to `proto-pattern` v0.12.0 and the `proto-svc` crates v0.4.2.
+- Migrate raw and streaming calls, stream reads, and metadata queries to their operation-specific request/response types; typed unary requests and responses use `new`.
+- Build the engine through `TonicTransportSpiFactoryOptions::tonic_dual_builder`, `TransportConfiguration`, and `DualTransportBuilder`, retaining the existing keep-alive options.
+- Propagate metadata query and binary decoding errors when preparing interceptor replies.
+
+The issue 18 migration record below describes the original v0.10/v0.4 transition.
+Current call examples are in the root README and the composition-root example.
+
+
 Issue 18: the contract (`proto-pattern` 0.10) and the engine (`proto-svc` 0.4) are external, and the client is a
 generic bound over them. **Breaking throughout.** The design is ADR-009 (rulings of ADR-008 applied); every
 behaviour that differs from v0.8.0 and its decision is in `docs/behaviour-comparison.md`; the mapping of every public

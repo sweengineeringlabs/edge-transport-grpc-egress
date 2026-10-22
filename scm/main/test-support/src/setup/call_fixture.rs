@@ -30,6 +30,6 @@ impl CallFixture {
         timeout: Duration,
         metadata: Metadata,
     ) -> CallRequest<Vec<u8>> {
-        CallRequest::create(body.to_vec(), CallOptions::create(Some(timeout), metadata))
+        CallRequest::new(body.to_vec(), CallOptions::create(Some(timeout), metadata))
     }
 }

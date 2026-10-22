@@ -3,13 +3,13 @@
 //! Each test pins what one option of `GrpcChannelConfig` does, so that a change cannot slip in silently, and
 //! each fails when its option is ignored or changed.
 
+use proto_pattern::{CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode};
 use std::error::Error;
 use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::{CallError, RawTransport, StatusCode};
 
 const SHORT: Duration = Duration::from_secs(5);
 
@@ -25,11 +25,16 @@ async fn test_call_response_at_max_message_bytes_returns_the_message() -> Result
     let client = ClientFixture::from_config(&config)?;
 
     let response = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(response.get_message().len(), 1024);
     Ok(())
@@ -49,11 +54,16 @@ async fn test_call_response_one_byte_over_max_message_bytes_returns_out_of_range
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", SHORT),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(
@@ -84,11 +94,16 @@ async fn test_call_request_one_byte_over_max_message_bytes_fails_before_it_reach
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(&[1u8; 1025], SHORT),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = CallFixture::request(&[1u8; 1025], SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(&result, Err(CallError::Encode(e)) if e.is_too_large()),
@@ -113,11 +128,17 @@ async fn test_call_slower_than_the_timeout_returns_status_deadline_exceeded_at_t
 
     let started = Instant::now();
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_millis(300)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_millis(300)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     let elapsed = started.elapsed();
 
     assert!(
@@ -153,11 +174,17 @@ async fn test_call_request_timeout_shorter_than_the_call_timeout_returns_status_
 
     let started = Instant::now();
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_secs(10)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_secs(10)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     let elapsed = started.elapsed();
 
     assert!(
@@ -193,11 +220,17 @@ async fn test_call_request_timeout_longer_than_the_call_timeout_keeps_the_call_t
 
     let started = Instant::now();
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_millis(300)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_millis(300)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     let elapsed = started.elapsed();
 
     assert!(
@@ -231,11 +264,16 @@ async fn test_call_without_compression_sends_no_encoding_header_and_the_message_
     let payload = vec![b'a'; 4096];
 
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(&payload, SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(&payload, SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let request = requests.first().ok_or("the peer received no request")?;
@@ -259,11 +297,16 @@ async fn test_call_sends_the_request_to_the_endpoint_of_the_config_with_a_leadin
     let client = ClientFixture::from_config(&config)?;
 
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let request = requests.first().ok_or("the peer received no request")?;
@@ -281,11 +324,16 @@ async fn test_call_to_a_closed_endpoint_returns_transport_unavailable() -> Resul
     let client = ClientFixture::from_config(&config)?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", SHORT),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(

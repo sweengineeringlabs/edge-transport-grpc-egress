@@ -25,7 +25,7 @@ path = "examples/auth_bearer.rs"
 [dependencies]
 grpc-egress-auth-bearer = { path = "../auth-bearer" }
 grpc-egress-transport = { path = "../transport" }
-proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.10.0" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
 swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22" }
 tracing = "0.1"
 # JWT sign + verify (HS256 / RS256).  Default features include

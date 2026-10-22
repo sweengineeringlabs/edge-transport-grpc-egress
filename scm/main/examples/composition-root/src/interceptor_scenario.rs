@@ -1,5 +1,6 @@
 //! `InterceptorScenario` -- interceptors and the trace context.
 
+use proto_pattern::{CallRawRequestBuilder, CallRawResponse, CallRequest, RawTransport};
 use std::error::Error;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -9,7 +10,6 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, TraceContextSource,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallRequest, RawTransport};
 
 use crate::{EchoServer, OrderInterceptor, RefusingInterceptor, ScenarioReport};
 
@@ -40,8 +40,16 @@ impl InterceptorScenario {
             })
             .build()?;
         client
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
 
         let order = log.lock().unwrap_or_else(PoisonError::into_inner).clone();
         report.record(
@@ -61,8 +69,16 @@ impl InterceptorScenario {
             .with_interceptor(Arc::new(RefusingInterceptor))
             .build()?;
         let refused = refusing
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-            .await;
+            .call_raw({
+                let (message, options) = Self::request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         report.record(
             "an interceptor that refuses stops the call before it is sent",
             refused.is_err() && server.count_requests() == before,

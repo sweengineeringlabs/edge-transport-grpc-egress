@@ -30,7 +30,7 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallOptions, CallRequest, Compression, MethodPath, RawTransport, Transport};
+use proto_pattern::{CallOptions, CallRequest, CallRawRequestBuilder, Compression, MethodPath, RawTransport, Transport};
 
 let client = TonicGrpcEgressBuilderSpiFactory::new("https://api.example.com:443")
     .build(BuildGrpcEgressBuilderRequest)
@@ -42,12 +42,16 @@ let client = TonicGrpcEgressBuilderSpiFactory::new("https://api.example.com:443"
 // By path, with bytes for messages (a path known only at run time):
 let path = MethodPath::create("/pkg.Service/Method")?;
 let response = client
-    .call_raw(path, CallRequest::create(body_bytes, CallOptions::default()))
+    .call_raw(CallRawRequestBuilder::new()
+        .with_path(path)
+        .with_message(body_bytes)
+        .with_options(CallOptions::default())
+        .build())
     .await?;
 
 // Or typed, over a `Method` the caller defines:
 let response = client
-    .call::<Greet>(CallRequest::create(request, CallOptions::default()))
+    .call::<Greet>(CallRequest::new(request, CallOptions::default()))
     .await?;
 ```
 

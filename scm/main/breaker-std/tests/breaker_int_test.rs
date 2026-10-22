@@ -5,6 +5,19 @@
 //! recover on the fifth; what a real peer and the real engine do is in `breaker_engine_int_test.rs`.
 
 use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
+    CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequest,
+    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
+    CallServerStreamRequest, CallServerStreamResponse, ClientStreamMethod, DecodeError,
+    EncodeError, GetHeadersRequest, GetHeadersResponse, MessageStream, Metadata, Method,
+    MethodPath, Payload, RawTransport, ReadMessageRequest, ReadMessageResponse,
+    ReadTrailersRequest, ReadTrailersResponse, ResponseStream, ServerStreamMethod, StatusCode,
+    Transport, UnaryMethod,
+};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -14,11 +27,6 @@ use grpc_egress_breaker::{
     GrpcBreakerConfig, GrpcBreakerFactory, ObserveStateRequest,
 };
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    DecodeError, EncodeError, MessageStream, Metadata, Method, MethodPath, Payload, RawTransport,
-    ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
-};
 
 /// A message that is its own bytes.
 #[derive(Debug, PartialEq)]
@@ -121,20 +129,29 @@ impl Script {
 struct ScriptedStream(Metadata);
 
 impl<T: Send> MessageStream<T> for ScriptedStream {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(None)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(None))
     }
 }
 
 impl<T: Send> ResponseStream<T> for ScriptedStream {
     type Metadata = Metadata;
 
-    fn get_headers(&self) -> &Metadata {
-        &self.0
+    fn get_headers(
+        &self,
+        _request: GetHeadersRequest,
+    ) -> Result<GetHeadersResponse<'_, Metadata>, CallError> {
+        Ok(GetHeadersResponse::new(&self.0))
     }
 
-    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
-        Ok(Metadata::default())
+    async fn read_trailers(
+        &mut self,
+        _request: ReadTrailersRequest,
+    ) -> Result<ReadTrailersResponse<Metadata>, CallError> {
+        Ok(ReadTrailersResponse::new(Metadata::default()))
     }
 }
 
@@ -142,7 +159,7 @@ impl<T: Send> ResponseStream<T> for ScriptedStream {
 struct ScriptedTransport(Arc<Script>);
 
 fn ok_response<R>(message: R) -> CallResponse<R, Metadata> {
-    CallResponse::create(message, Metadata::default(), Metadata::default())
+    CallResponse::new(message, Metadata::default(), Metadata::default())
 }
 
 impl Transport for ScriptedTransport {
@@ -158,28 +175,45 @@ impl Transport for ScriptedTransport {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        _request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        self.0
-            .answer(M::PATH, || ScriptedStream(Metadata::default()))
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        {
+            self.0
+                .answer(M::PATH, || ScriptedStream(Metadata::default()))
+        }
+        .map(CallServerStreamResponse::new)
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
-        let response = M::Response::decode(b"ok").map_err(CallError::Decode)?;
-        self.0.answer(M::PATH, || ok_response(response))
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, Metadata>, CallError> {
+        let (_requests, _options) = request.into_parts();
+        {
+            let response = M::Response::decode(b"ok").map_err(CallError::Decode)?;
+            self.0.answer(M::PATH, || ok_response(response))
+        }
+        .map(CallClientStreamResponse::new)
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        self.0
-            .answer(M::PATH, || ScriptedStream(Metadata::default()))
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (_requests, _options) = request.into_parts();
+        {
+            self.0
+                .answer(M::PATH, || ScriptedStream(Metadata::default()))
+        }
+        .map(CallBidiStreamResponse::new)
     }
 }
 
@@ -188,40 +222,58 @@ impl RawTransport for ScriptedTransport {
 
     async fn call_raw(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        self.0
-            .answer(path.get_path(), || ok_response(b"ok".to_vec()))
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<Metadata>, CallError> {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        {
+            self.0
+                .answer(path.get_path(), || ok_response(b"ok".to_vec()))
+        }
+        .map(CallRawResponse::new)
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        self.0
-            .answer(path.get_path(), || ScriptedStream(Metadata::default()))
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        {
+            self.0
+                .answer(path.get_path(), || ScriptedStream(Metadata::default()))
+        }
+        .map(CallRawServerStreamResponse::new)
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        self.0
-            .answer(path.get_path(), || ok_response(b"ok".to_vec()))
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<Metadata>, CallError> {
+        let (path, _requests, _options) = request.into_parts();
+        {
+            self.0
+                .answer(path.get_path(), || ok_response(b"ok".to_vec()))
+        }
+        .map(CallRawClientStreamResponse::new)
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        self.0
-            .answer(path.get_path(), || ScriptedStream(Metadata::default()))
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, _requests, _options) = request.into_parts();
+        {
+            self.0
+                .answer(path.get_path(), || ScriptedStream(Metadata::default()))
+        }
+        .map(CallRawBidiStreamResponse::new)
     }
 }
 
@@ -229,8 +281,11 @@ impl RawTransport for ScriptedTransport {
 struct EmptyRequests;
 
 impl<T: Send> MessageStream<T> for EmptyRequests {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(None)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(None))
     }
 }
 
@@ -263,41 +318,86 @@ fn path() -> MethodPath {
 }
 
 fn raw_request() -> CallRequest<Vec<u8>> {
-    CallRequest::create(b"hi".to_vec(), CallOptions::default())
+    CallRequest::new(b"hi".to_vec(), CallOptions::default())
 }
 
 fn typed_request() -> CallRequest<Bytes> {
-    CallRequest::create(Bytes(b"hi".to_vec()), CallOptions::default())
+    CallRequest::new(Bytes(b"hi".to_vec()), CallOptions::default())
 }
 
 /// Make one call of `shape` and report only whether it was admitted and succeeded.
 async fn invoke<C: Transport + RawTransport>(client: &C, shape: Shape) -> Result<(), CallError> {
     match shape {
-        Shape::RawUnary => client.call_raw(path(), raw_request()).await.map(|_| ()),
-        Shape::RawServerStream => client
-            .call_raw_server_stream(path(), raw_request())
+        Shape::RawUnary => client
+            .call_raw({
+                let (message, options) = raw_request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
             .await
+            .map(CallRawResponse::into_response)
+            .map(|_| ()),
+        Shape::RawServerStream => client
+            .call_raw_server_stream({
+                let (message, options) = raw_request().into_parts();
+                CallRawServerStreamRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawServerStreamResponse::into_stream)
             .map(|_| ()),
         Shape::RawClientStream => client
-            .call_raw_client_stream(path(), EmptyRequests, CallOptions::default())
+            .call_raw_client_stream(
+                CallRawClientStreamRequestBuilder::new()
+                    .with_path(path())
+                    .with_requests(EmptyRequests)
+                    .with_options(CallOptions::default())
+                    .build(),
+            )
             .await
+            .map(CallRawClientStreamResponse::into_response)
             .map(|_| ()),
         Shape::RawBidiStream => client
-            .call_raw_bidi_stream(path(), EmptyRequests, CallOptions::default())
+            .call_raw_bidi_stream(
+                CallRawBidiStreamRequestBuilder::new()
+                    .with_path(path())
+                    .with_requests(EmptyRequests)
+                    .with_options(CallOptions::default())
+                    .build(),
+            )
             .await
+            .map(CallRawBidiStreamResponse::into_stream)
             .map(|_| ()),
         Shape::TypedUnary => client.call::<Ping>(typed_request()).await.map(|_| ()),
         Shape::TypedServerStream => client
-            .call_server_stream::<Ping>(typed_request())
+            .call_server_stream::<Ping>({
+                let (message, options) = typed_request().into_parts();
+                CallServerStreamRequest::new(message, options)
+            })
             .await
+            .map(CallServerStreamResponse::into_stream)
             .map(|_| ()),
         Shape::TypedClientStream => client
-            .call_client_stream::<Ping, _>(EmptyRequests, CallOptions::default())
+            .call_client_stream::<Ping, _>(CallClientStreamRequest::new(
+                EmptyRequests,
+                CallOptions::default(),
+            ))
             .await
+            .map(CallClientStreamResponse::into_response)
             .map(|_| ()),
         Shape::TypedBidiStream => client
-            .call_bidi_stream::<Ping, _>(EmptyRequests, CallOptions::default())
+            .call_bidi_stream::<Ping, _>(CallBidiStreamRequest::new(
+                EmptyRequests,
+                CallOptions::default(),
+            ))
             .await
+            .map(CallBidiStreamResponse::into_stream)
             .map(|_| ()),
     }
 }

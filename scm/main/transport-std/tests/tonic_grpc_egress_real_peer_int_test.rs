@@ -7,6 +7,13 @@
 
 mod tonic_peer;
 
+use proto_pattern::{
+    BinaryMetadataEntry, CallError, CallOptions, CallRawRequestBuilder, CallRawResponse,
+    CallRequest, CallServerStreamRequest, CallServerStreamResponse, GetBinaryEntriesRequest,
+    GetValuesRequest, GetValuesResponse, MessageStream, Metadata, MetadataEntry, MetadataView,
+    Method, Payload, RawTransport, ReadMessageRequest, ReadMessageResponse, ServerStreamMethod,
+    StatusCode, Transport, UnaryMethod,
+};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -19,11 +26,6 @@ use grpc_egress_transport::{
 use grpc_egress_transport_std::{
     GrpcChannelConfigFactory, StdGrpcCancellationFactory, TokenCancellation,
     TonicGrpcEgressBuilderSpiFactory,
-};
-use proto_pattern::{
-    BinaryMetadataEntry, CallError, CallOptions, CallRequest, MessageStream, Metadata,
-    MetadataEntry, MetadataView, Method, Payload, RawTransport, ServerStreamMethod, StatusCode,
-    Transport, UnaryMethod,
 };
 use proto_test_peer::{Count, Say};
 use tokio_util::sync::CancellationToken;
@@ -81,7 +83,9 @@ impl Fixtures {
     /// The text and the binary values of every header of `metadata` under `key`.
     fn binary_values<M: MetadataView>(metadata: &M, key: &str) -> Vec<Vec<u8>> {
         metadata
-            .get_binary_entries()
+            .get_binary_entries(GetBinaryEntriesRequest::new())
+            .unwrap_or_else(|error| panic!("metadata query failed: {error}"))
+            .into_entries()
             .flatten()
             .filter(|e| e.get_key() == key)
             .map(|e| e.get_value().to_vec())
@@ -103,11 +107,18 @@ async fn test_call_raw_two_values_under_one_key_reach_the_peer_as_two_values(
     ]);
 
     client
-        .call_raw(
-            CallFixture::path("meta.Peer/Reflect"),
-            CallFixture::request_with(&Fixtures::say(&Say::of("hi")), SHORT, metadata),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request_with(&Fixtures::say(&Say::of("hi")), SHORT, metadata)
+                    .into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Reflect"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let seen = peer.get_seen_requests();
     let request = seen.first().ok_or("the peer saw no request")?;
@@ -127,7 +138,7 @@ async fn test_call_typed_two_values_under_one_key_reach_the_peer_as_two_values(
     ]);
 
     client
-        .call::<Reflect>(CallRequest::create(
+        .call::<Reflect>(CallRequest::new(
             Say::of("hi"),
             CallOptions::create(Some(SHORT), metadata),
         ))
@@ -155,11 +166,18 @@ async fn test_call_raw_binary_entries_of_every_padding_length_reach_the_peer_as_
         );
 
         client
-            .call_raw(
-                CallFixture::path("meta.Peer/Reflect"),
-                CallFixture::request_with(&Fixtures::say(&Say::of("hi")), SHORT, metadata),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request_with(&Fixtures::say(&Say::of("hi")), SHORT, metadata)
+                        .into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("meta.Peer/Reflect"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
 
         let seen = peer.get_seen_requests();
         let request = seen.last().ok_or("the peer saw no request")?;
@@ -180,14 +198,24 @@ async fn test_call_raw_response_headers_keep_two_values_under_one_key() -> Resul
     let client = Fixtures::client(&peer)?;
 
     let response = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Reflect"),
-            CallFixture::request(&Fixtures::say(&Say::of("hi")), SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::of("hi")), SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Reflect"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(
-        response.get_headers().get_values("x-multi"),
+        response
+            .get_headers()
+            .get_values(GetValuesRequest::new("x-multi"))
+            .map(GetValuesResponse::into_values)
+            .unwrap_or_default(),
         ["first", "second"]
     );
     Ok(())
@@ -201,11 +229,17 @@ async fn test_call_raw_response_binary_headers_arrive_as_their_bytes() -> Result
     let client = Fixtures::client(&peer)?;
 
     let response = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Reflect"),
-            CallFixture::request(&Fixtures::say(&Say::of("hi")), SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::of("hi")), SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Reflect"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(
         Fixtures::binary_values(response.get_headers(), "x-blob-bin"),
@@ -222,11 +256,17 @@ async fn test_call_raw_error_status_trailers_keep_two_values_a_binary_entry_and_
     let client = Fixtures::client(&peer)?;
 
     let error = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Fail"),
-            CallFixture::request(&Fixtures::say(&Say::failing(10)), SHORT),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::failing(10)), SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Fail"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the peer fails the call")?;
 
@@ -241,7 +281,13 @@ async fn test_call_raw_error_status_trailers_keep_two_values_a_binary_entry_and_
             assert_eq!(code, StatusCode::Aborted);
             assert_eq!(message, "the peer says no");
             assert_eq!(details, vec![9, 8, 7]);
-            assert_eq!(trailers.get_values("x-multi"), ["first", "second"]);
+            assert_eq!(
+                trailers
+                    .get_values(GetValuesRequest::new("x-multi"))
+                    .map(GetValuesResponse::into_values)
+                    .unwrap_or_default(),
+                ["first", "second"]
+            );
             assert_eq!(
                 Fixtures::binary_values(&trailers, "x-blob-bin"),
                 [vec![0xff, 0x00, 0xfe, 0x01], vec![0x80]]
@@ -266,11 +312,16 @@ async fn test_call_raw_to_a_refused_connection_returns_transport_unavailable(
     let client = grpc_egress_test_support::ClientFixture::from_config(&config)?;
 
     let error = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Reflect"),
-            CallFixture::request(b"", SHORT),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Reflect"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("nothing listens on the port")?;
 
@@ -296,14 +347,20 @@ async fn test_call_raw_slower_than_its_timeout_returns_status_deadline_exceeded(
 
     let started = Instant::now();
     let error = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Hold"),
-            CallFixture::request(
+        .call_raw({
+            let (message, options) = CallFixture::request(
                 &Fixtures::say(&Say::slow(30_000)),
                 Duration::from_millis(200),
-            ),
-        )
+            )
+            .into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Hold"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the call must pass its timeout")?;
 
@@ -335,11 +392,17 @@ async fn test_call_raw_peer_that_cancels_the_call_returns_status_cancelled(
     let client = Fixtures::client(&peer)?;
 
     let error = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Cancelled"),
-            CallFixture::request(&Fixtures::say(&Say::of("x")), SHORT),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::of("x")), SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Cancelled"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the peer cancels the call")?;
 
@@ -369,11 +432,18 @@ async fn test_call_raw_response_over_the_decoding_limit_returns_status_out_of_ra
         .build()?;
 
     let error = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Reflect"),
-            CallFixture::request(&Fixtures::say(&Say::of(&"x".repeat(200))), SHORT),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::of(&"x".repeat(200))), SHORT)
+                    .into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Reflect"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("a 200-byte answer must break a 64-byte limit")?;
 
@@ -405,11 +475,16 @@ async fn test_call_raw_request_over_the_encoding_limit_fails_before_it_reaches_t
         .build()?;
 
     let error = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Reflect"),
-            CallFixture::request(&[7u8; 200], SHORT),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(&[7u8; 200], SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Reflect"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("a 200-byte request must break a 64-byte limit")?;
 
@@ -435,11 +510,18 @@ async fn test_call_raw_every_error_status_code_passes_through_with_message_detai
     let client = Fixtures::client(&peer)?;
     for code in StatusCode::ALL.into_iter().filter(|c| *c != StatusCode::Ok) {
         let error = client
-            .call_raw(
-                CallFixture::path("meta.Peer/Fail"),
-                CallFixture::request(&Fixtures::say(&Say::failing(code.get_code())), SHORT),
-            )
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request(&Fixtures::say(&Say::failing(code.get_code())), SHORT)
+                        .into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("meta.Peer/Fail"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
             .await
+            .map(CallRawResponse::into_response)
             .err()
             .ok_or("the peer fails the call")?;
 
@@ -455,7 +537,10 @@ async fn test_call_raw_every_error_status_code_passes_through_with_message_detai
                 assert_eq!(message, "the peer says no", "{code}");
                 assert_eq!(details, vec![9, 8, 7], "{code}");
                 assert_eq!(
-                    trailers.get_values("x-multi"),
+                    trailers
+                        .get_values(GetValuesRequest::new("x-multi"))
+                        .map(GetValuesResponse::into_values)
+                        .unwrap_or_default(),
                     ["first", "second"],
                     "{code}"
                 );
@@ -508,11 +593,16 @@ async fn test_call_raw_response_with_no_grpc_status_does_not_succeed() -> Result
     )?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"", SHORT),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     let error = result
         .err()
@@ -540,10 +630,23 @@ async fn test_call_raw_dropping_the_future_of_a_slow_call_cancels_it_at_the_peer
 ) -> Result<(), Box<dyn Error>> {
     let peer = TonicPeer::start().await;
     let client = Fixtures::client(&peer)?;
-    let mut call = Box::pin(client.call_raw(
-        CallFixture::path("meta.Peer/Hold"),
-        CallFixture::request(&Fixtures::say(&Say::slow(60_000)), Duration::from_secs(120)),
-    ));
+    let mut call = Box::pin(async {
+        client
+            .call_raw({
+                let (message, options) = CallFixture::request(
+                    &Fixtures::say(&Say::slow(60_000)),
+                    Duration::from_secs(120),
+                )
+                .into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("meta.Peer/Hold"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)
+    });
 
     tokio::select! {
         _ = &mut call => return Err("a 60 s call cannot have finished".into()),
@@ -583,11 +686,18 @@ async fn test_call_raw_through_a_fired_token_fails_cancelled_long_before_the_pee
 
     let started = Instant::now();
     let error = view
-        .call_raw(
-            CallFixture::path("meta.Peer/Hold"),
-            CallFixture::request(&Fixtures::say(&Say::slow(60_000)), Duration::from_secs(120)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::slow(60_000)), Duration::from_secs(120))
+                    .into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Hold"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the token fires first")?;
     canceller.await?;
@@ -626,7 +736,7 @@ async fn test_call_typed_through_a_token_that_is_not_fired_returns_the_peers_ans
     });
 
     let response = view
-        .call::<Reflect>(CallRequest::create(
+        .call::<Reflect>(CallRequest::new(
             Say::of("hello"),
             CallOptions::create(Some(SHORT), Metadata::default()),
         ))
@@ -651,19 +761,26 @@ async fn test_call_server_stream_through_a_token_fired_mid_stream_keeps_the_mess
     });
 
     let mut stream = view
-        .call_server_stream::<Tick>(CallRequest::create(
+        .call_server_stream::<Tick>(CallServerStreamRequest::new(
             Say::of("go"),
             CallOptions::create(Some(Duration::from_secs(120)), Metadata::default()),
         ))
-        .await?;
-    let first = stream.read_message().await?;
-    let second = stream.read_message().await?;
+        .await
+        .map(CallServerStreamResponse::into_stream)?;
+    let first = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?;
+    let second = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?;
     let canceller = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(100)).await;
         token.cancel();
     });
     let started = Instant::now();
-    let third = tokio::time::timeout(SHORT, stream.read_message())
+    let third = tokio::time::timeout(SHORT, stream.read_message(ReadMessageRequest::new()))
         .await
         .map_err(|_| "the read did not end after the token fired")?;
     canceller.await?;
@@ -705,17 +822,30 @@ async fn test_call_raw_on_the_client_after_a_token_ended_a_call_through_a_view_s
     });
 
     let ended = view
-        .call_raw(
-            CallFixture::path("meta.Peer/Hold"),
-            CallFixture::request(&Fixtures::say(&Say::slow(60_000)), Duration::from_secs(120)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::slow(60_000)), Duration::from_secs(120))
+                    .into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Hold"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     let answered = client
-        .call_raw(
-            CallFixture::path("meta.Peer/Reflect"),
-            CallFixture::request(&Fixtures::say(&Say::of("again")), SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&Fixtures::say(&Say::of("again")), SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("meta.Peer/Reflect"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert!(matches!(
         ended,

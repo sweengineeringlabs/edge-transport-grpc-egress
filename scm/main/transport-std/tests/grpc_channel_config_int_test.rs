@@ -3,6 +3,10 @@
 //! Verifies the **fail-closed TLS-by-default invariant** at the
 //! public-facade boundary via the `create_transport_from_config` factory.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, CallResponse, Metadata, RawTransport,
+    StatusCode,
+};
 use std::sync::Arc;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture};
@@ -14,7 +18,6 @@ use grpc_egress_transport_std::{
     GrpcChannelConfigFactory, GrpcEgressInterceptorChain, TonicGrpcEgressBuilderSpiFactory,
     TraceContextGrpcEgressInterceptor,
 };
-use proto_pattern::{CallError, CallResponse, Metadata, RawTransport, StatusCode};
 
 fn ensure_rustls_provider() {
     use std::sync::Once;
@@ -60,11 +63,17 @@ async fn transport_struct_channel_config_from_config_accepts_plaintext_with_opt_
     // The endpoint is a closed port taken from the operating system, so a real
     // call must genuinely fail — proves this is a connectable client, not a stub.
     let result = transport
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", std::time::Duration::from_secs(2)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", std::time::Duration::from_secs(2)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .map(CallResponse::into_message);
     assert!(
         matches!(
@@ -139,11 +148,17 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
         .build()?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("svc/Method"),
-            CallFixture::request(&[1, 2, 3], Duration::from_secs(1)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(&[1, 2, 3], Duration::from_secs(1)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .map(CallResponse::into_message);
 
     match result {

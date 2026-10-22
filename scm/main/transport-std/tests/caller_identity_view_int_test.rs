@@ -3,6 +3,13 @@
 //! a header that is not valid fails the call before anything is sent. Against a real `tonic` server
 //! (`proto-test-peer`).
 
+use proto_pattern::{
+    CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawClientStreamRequestBuilder,
+    CallRawClientStreamResponse, CallRawRequestBuilder, CallRawResponse, CallRequest,
+    CallServerStreamRequest, CallServerStreamResponse, MessageStream, Metadata, MetadataBuilder,
+    MetadataEntry, RawTransport, ReadMessageRequest, ReadMessageResponse, StatusCode, Transport,
+};
 use std::error::Error;
 use std::time::{Duration, Instant};
 
@@ -14,10 +21,6 @@ use grpc_egress_transport::{
 use grpc_egress_transport_std::{
     SecurityContext, SecurityContextIdentity, StdGrpcCallerIdentityFactory,
     TonicGrpcEgressBuilderSpiFactory,
-};
-use proto_pattern::{
-    CallError, CallOptions, CallRequest, MessageStream, Metadata, MetadataEntry, RawTransport,
-    StatusCode, Transport,
 };
 use proto_test_peer::{Chat, Echo, Join, ListStream, Numbers, RunningPeer, Say};
 
@@ -53,11 +56,11 @@ impl Fixture {
     }
 
     fn typed(text: &str) -> CallRequest<Say> {
-        CallRequest::create(Say::of(text), CallOptions::default())
+        CallRequest::new(Say::of(text), CallOptions::default())
     }
 
     fn raw(say: &Say) -> CallRequest<Vec<u8>> {
-        CallRequest::create(prost::Message::encode_to_vec(say), CallOptions::default())
+        CallRequest::new(prost::Message::encode_to_vec(say), CallOptions::default())
     }
 
     fn encode(text: &str) -> Vec<u8> {
@@ -108,11 +111,16 @@ async fn test_call_raw_context_with_trace_and_tenant_sends_both_headers(
         .with_tenant("tenant-9");
 
     Fixture::view(&client, &ctx)
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::of("hi")),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::of("hi")).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(
         peer.get_last_header("x-trace-id").as_deref(),
@@ -223,7 +231,7 @@ async fn test_call_header_the_call_already_carries_is_the_one_the_peer_sees(
     let ctx = SecurityContext::unauthenticated().with_trace_id("from-the-context");
 
     Fixture::view(&client, &ctx)
-        .call::<Echo>(CallRequest::create(
+        .call::<Echo>(CallRequest::new(
             Say::of("hi"),
             Fixture::with_header("x-trace-id", "from-the-call")?,
         ))
@@ -245,13 +253,17 @@ async fn test_call_context_view_keeps_the_timeout_of_the_call() -> Result<(), Bo
 
     let result = Fixture::view(&client, &ctx)
         .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            CallRequest::create(
-                prost::Message::encode_to_vec(&Say::slow(3000)),
-                CallOptions::create(Some(Duration::from_millis(150)), Metadata::default()),
-            ),
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(prost::Message::encode_to_vec(&Say::slow(3000)))
+                .with_options(CallOptions::create(
+                    Some(Duration::from_millis(150)),
+                    Metadata::default(),
+                ))
+                .build(),
         )
-        .await;
+        .await
+        .map(CallRawResponse::into_response);
 
     let error = result
         .err()
@@ -304,11 +316,16 @@ async fn test_call_raw_context_metadata_key_that_is_not_valid_fails_before_the_p
         .insert("grpc-reserved".to_string(), "v".to_string());
 
     let result = Fixture::view(&client, &ctx)
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::of("hi")),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::of("hi")).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(
@@ -336,10 +353,18 @@ async fn test_call_server_stream_typed_context_headers_reach_the_peer() -> Resul
 
     let view = Fixture::view(&client, &ctx);
     let mut stream = view
-        .call_server_stream::<Numbers>(Fixture::typed("1"))
-        .await?;
+        .call_server_stream::<Numbers>({
+            let (message, options) = Fixture::typed("1").into_parts();
+            CallServerStreamRequest::new(message, options)
+        })
+        .await
+        .map(CallServerStreamResponse::into_stream)?;
 
-    assert!(stream.read_message().await?.is_some());
+    assert!(stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+        .is_some());
     assert_eq!(
         peer.get_last_header("x-trace-id").as_deref(),
         Some("trace-stream")
@@ -356,11 +381,17 @@ async fn test_call_client_stream_raw_context_headers_reach_the_peer() -> Result<
 
     let response = Fixture::view(&client, &ctx)
         .call_raw_client_stream(
-            CallFixture::path("/test.Peer/Join"),
-            ListStream::of(vec![Fixture::encode("a"), Fixture::encode("b")]),
-            CallOptions::default(),
+            CallRawClientStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Join"))
+                .with_requests(ListStream::of(vec![
+                    Fixture::encode("a"),
+                    Fixture::encode("b"),
+                ]))
+                .with_options(CallOptions::default())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawClientStreamResponse::into_response)?;
 
     assert_eq!(
         <Say as prost::Message>::decode(response.get_message().as_slice())?,
@@ -382,10 +413,20 @@ async fn test_call_bidi_stream_typed_context_headers_reach_the_peer() -> Result<
 
     let view = Fixture::view(&client, &ctx);
     let mut stream = view
-        .call_bidi_stream::<Chat, _>(ListStream::of(vec![Say::of("one")]), CallOptions::default())
-        .await?;
+        .call_bidi_stream::<Chat, _>(CallBidiStreamRequest::new(
+            ListStream::of(vec![Say::of("one")]),
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallBidiStreamResponse::into_stream)?;
 
-    assert_eq!(stream.read_message().await?, Some(Say::of("ONE")));
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        Some(Say::of("ONE"))
+    );
     assert_eq!(
         peer.get_last_header("authorization").as_deref(),
         Some("Bearer chat-token")
@@ -401,8 +442,12 @@ async fn test_call_client_stream_typed_context_headers_reach_the_peer() -> Resul
     let ctx = SecurityContext::unauthenticated().with_trace_id("trace-join");
 
     let response = Fixture::view(&client, &ctx)
-        .call_client_stream::<Join, _>(ListStream::of(vec![Say::of("x")]), CallOptions::default())
-        .await?;
+        .call_client_stream::<Join, _>(CallClientStreamRequest::new(
+            ListStream::of(vec![Say::of("x")]),
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallClientStreamResponse::into_response)?;
 
     assert_eq!(response.get_message(), &Say::of("x"));
     assert_eq!(
@@ -509,13 +554,14 @@ async fn test_call_raw_header_the_call_already_carries_is_not_sent_a_second_time
 
     Fixture::view(&client, &ctx)
         .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            CallRequest::create(
-                Fixture::encode("hi"),
-                Fixture::with_header("x-trace-id", "from-the-call")?,
-            ),
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(Fixture::encode("hi"))
+                .with_options(Fixture::with_header("x-trace-id", "from-the-call")?)
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let request = requests.first().ok_or("the peer received no request")?;
@@ -528,7 +574,7 @@ async fn test_call_raw_header_the_call_already_carries_is_not_sent_a_second_time
 async fn test_call_raw_binary_header_the_call_carries_still_reaches_the_peer_beside_the_identitys_headers(
 ) -> Result<(), Box<dyn Error>> {
     use grpc_egress_test_support::{PeerBehaviour, PeerServer};
-    use proto_pattern::MetadataBuilder;
+    use MetadataBuilder;
     let peer = PeerServer::start(PeerBehaviour::Reply(b"ok".to_vec())).await?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
@@ -540,13 +586,14 @@ async fn test_call_raw_binary_header_the_call_carries_still_reaches_the_peer_bes
 
     Fixture::view(&client, &ctx)
         .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            CallRequest::create(
-                Fixture::encode("hi"),
-                CallOptions::create(None, metadata.build()),
-            ),
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(Fixture::encode("hi"))
+                .with_options(CallOptions::create(None, metadata.build()))
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let request = requests.first().ok_or("the peer received no request")?;

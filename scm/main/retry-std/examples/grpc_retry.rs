@@ -7,6 +7,17 @@
 //!
 //! [`StdGrpcRetryFactory`]: grpc_egress_retry_std::StdGrpcRetryFactory
 
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
+    CallRawRequest, CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamResponse, CallRequest, CallResponse, CallServerStreamRequest,
+    CallServerStreamResponse, ClientStreamMethod, GetHeadersRequest, GetHeadersResponse,
+    MessageStream, Metadata, MethodPath, RawTransport, ReadMessageRequest, ReadMessageResponse,
+    ReadTrailersRequest, ReadTrailersResponse, ResponseStream, ServerStreamMethod, StatusCode,
+    Transport, UnaryMethod,
+};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,11 +25,6 @@ use std::time::Duration;
 use grpc_egress_retry::GrpcRetryConfig;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, Metadata, MethodPath, RawTransport, ResponseStream, ServerStreamMethod,
-    StatusCode, Transport, UnaryMethod,
-};
 
 /// An upstream that fails its first `fail_until` calls with `Unavailable`, then succeeds. A real peer answers one
 /// way for every call, so this double is what makes "fails twice, then succeeds" happen.
@@ -33,20 +39,29 @@ struct NoStream {
 }
 
 impl<T: Send> MessageStream<T> for NoStream {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(None)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(None))
     }
 }
 
 impl<T: Send> ResponseStream<T> for NoStream {
     type Metadata = Metadata;
 
-    fn get_headers(&self) -> &Metadata {
-        &self.headers
+    fn get_headers(
+        &self,
+        _request: GetHeadersRequest,
+    ) -> Result<GetHeadersResponse<'_, Metadata>, CallError> {
+        Ok(GetHeadersResponse::new(&self.headers))
     }
 
-    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
-        Ok(Metadata::default())
+    async fn read_trailers(
+        &mut self,
+        _request: ReadTrailersRequest,
+    ) -> Result<ReadTrailersResponse<Metadata>, CallError> {
+        Ok(ReadTrailersResponse::new(Metadata::default()))
     }
 }
 
@@ -65,49 +80,58 @@ impl RawTransport for FlakyUpstream {
 
     async fn call_raw(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        let attempt = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
-        if attempt <= self.fail_until {
-            Err(CallError::Transport {
-                path: path.get_path().into(),
-                code: StatusCode::Unavailable,
-                reason: format!("upstream still down (attempt {attempt})"),
-            })
-        } else {
-            Ok(CallResponse::create(
-                format!("ok on attempt {attempt}").into_bytes(),
-                Metadata::default(),
-                Metadata::default(),
-            ))
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<Metadata>, CallError> {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        {
+            let attempt = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+            if attempt <= self.fail_until {
+                Err(CallError::Transport {
+                    path: path.get_path().into(),
+                    code: StatusCode::Unavailable,
+                    reason: format!("upstream still down (attempt {attempt})"),
+                })
+            } else {
+                Ok(CallResponse::new(
+                    format!("ok on attempt {attempt}").into_bytes(),
+                    Metadata::default(),
+                    Metadata::default(),
+                ))
+            }
         }
+        .map(CallRawResponse::new)
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawServerStreamResponse::new)
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        Err(Self::refusal(path.get_path()))
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<Metadata>, CallError> {
+        let (path, _requests, _options) = request.into_parts();
+        { Err(Self::refusal(path.get_path())) }.map(CallRawClientStreamResponse::new)
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, _requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawBidiStreamResponse::new)
     }
 }
 
@@ -123,25 +147,33 @@ impl Transport for FlakyUpstream {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        _request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallServerStreamResponse::new)
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
-        Err(Self::refusal(M::PATH))
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, Metadata>, CallError> {
+        let (_requests, _options) = request.into_parts();
+        { Err(Self::refusal(M::PATH)) }.map(CallClientStreamResponse::new)
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (_requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallBidiStreamResponse::new)
     }
 }
 
@@ -166,14 +198,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // A single logical call. The retry layer's internal attempt loop must
     // re-invoke the upstream after a real backoff sleep on each retriable
     // failure — the timeout below leaves comfortable headroom for that.
-    let request = CallRequest::create(
+    let request = CallRequest::new(
         Vec::new(),
         CallOptions::create(Some(Duration::from_secs(3)), Metadata::default()),
     );
     let started = std::time::Instant::now();
     let result = client
-        .call_raw(MethodPath::create("/example.Service/Method")?, request)
-        .await;
+        .call_raw({
+            let (message, options) = request.into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(MethodPath::create("/example.Service/Method")?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     let elapsed = started.elapsed();
 
     println!(

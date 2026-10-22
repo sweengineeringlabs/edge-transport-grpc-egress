@@ -1,5 +1,5 @@
 //! `grpc_egress_breaker_std` — circuit-breaker decorator around any client that is a
-//! [`Transport`](proto_pattern::Transport) and a [`RawTransport`](proto_pattern::RawTransport).
+//! [`Transport`](Transport) and a [`RawTransport`](RawTransport).
 //!
 //! ## State machine
 //!

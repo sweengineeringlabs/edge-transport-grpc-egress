@@ -7,6 +7,15 @@
 //! `scm/docs/removed-tests.md`); the health call is tested in `grpc_egress_health_int_test`, the cancellation by a
 //! token in `tonic_grpc_egress_real_peer_int_test`.
 
+use proto_pattern::{
+    CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequestBuilder,
+    CallRawBidiStreamResponse, CallRawClientStreamRequestBuilder, CallRawClientStreamResponse,
+    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequestBuilder,
+    CallRawServerStreamResponse, CallRequest, CallServerStreamRequest, CallServerStreamResponse,
+    GetValuesRequest, MessageStream, Metadata, RawTransport, ReadMessageRequest,
+    ReadMessageResponse, StatusCode, Transport,
+};
 use std::convert::Infallible;
 use std::error::Error;
 use std::net::SocketAddr;
@@ -20,10 +29,6 @@ use grpc_egress_transport::{
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use http_body::Frame;
 use http_body_util::{BodyExt as _, StreamBody};
-use proto_pattern::{
-    CallError, CallOptions, CallRequest, MessageStream, Metadata, RawTransport, StatusCode,
-    Transport,
-};
 use proto_test_peer::{Chat, Count, Echo, Join, ListStream, Numbers, RunningPeer, Say};
 
 const SHORT: Duration = Duration::from_secs(5);
@@ -103,7 +108,11 @@ fn ok_trailers() -> http::HeaderMap {
 /// Every message of `stream`, in order, or the error that ended it.
 async fn drain<S: MessageStream<Vec<u8>>>(stream: &mut S) -> Result<Vec<Vec<u8>>, CallError> {
     let mut messages = Vec::new();
-    while let Some(message) = stream.read_message().await? {
+    while let Some(message) = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+    {
         messages.push(message);
     }
     Ok(messages)
@@ -119,11 +128,16 @@ async fn test_call_raw_sends_the_request_and_returns_the_echoed_message(
     let client = client_for(peer.get_endpoint())?;
 
     let response = client
-        .call_raw(
-            CallFixture::path("echo/Echo"),
-            CallFixture::request(b"payload", SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"payload", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("echo/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(response.get_message(), b"payload");
     Ok(())
@@ -142,11 +156,16 @@ async fn test_call_raw_propagates_the_error_status_and_message_of_the_peer(
     let client = client_for(peer.get_endpoint())?;
 
     let error = client
-        .call_raw(
-            CallFixture::path("echo/Echo"),
-            CallFixture::request(b"x", SHORT),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"x", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("echo/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the peer fails the call")?;
 
@@ -173,11 +192,16 @@ async fn test_call_raw_returns_the_trailers_the_peer_sent_after_the_message(
     let client = client_for(format!("http://{address}"))?;
 
     let response = client
-        .call_raw(
-            CallFixture::path("echo/Echo"),
-            CallFixture::request(b"hi", SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"hi", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("echo/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(
         response.get_message(),
@@ -185,7 +209,11 @@ async fn test_call_raw_returns_the_trailers_the_peer_sent_after_the_message(
         "the body must be the message"
     );
     assert_eq!(
-        proto_pattern::MetadataView::get_values(response.get_trailers(), "x-response-id"),
+        proto_pattern::MetadataView::get_values(
+            response.get_trailers(),
+            GetValuesRequest::new("x-response-id")
+        )?
+        .into_values(),
         ["meta-42"],
         "the x-response-id trailer must reach the caller as a trailer"
     );
@@ -201,11 +229,17 @@ async fn test_call_raw_to_a_server_that_stalls_returns_status_deadline_exceeded_
 
     let started = Instant::now();
     let result = client
-        .call_raw(
-            CallFixture::path("echo/Echo"),
-            CallFixture::request(b"x", Duration::from_millis(300)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"x", Duration::from_millis(300)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("echo/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(
@@ -236,11 +270,16 @@ async fn test_call_raw_server_stream_returns_the_echoed_message_and_then_the_end
     let client = client_for(peer.get_endpoint())?;
 
     let mut stream = client
-        .call_raw_server_stream(
-            CallFixture::path("svc/ServerStream"),
-            CallFixture::request(b"hello", SHORT),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"hello", SHORT).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/ServerStream"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
 
     assert_eq!(drain(&mut stream).await?, vec![b"hello".to_vec()]);
     Ok(())
@@ -254,11 +293,16 @@ async fn test_call_raw_server_stream_with_an_empty_request_returns_the_empty_ech
     let client = client_for(peer.get_endpoint())?;
 
     let mut stream = client
-        .call_raw_server_stream(
-            CallFixture::path("svc/ServerStream"),
-            CallFixture::request(b"", SHORT),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"", SHORT).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/ServerStream"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
 
     assert_eq!(drain(&mut stream).await?, vec![Vec::<u8>::new()]);
     Ok(())
@@ -279,11 +323,16 @@ async fn test_call_raw_server_stream_truncated_response_delivers_no_message(
     let client = client_for(format!("http://{address}"))?;
 
     let mut stream = client
-        .call_raw_server_stream(
-            CallFixture::path("svc/ServerStream"),
-            CallFixture::request(b"x", SHORT),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"x", SHORT).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/ServerStream"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
     let delivered = drain(&mut stream).await;
 
     assert!(
@@ -304,11 +353,17 @@ async fn test_call_raw_client_stream_sends_every_message_and_returns_the_one_rep
 
     let response = client
         .call_raw_client_stream(
-            CallFixture::path("svc/ClientStream"),
-            ListStream::of(vec![b"frame-1".to_vec(), b"frame-2".to_vec()]),
-            options(),
+            CallRawClientStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/ClientStream"))
+                .with_requests(ListStream::of(vec![
+                    b"frame-1".to_vec(),
+                    b"frame-2".to_vec(),
+                ]))
+                .with_options(options())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawClientStreamResponse::into_response)?;
 
     assert_eq!(response.get_message(), b"the-reply");
     let requests = peer.get_recorded_requests();
@@ -333,11 +388,17 @@ async fn test_call_raw_client_stream_peer_replying_with_two_messages_returns_sta
 
     let result = client
         .call_raw_client_stream(
-            CallFixture::path("svc/ClientStream"),
-            ListStream::of(vec![b"frame-1".to_vec(), b"frame-2".to_vec()]),
-            options(),
+            CallRawClientStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/ClientStream"))
+                .with_requests(ListStream::of(vec![
+                    b"frame-1".to_vec(),
+                    b"frame-2".to_vec(),
+                ]))
+                .with_options(options())
+                .build(),
         )
-        .await;
+        .await
+        .map(CallRawClientStreamResponse::into_response);
 
     assert!(
         matches!(
@@ -362,11 +423,14 @@ async fn test_call_raw_client_stream_single_message_returns_the_echo() -> Result
 
     let response = client
         .call_raw_client_stream(
-            CallFixture::path("svc/ClientStream"),
-            ListStream::of(vec![b"only-frame".to_vec()]),
-            options(),
+            CallRawClientStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/ClientStream"))
+                .with_requests(ListStream::of(vec![b"only-frame".to_vec()]))
+                .with_options(options())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawClientStreamResponse::into_response)?;
 
     assert_eq!(response.get_message(), b"only-frame");
     Ok(())
@@ -383,15 +447,18 @@ async fn test_call_raw_bidi_stream_returns_every_echoed_message_in_order(
 
     let mut stream = client
         .call_raw_bidi_stream(
-            CallFixture::path("svc/Bidi"),
-            ListStream::of(vec![
-                b"frame1".to_vec(),
-                b"frame2".to_vec(),
-                b"frame3".to_vec(),
-            ]),
-            options(),
+            CallRawBidiStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/Bidi"))
+                .with_requests(ListStream::of(vec![
+                    b"frame1".to_vec(),
+                    b"frame2".to_vec(),
+                    b"frame3".to_vec(),
+                ]))
+                .with_options(options())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawBidiStreamResponse::into_stream)?;
 
     assert_eq!(
         drain(&mut stream).await?,
@@ -409,14 +476,20 @@ async fn test_call_raw_bidi_stream_with_no_request_message_yields_no_response_me
 
     let mut stream = client
         .call_raw_bidi_stream(
-            CallFixture::path("svc/Bidi"),
-            ListStream::<Vec<u8>>::of(Vec::new()),
-            options(),
+            CallRawBidiStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc/Bidi"))
+                .with_requests(ListStream::<Vec<u8>>::of(Vec::new()))
+                .with_options(options())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawBidiStreamResponse::into_stream)?;
 
     assert_eq!(
-        stream.read_message().await?,
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
         None,
         "an empty request stream must yield an empty response stream"
     );
@@ -436,7 +509,7 @@ async fn test_call_typed_unary_through_the_builders_client_returns_the_peers_ans
     let client = client_for(peer.get_endpoint())?;
 
     let response = client
-        .call::<Echo>(CallRequest::create(Say::of("hello"), options()))
+        .call::<Echo>(CallRequest::new(Say::of("hello"), options()))
         .await?;
 
     assert_eq!(response.get_message(), &Say::of("hello"));
@@ -451,10 +524,15 @@ async fn test_call_typed_server_stream_through_the_builders_client_returns_every
     let client = client_for(peer.get_endpoint())?;
 
     let mut stream = client
-        .call_server_stream::<Numbers>(CallRequest::create(Say::of("3"), options()))
-        .await?;
+        .call_server_stream::<Numbers>(CallServerStreamRequest::new(Say::of("3"), options()))
+        .await
+        .map(CallServerStreamResponse::into_stream)?;
     let mut seen = Vec::new();
-    while let Some(count) = stream.read_message().await? {
+    while let Some(count) = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+    {
         seen.push(count);
     }
 
@@ -473,11 +551,12 @@ async fn test_call_typed_client_stream_through_the_builders_client_returns_the_o
     let client = client_for(peer.get_endpoint())?;
 
     let response = client
-        .call_client_stream::<Join, _>(
+        .call_client_stream::<Join, _>(CallClientStreamRequest::new(
             ListStream::of(vec![Say::of("a"), Say::of("b"), Say::of("c")]),
             options(),
-        )
-        .await?;
+        ))
+        .await
+        .map(CallClientStreamResponse::into_response)?;
 
     assert_eq!(response.get_message(), &Say::of("a,b,c"));
     Ok(())
@@ -491,13 +570,18 @@ async fn test_call_typed_bidi_stream_through_the_builders_client_answers_each_me
     let client = client_for(peer.get_endpoint())?;
 
     let mut stream = client
-        .call_bidi_stream::<Chat, _>(
+        .call_bidi_stream::<Chat, _>(CallBidiStreamRequest::new(
             ListStream::of(vec![Say::of("one"), Say::of("two")]),
             options(),
-        )
-        .await?;
+        ))
+        .await
+        .map(CallBidiStreamResponse::into_stream)?;
     let mut seen = Vec::new();
-    while let Some(say) = stream.read_message().await? {
+    while let Some(say) = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+    {
         seen.push(say);
     }
 

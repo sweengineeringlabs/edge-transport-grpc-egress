@@ -1,5 +1,6 @@
 //! `LoadbalancerScenario` -- one client over several backends.
 
+use proto_pattern::{CallRawRequestBuilder, CallRawResponse, CallRequest, RawTransport, Transport};
 use std::error::Error;
 use std::time::Duration;
 
@@ -9,7 +10,6 @@ use grpc_egress_transport::{
     GrpcEgressBuilderFactory, LoadbalancerSettings,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallRequest, RawTransport, Transport};
 
 use crate::{EchoServer, ScenarioReport};
 
@@ -29,8 +29,16 @@ impl LoadbalancerScenario {
         let client = Self::balanced(&[one.get_endpoint(), two.get_endpoint()])?;
         for _ in 0..6 {
             let _ = client
-                .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-                .await;
+                .call_raw({
+                    let (message, options) = Self::request().into_parts();
+                    CallRawRequestBuilder::new()
+                        .with_path(CallFixture::path("pkg.Service/Method"))
+                        .with_message(message)
+                        .with_options(options)
+                        .build()
+                })
+                .await
+                .map(CallRawResponse::into_response);
         }
         report.record(
             "calls reach both backends",
@@ -43,8 +51,16 @@ impl LoadbalancerScenario {
         let mut answered = 0;
         for _ in 0..8 {
             if client
-                .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
+                .call_raw({
+                    let (message, options) = Self::request().into_parts();
+                    CallRawRequestBuilder::new()
+                        .with_path(CallFixture::path("pkg.Service/Method"))
+                        .with_message(message)
+                        .with_options(options)
+                        .build()
+                })
                 .await
+                .map(CallRawResponse::into_response)
                 .is_ok()
             {
                 answered += 1;

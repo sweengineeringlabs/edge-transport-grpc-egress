@@ -8,9 +8,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use proto_pattern::{
-    BuildTransportRequest, Compression, DualTransportFactory, RawTransport, TlsSettings, Transport,
+    Compression, DualTransportBuilder, RawTransport, TlsSettings, Transport, TransportConfiguration,
 };
-use proto_tonic_spi::TonicTransportSpiFactory;
+use proto_tonic_spi::{
+    TonicTransportOptions, TonicTransportSpiFactory, TonicTransportSpiFactoryOptions,
+};
 
 use grpc_egress_transport::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressBuilder,
@@ -322,7 +324,9 @@ impl GrpcEgressBuilderImpl {
         url: &str,
         tls: &TlsSettings,
     ) -> Result<impl Transport + RawTransport + 'static, GrpcChannelConfigError> {
-        let mut factory = TonicTransportSpiFactory::new(url).with_timeout(self.request_timeout);
+        let mut factory = TonicTransportSpiFactory::tonic_dual_builder()
+            .with_endpoint(url.to_string())
+            .with_timeout(self.request_timeout);
         if let Some(bytes) = self.max_decoding_message_size {
             factory = factory.with_max_decoding_message_size(bytes);
         }
@@ -344,11 +348,11 @@ impl GrpcEgressBuilderImpl {
                 .with_keep_alive_timeout(keep_alive.timeout)
                 .with_keep_alive_while_idle(keep_alive.permit_without_calls);
         }
-        DualTransportFactory::build(&factory, BuildTransportRequest).map_err(|e| {
-            GrpcChannelConfigError::InvalidOptionValue {
+        factory
+            .build()
+            .map_err(|e| GrpcChannelConfigError::InvalidOptionValue {
                 option: "endpoint",
                 reason: e.to_string(),
-            }
-        })
+            })
     }
 }

@@ -1,6 +1,7 @@
 //! Tests of `LoadbalancerSettingsProvider::from_config`: the `[loadbalancer]` table of a configuration
 //! file becomes the settings of a balanced client.
 
+use proto_pattern::{CallRawRequestBuilder, CallRawResponse, RawTransport};
 use std::error::Error;
 
 use grpc_egress_transport::{
@@ -109,7 +110,7 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
         BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
     };
     use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-    use proto_pattern::RawTransport;
+    use RawTransport;
 
     Fixture::ensure_tls_provider();
     let one = PeerServer::start(PeerBehaviour::Reply(b"one".to_vec())).await?;
@@ -127,11 +128,17 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
 
     for _ in 0..6 {
         client
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                CallFixture::request(b"ping", Duration::from_secs(5)),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
     }
 
     assert!(

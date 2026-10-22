@@ -1,5 +1,9 @@
 //! `CancellationScenario` -- ruling 2 of ADR-008: dropping a call's future cancels it, and a token can too.
 
+use proto_pattern::{
+    CallError, CallOptions, CallRawRequestBuilder, CallRawResponse, CallRequest, MethodPath,
+    RawTransport, StatusCode,
+};
 use std::error::Error;
 use std::time::{Duration, Instant};
 
@@ -10,7 +14,6 @@ use grpc_egress_transport::{
 use grpc_egress_transport_std::{
     StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
 };
-use proto_pattern::{CallError, CallOptions, CallRequest, MethodPath, RawTransport, StatusCode};
 use proto_test_peer::{RunningPeer, Say};
 use tokio_util::sync::CancellationToken;
 
@@ -42,10 +45,20 @@ impl CancellationScenario {
             .with_plaintext_allowed()
             .build()?;
 
-        let abandoned = tokio::time::timeout(
-            Duration::from_millis(100),
-            client.call_raw(Self::path()?, Self::request(PEER_DELAY_MS)),
-        )
+        let path = Self::path()?;
+        let abandoned = tokio::time::timeout(Duration::from_millis(100), async {
+            client
+                .call_raw({
+                    let (message, options) = Self::request(PEER_DELAY_MS).into_parts();
+                    CallRawRequestBuilder::new()
+                        .with_path(path)
+                        .with_message(message)
+                        .with_options(options)
+                        .build()
+                })
+                .await
+                .map(CallRawResponse::into_response)
+        })
         .await;
         report.record(
             "dropping the future of a call ends the call on the peer",
@@ -63,8 +76,16 @@ impl CancellationScenario {
         });
         let started = Instant::now();
         let result = bound
-            .call_raw(Self::path()?, Self::request(PEER_DELAY_MS))
-            .await;
+            .call_raw({
+                let (message, options) = Self::request(PEER_DELAY_MS).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(Self::path()?)
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         canceller.await?;
         report.record(
             "a fired token fails the call with Cancelled long before the peer answers",
@@ -81,7 +102,17 @@ impl CancellationScenario {
             inner: &client,
             signal: TokenCancellation::new(CancellationToken::new()),
         });
-        let answered = quiet.call_raw(Self::path()?, Self::request(0)).await;
+        let answered = quiet
+            .call_raw({
+                let (message, options) = Self::request(0).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(Self::path()?)
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         report.record(
             "a token that never fires leaves the call alone",
             answered.is_ok(),
@@ -99,7 +130,7 @@ impl CancellationScenario {
             fail_with: 0,
             sleep_ms,
         };
-        CallRequest::create(
+        CallRequest::new(
             prost::Message::encode_to_vec(&message),
             CallOptions::default(),
         )

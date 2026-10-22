@@ -2,6 +2,14 @@
 //! a stream it opened, fails with `Cancelled` when the token fires, and a token that has not fired changes nothing.
 //! Against a real `tonic` server (`proto-test-peer`).
 
+use proto_pattern::{
+    CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequestBuilder,
+    CallRawBidiStreamResponse, CallRawRequestBuilder, CallRawResponse,
+    CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, MessageStream,
+    RawTransport, ReadMessageRequest, ReadMessageResponse, ReadTrailersRequest, ResponseStream,
+    StatusCode, Transport,
+};
 use std::error::Error;
 use std::time::{Duration, Instant};
 
@@ -12,10 +20,6 @@ use grpc_egress_transport::{
 };
 use grpc_egress_transport_std::{
     StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
-};
-use proto_pattern::{
-    CallError, CallOptions, CallRequest, MessageStream, RawTransport, ResponseStream, StatusCode,
-    Transport,
 };
 use proto_test_peer::{Chat, Count, Echo, Join, RunningPeer, Say};
 use tokio::sync::mpsc;
@@ -33,8 +37,11 @@ struct ChannelStream<T> {
 }
 
 impl<T: Send> MessageStream<T> for ChannelStream<T> {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(self.receiver.recv().await)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(self.receiver.recv().await))
     }
 }
 
@@ -71,11 +78,11 @@ impl Fixture {
     }
 
     fn typed(say: Say) -> CallRequest<Say> {
-        CallRequest::create(say, CallOptions::default())
+        CallRequest::new(say, CallOptions::default())
     }
 
     fn raw(say: &Say) -> CallRequest<Vec<u8>> {
-        CallRequest::create(prost::Message::encode_to_vec(say), CallOptions::default())
+        CallRequest::new(prost::Message::encode_to_vec(say), CallOptions::default())
     }
 
     /// `error` is a `Cancelled` transport failure that names `path`.
@@ -114,14 +121,23 @@ async fn test_call_raw_server_stream_token_that_never_fires_returns_every_messag
     let view = Fixture::view(&client, &token);
 
     let mut stream = view
-        .call_raw_server_stream(
-            CallFixture::path("/test.Peer/Numbers"),
-            Fixture::raw(&Say::of("3")),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) = Fixture::raw(&Say::of("3")).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Numbers"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
 
     let mut seen = Vec::new();
-    while let Some(bytes) = stream.read_message().await? {
+    while let Some(bytes) = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+    {
         seen.push(<Count as prost::Message>::decode(bytes.as_slice())?);
     }
     assert_eq!(
@@ -163,11 +179,16 @@ async fn test_call_raw_token_fired_before_the_call_fails_with_cancelled_and_noth
     token.cancel();
 
     let result = Fixture::view(&client, &token)
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::of("hi")),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::of("hi")).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     let error = result.err().ok_or("a fired token must fail the call")?;
     assert!(
@@ -219,11 +240,16 @@ async fn test_call_raw_token_fired_while_the_peer_is_slow_fails_with_cancelled_p
     let started = Instant::now();
 
     let result = Fixture::view(&client, &token)
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::slow(3000)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::slow(3000)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     let error = result
         .err()
@@ -249,8 +275,12 @@ async fn test_call_client_stream_typed_token_fired_while_the_request_stream_is_o
     let started = Instant::now();
 
     let result = Fixture::view(&client, &token)
-        .call_client_stream::<Join, _>(ChannelStream { receiver }, CallOptions::default())
-        .await;
+        .call_client_stream::<Join, _>(CallClientStreamRequest::new(
+            ChannelStream { receiver },
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallClientStreamResponse::into_response);
 
     let error = result
         .err()
@@ -275,13 +305,17 @@ async fn test_read_message_typed_bidi_token_fired_while_waiting_fails_with_cance
     let (sender, receiver) = mpsc::channel::<Say>(4);
     let view = Fixture::view(&client, &token);
     let mut stream = view
-        .call_bidi_stream::<Chat, _>(ChannelStream { receiver }, CallOptions::default())
-        .await?;
+        .call_bidi_stream::<Chat, _>(CallBidiStreamRequest::new(
+            ChannelStream { receiver },
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallBidiStreamResponse::into_stream)?;
     // Nothing was sent, so the peer has nothing to answer: a read waits.
     Fixture::fire_later(&token);
     let started = Instant::now();
 
-    let result = tokio::time::timeout(PROMPT, stream.read_message())
+    let result = tokio::time::timeout(PROMPT, stream.read_message(ReadMessageRequest::new()))
         .await
         .map_err(|_| "the read did not end after the token fired")?;
 
@@ -307,14 +341,17 @@ async fn test_read_message_raw_bidi_token_fired_while_waiting_fails_with_cancell
     let view = Fixture::view(&client, &token);
     let mut stream = view
         .call_raw_bidi_stream(
-            CallFixture::path("/test.Peer/Chat"),
-            ChannelStream { receiver },
-            CallOptions::default(),
+            CallRawBidiStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Chat"))
+                .with_requests(ChannelStream { receiver })
+                .with_options(CallOptions::default())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawBidiStreamResponse::into_stream)?;
     Fixture::fire_later(&token);
 
-    let result = tokio::time::timeout(PROMPT, stream.read_message())
+    let result = tokio::time::timeout(PROMPT, stream.read_message(ReadMessageRequest::new()))
         .await
         .map_err(|_| "the read did not end after the token fired")?;
 
@@ -338,12 +375,16 @@ async fn test_read_trailers_typed_bidi_token_fired_while_waiting_fails_with_canc
     let (sender, receiver) = mpsc::channel::<Say>(4);
     let view = Fixture::view(&client, &token);
     let mut stream = view
-        .call_bidi_stream::<Chat, _>(ChannelStream { receiver }, CallOptions::default())
-        .await?;
+        .call_bidi_stream::<Chat, _>(CallBidiStreamRequest::new(
+            ChannelStream { receiver },
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallBidiStreamResponse::into_stream)?;
     // The stream has not ended, so there are no trailers to read yet.
     Fixture::fire_later(&token);
 
-    let result = tokio::time::timeout(PROMPT, stream.read_trailers())
+    let result = tokio::time::timeout(PROMPT, stream.read_trailers(ReadTrailersRequest::new()))
         .await
         .map_err(|_| "the read did not end after the token fired")?;
 
@@ -367,15 +408,28 @@ async fn test_read_message_typed_bidi_token_that_never_fires_delivers_the_answer
     let (sender, receiver) = mpsc::channel::<Say>(4);
     let view = Fixture::view(&client, &token);
     let mut stream = view
-        .call_bidi_stream::<Chat, _>(ChannelStream { receiver }, CallOptions::default())
-        .await?;
+        .call_bidi_stream::<Chat, _>(CallBidiStreamRequest::new(
+            ChannelStream { receiver },
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallBidiStreamResponse::into_stream)?;
 
     sender.send(Say::of("one")).await?;
 
-    assert_eq!(stream.read_message().await?, Some(Say::of("ONE")));
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        Some(Say::of("ONE"))
+    );
     drop(sender);
     assert_eq!(
-        stream.read_message().await?,
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
         None,
         "the peer ends the stream when the request stream ends"
     );

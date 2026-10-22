@@ -1,13 +1,13 @@
 //! `ClientFixture::from_config` builds a client from a channel configuration, through the public
 //! builder, and the client reaches a peer.
 
+use proto_pattern::{CallRawRequestBuilder, CallRawResponse, RawTransport};
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::{GrpcChannelConfig, GrpcChannelConfigError};
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::RawTransport;
 
 /// @covers: ClientFixture::from_config
 #[tokio::test]
@@ -19,11 +19,17 @@ async fn test_from_config_plaintext_endpoint_builds_a_client_that_reaches_the_pe
 
     let client = ClientFixture::from_config(&config)?;
     let response = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_secs(5)),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(response.get_message(), b"pong");
     assert_eq!(peer.get_recorded_requests().len(), 1);

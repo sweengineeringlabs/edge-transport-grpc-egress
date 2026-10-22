@@ -2,6 +2,17 @@
 //! `BreakerObservable` from the breaker domain, and refuses an invalid policy with a
 //! `ResilientTransportError`.
 
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
+    CallRawRequest, CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamResponse, CallRequest, CallResponse, CallServerStreamRequest,
+    CallServerStreamResponse, ClientStreamMethod, GetHeadersRequest, GetHeadersResponse,
+    MessageStream, Metadata, MethodPath, RawTransport, ReadMessageRequest, ReadMessageResponse,
+    ReadTrailersRequest, ReadTrailersResponse, ResponseStream, ServerStreamMethod, StatusCode,
+    Transport, UnaryMethod,
+};
 use std::error::Error;
 
 use futures::future::BoxFuture;
@@ -10,11 +21,6 @@ use grpc_egress_breaker::{
 };
 use grpc_egress_resilient::{
     BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig, ResilientTransportError,
-};
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, Metadata, MethodPath, RawTransport, ResponseStream, ServerStreamMethod,
-    StatusCode, Transport, UnaryMethod,
 };
 
 /// A client that answers every raw call with an empty success, refuses what else it is asked, and reports a closed
@@ -27,20 +33,29 @@ struct NoStream {
 }
 
 impl<T: Send> MessageStream<T> for NoStream {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(None)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(None))
     }
 }
 
 impl<T: Send> ResponseStream<T> for NoStream {
     type Metadata = Metadata;
 
-    fn get_headers(&self) -> &Metadata {
-        &self.headers
+    fn get_headers(
+        &self,
+        _request: GetHeadersRequest,
+    ) -> Result<GetHeadersResponse<'_, Metadata>, CallError> {
+        Ok(GetHeadersResponse::new(&self.headers))
     }
 
-    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
-        Ok(Metadata::default())
+    async fn read_trailers(
+        &mut self,
+        _request: ReadTrailersRequest,
+    ) -> Result<ReadTrailersResponse<Metadata>, CallError> {
+        Ok(ReadTrailersResponse::new(Metadata::default()))
     }
 }
 
@@ -66,25 +81,33 @@ impl Transport for ClosedClient {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        _request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallServerStreamResponse::new)
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
-        Err(Self::refusal(M::PATH))
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, Metadata>, CallError> {
+        let (_requests, _options) = request.into_parts();
+        { Err(Self::refusal(M::PATH)) }.map(CallClientStreamResponse::new)
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (_requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallBidiStreamResponse::new)
     }
 }
 
@@ -93,40 +116,46 @@ impl RawTransport for ClosedClient {
 
     async fn call_raw(
         &self,
-        _path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        Ok(CallResponse::create(
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<Metadata>, CallError> {
+        let (_path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        Ok(CallRawResponse::new(CallResponse::new(
             Vec::new(),
             Metadata::default(),
             Metadata::default(),
-        ))
+        )))
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawServerStreamResponse::new)
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        Err(Self::refusal(path.get_path()))
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<Metadata>, CallError> {
+        let (path, _requests, _options) = request.into_parts();
+        { Err(Self::refusal(path.get_path())) }.map(CallRawClientStreamResponse::new)
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, _requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawBidiStreamResponse::new)
     }
 }
 
@@ -177,10 +206,14 @@ async fn test_build_valid_policy_returns_a_client_that_can_be_called_and_observe
 
     let answered = client
         .call_raw(
-            MethodPath::create("/pkg.Service/Method")?,
-            CallRequest::create(Vec::new(), CallOptions::default()),
+            CallRawRequestBuilder::new()
+                .with_path(MethodPath::create("/pkg.Service/Method")?)
+                .with_message(Vec::new())
+                .with_options(CallOptions::default())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawResponse::into_response)?;
     let observed = client.state(ObserveStateRequest).await?;
     assert!(answered.get_message().is_empty());
     assert_eq!(observed.state, BreakerState::Closed);

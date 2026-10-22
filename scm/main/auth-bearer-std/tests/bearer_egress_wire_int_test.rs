@@ -1,6 +1,10 @@
 //! The bearer interceptor in the real client, against a real in-process peer: the token is on the wire, the
 //! client's own credentials are respected, and a failure to mint one stops the call before it is sent.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, Metadata, MetadataEntry, RawTransport,
+    StatusCode,
+};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,7 +18,6 @@ use grpc_egress_transport::{
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use proto_pattern::{CallError, Metadata, MetadataEntry, RawTransport, StatusCode};
 use serde::Deserialize;
 
 const RS256_PRIVATE_PEM: &[u8] = include_bytes!("data/rs256_test_private.pem");
@@ -94,11 +97,16 @@ async fn test_call_raw_hs256_sends_a_bearer_token_that_verifies_with_the_secret(
     )?;
 
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", TIMEOUT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", TIMEOUT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let claims = verified(
         &header_on_the_wire(&peer)?,
@@ -123,11 +131,16 @@ async fn test_call_raw_rs256_sends_a_bearer_token_that_verifies_with_the_public_
     )?;
 
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", TIMEOUT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", TIMEOUT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let claims = verified(
         &header_on_the_wire(&peer)?,
@@ -155,11 +168,16 @@ async fn test_call_raw_with_an_authorization_header_sends_the_callers_and_not_a_
     )?]);
 
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request_with(b"ping", TIMEOUT, mine),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request_with(b"ping", TIMEOUT, mine).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(header_on_the_wire(&peer)?, "Bearer caller-supplied");
     Ok(())
@@ -178,11 +196,16 @@ async fn test_call_raw_with_an_rs256_key_that_is_not_a_key_fails_with_transport_
     )?;
 
     let failure = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", TIMEOUT),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", TIMEOUT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err();
 
     match failure {

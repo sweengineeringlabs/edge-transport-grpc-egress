@@ -5,6 +5,17 @@
 //! for every call, and these cases need a failure at a chosen call. The second group runs the whole stack against
 //! a real in-process gRPC peer and the real engine client.
 
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
+    CallRawRequest, CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamResponse, CallRequest, CallResponse, CallServerStreamRequest,
+    CallServerStreamResponse, ClientStreamMethod, DecodeError, EncodeError, GetHeadersRequest,
+    GetHeadersResponse, MessageStream, Metadata, Method, MethodPath, Payload, RawTransport,
+    ReadMessageRequest, ReadMessageResponse, ReadTrailersRequest, ReadTrailersResponse,
+    ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
+};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -24,11 +35,6 @@ use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::GrpcChannelConfig;
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    DecodeError, EncodeError, MessageStream, Metadata, Method, MethodPath, Payload, RawTransport,
-    ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
-};
 
 const PATH: &str = "/svc/Method";
 
@@ -57,7 +63,7 @@ fn path() -> Result<MethodPath, Box<dyn std::error::Error>> {
 }
 
 fn req() -> CallRequest<Vec<u8>> {
-    CallRequest::create(
+    CallRequest::new(
         Vec::new(),
         CallOptions::create(Some(Duration::from_secs(10)), Metadata::default()),
     )
@@ -149,20 +155,29 @@ struct NoStream {
 }
 
 impl<T: Send> MessageStream<T> for NoStream {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(None)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(None))
     }
 }
 
 impl<T: Send> ResponseStream<T> for NoStream {
     type Metadata = Metadata;
 
-    fn get_headers(&self) -> &Metadata {
-        &self.headers
+    fn get_headers(
+        &self,
+        _request: GetHeadersRequest,
+    ) -> Result<GetHeadersResponse<'_, Metadata>, CallError> {
+        Ok(GetHeadersResponse::new(&self.headers))
     }
 
-    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
-        Ok(Metadata::default())
+    async fn read_trailers(
+        &mut self,
+        _request: ReadTrailersRequest,
+    ) -> Result<ReadTrailersResponse<Metadata>, CallError> {
+        Ok(ReadTrailersResponse::new(Metadata::default()))
     }
 }
 
@@ -171,41 +186,47 @@ impl RawTransport for ScriptedClient {
 
     async fn call_raw(
         &self,
-        _path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<Metadata>, CallError> {
+        let (_path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
         self.answer()?;
-        Ok(CallResponse::create(
+        Ok(CallRawResponse::new(CallResponse::new(
             Vec::new(),
             Metadata::default(),
             Metadata::default(),
-        ))
+        )))
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawServerStreamResponse::new)
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        Err(Self::refusal(path.get_path()))
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<Metadata>, CallError> {
+        let (path, _requests, _options) = request.into_parts();
+        { Err(Self::refusal(path.get_path())) }.map(CallRawClientStreamResponse::new)
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, _requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawBidiStreamResponse::new)
     }
 }
 
@@ -218,7 +239,7 @@ impl Transport for ScriptedClient {
     ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
         self.answer()?;
         let answer = M::Response::decode(b"ok").map_err(CallError::Decode)?;
-        Ok(CallResponse::create(
+        Ok(CallResponse::new(
             answer,
             Metadata::default(),
             Metadata::default(),
@@ -227,25 +248,33 @@ impl Transport for ScriptedClient {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        _request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallServerStreamResponse::new)
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
-        Err(Self::refusal(M::PATH))
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, Metadata>, CallError> {
+        let (_requests, _options) = request.into_parts();
+        { Err(Self::refusal(M::PATH)) }.map(CallClientStreamResponse::new)
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (_requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallBidiStreamResponse::new)
     }
 }
 
@@ -317,7 +346,17 @@ async fn test_apply_resilience_default_config_wraps_and_delegates_happy(
     let hits = Arc::new(AtomicUsize::new(0));
     let mock = ScriptedClient::with_responses(Arc::clone(&hits), vec![ok_response()]);
     let wrapped = apply_resilience(mock, ResilienceConfig::default())?;
-    let result = wrapped.call_raw(path()?, req()).await;
+    let result = wrapped
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(result.is_ok(), "the wrapped client must delegate through");
     assert_eq!(hits.load(Ordering::SeqCst), 1);
     Ok(())
@@ -331,7 +370,17 @@ async fn test_apply_resilience_retries_a_transient_failure_happy(
     let mock =
         ScriptedClient::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
     let wrapped = apply_resilience(mock, valid_resilience())?;
-    let result = wrapped.call_raw(path()?, req()).await;
+    let result = wrapped
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(result.is_ok(), "must succeed on the retried attempt");
     assert_eq!(
         hits.load(Ordering::SeqCst),
@@ -351,7 +400,7 @@ async fn test_apply_resilience_retries_a_typed_transient_failure_happy(
     let mock =
         ScriptedClient::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
     let wrapped = apply_resilience(mock, valid_resilience())?;
-    let request = CallRequest::create(
+    let request = CallRequest::new(
         Text("typed".to_string()),
         CallOptions::create(Some(Duration::from_secs(10)), Metadata::default()),
     );
@@ -418,7 +467,17 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times(
     )?;
 
     for _ in 0..10_usize {
-        let _ = client.call_raw(path()?, req()).await;
+        let _ = client
+            .call_raw({
+                let (message, options) = req().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path()?)
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
     }
 
     let server_hits = hits.load(Ordering::SeqCst);
@@ -448,7 +507,17 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails(
         never_trips(),
     )?;
 
-    let result = client.call_raw(path()?, req()).await;
+    let result = client
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(
         result.is_err(),
         "expected error after exhausting all attempts"
@@ -478,7 +547,17 @@ async fn test_hard_quota_resource_exhausted_is_not_retried(
         never_trips(),
     )?;
 
-    let result = client.call_raw(path()?, req()).await;
+    let result = client
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(result.is_err(), "expected quota error");
     assert_eq!(
         hits.load(Ordering::SeqCst),
@@ -523,7 +602,17 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard(
         never_trips(),
     )?;
 
-    let result = client.call_raw(path()?, req()).await;
+    let result = client
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(result.is_err());
     // rate_limit_max_attempts=2: 1 initial + 2 retries = 3 total server hits (not 5).
     assert_eq!(
@@ -557,7 +646,17 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold(
     )?;
 
     for _ in 0..3 {
-        let _ = client.call_raw(path()?, req()).await;
+        let _ = client
+            .call_raw({
+                let (message, options) = req().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path()?)
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
     }
 
     assert_eq!(
@@ -571,7 +670,17 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold(
     );
 
     // 4th call: breaker rejects without server hit.
-    let result = client.call_raw(path()?, req()).await;
+    let result = client
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(
         matches!(
             &result,
@@ -622,7 +731,17 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
 
     // Trip the breaker.
     for _ in 0..3 {
-        let _ = client.call_raw(path()?, req()).await;
+        let _ = client
+            .call_raw({
+                let (message, options) = req().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path()?)
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
     }
     assert!(matches!(
         state_of(&client).await?,
@@ -633,7 +752,17 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
     tokio::time::sleep(Duration::from_millis(1100)).await;
 
     // Probe: should be admitted (HalfOpen), succeeds, closes breaker.
-    let probe = client.call_raw(path()?, req()).await;
+    let probe = client
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(probe.is_ok(), "probe should succeed");
     assert_eq!(
         state_of(&client).await?,
@@ -642,7 +771,17 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
     );
 
     // One more call confirming normal operation.
-    let final_result = client.call_raw(path()?, req()).await;
+    let final_result = client
+        .call_raw({
+            let (message, options) = req().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
     assert!(final_result.is_ok());
     assert_eq!(hits.load(Ordering::SeqCst), 5);
     Ok(())
@@ -668,11 +807,17 @@ async fn test_call_raw_through_the_stack_reaches_the_peer_and_returns_its_answer
     let client = resilient_over(&peer.get_endpoint(), valid_resilience())?;
 
     let response = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_secs(5)),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(response.get_message(), b"pong");
     assert_eq!(peer.get_recorded_requests().len(), 1);
@@ -702,11 +847,17 @@ async fn test_call_raw_unavailable_peer_trips_the_breaker_and_the_peer_sees_no_m
 
     for _ in 0..3 {
         let result = client
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                CallFixture::request(b"x", Duration::from_secs(5)),
-            )
-            .await;
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request(b"x", Duration::from_secs(5)).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         assert!(
             matches!(
                 result,
@@ -725,11 +876,17 @@ async fn test_call_raw_unavailable_peer_trips_the_breaker_and_the_peer_sees_no_m
     ));
 
     let refused = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"x", Duration::from_secs(5)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"x", Duration::from_secs(5)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(
@@ -773,11 +930,17 @@ async fn test_call_raw_unavailable_peer_is_retried_max_attempts_times_through_th
     let client = resilient_over(&peer.get_endpoint(), config)?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"x", Duration::from_secs(5)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"x", Duration::from_secs(5)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(result.is_err());
     assert_eq!(peer.get_recorded_requests().len(), 3);

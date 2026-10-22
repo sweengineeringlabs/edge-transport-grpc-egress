@@ -3,6 +3,12 @@
 //! deadline. The peer is hand-written (`PeerServer`), so it can send answers a real server never would: malformed
 //! frames, a status in the headers, a body with no status.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequestBuilder,
+    CallRawServerStreamResponse, GetValuesRequest, GetValuesResponse, MessageStream, Metadata,
+    MetadataEntry, MetadataView, MethodPath, PathError, RawTransport, ReadMessageRequest,
+    ReadMessageResponse, StatusCode, Transport,
+};
 use std::error::Error;
 use std::time::Duration;
 
@@ -12,10 +18,6 @@ use grpc_egress_transport::{
     GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{
-    CallError, MessageStream, Metadata, MetadataEntry, MethodPath, PathError, RawTransport,
-    StatusCode, Transport,
-};
 
 fn frame(flag: u8, payload: &[u8]) -> Vec<u8> {
     let mut out = vec![flag];
@@ -50,11 +52,17 @@ async fn call_status(
     .await?;
     let client = client_for(&peer)?;
     match client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_secs(5)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
     {
         Err(error) => Ok(error),
         Ok(_) => Err("a non-zero grpc-status must be an error".into()),
@@ -84,11 +92,17 @@ async fn call_raw(body: Vec<u8>, encoding: Option<&str>) -> Result<Vec<u8>, Call
             reason: e.to_string(),
         })?;
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_secs(5)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .map(|response| response.into_message())
 }
 
@@ -142,7 +156,13 @@ async fn test_call_raw_resource_exhausted_with_retry_after_carries_the_hint_in_t
             ..
         } => {
             assert_eq!(message, "slow down");
-            assert_eq!(trailers.get_values("retry-after"), ["7"]);
+            assert_eq!(
+                trailers
+                    .get_values(GetValuesRequest::new("retry-after"))
+                    .map(GetValuesResponse::into_values)
+                    .unwrap_or_default(),
+                ["7"]
+            );
             Ok(())
         }
         other => Err(format!("expected ResourceExhausted, got {other}").into()),
@@ -270,13 +290,23 @@ async fn test_call_raw_server_stream_two_frames_are_two_messages() -> Result<(),
     let client = client_for(&peer)?;
 
     let mut stream = client
-        .call_raw_server_stream(
-            CallFixture::path("pkg.Service/Stream"),
-            CallFixture::request(b"in", Duration::from_secs(5)),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) =
+                CallFixture::request(b"in", Duration::from_secs(5)).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Stream"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
     let mut messages = Vec::new();
-    while let Some(message) = stream.read_message().await? {
+    while let Some(message) = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+    {
         messages.push(message);
     }
 
@@ -295,11 +325,17 @@ async fn test_call_raw_puts_the_grpc_headers_the_path_and_the_framed_message_on_
     let metadata = Metadata::create(vec![MetadataEntry::create("x-trace-id", "abc123")?]);
 
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request_with(b"ping", Duration::from_secs(5), metadata),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request_with(b"ping", Duration::from_secs(5), metadata).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let recorded = peer.get_recorded_requests();
     let first = recorded.first().ok_or("the peer saw no request")?;
@@ -326,11 +362,16 @@ async fn test_call_raw_sends_the_timeout_of_the_call_as_a_grpc_timeout_header(
         let client = client_for(&peer)?;
 
         client
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                CallFixture::request(b"ping", timeout),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) = CallFixture::request(b"ping", timeout).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
 
         let recorded = peer.get_recorded_requests();
         let first = recorded.first().ok_or("the peer saw no request")?;
@@ -389,11 +430,17 @@ async fn test_call_raw_peer_slower_than_the_timeout_is_a_status_deadline_exceede
     let client = client_for(&peer)?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_millis(50)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_millis(50)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(

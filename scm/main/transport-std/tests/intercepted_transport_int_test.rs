@@ -2,6 +2,15 @@
 //! `after_call` after a response with a message, in registration order, and an interceptor that refuses a call
 //! stops it before anything is sent. Against a real `tonic` server (`proto-test-peer`).
 
+use proto_pattern::{
+    CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequestBuilder,
+    CallRawBidiStreamResponse, CallRawClientStreamRequestBuilder, CallRawClientStreamResponse,
+    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequestBuilder,
+    CallRawServerStreamResponse, CallRequest, CallServerStreamRequest, CallServerStreamResponse,
+    GetValuesRequest, GetValuesResponse, MessageStream, Metadata, MetadataEntry, MetadataView,
+    RawTransport, ReadMessageRequest, ReadMessageResponse, StatusCode, Transport,
+};
 use std::error::Error;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -14,10 +23,6 @@ use grpc_egress_transport::{
     TraceContextSource,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{
-    CallError, CallOptions, CallRequest, MessageStream, Metadata, MetadataEntry, RawTransport,
-    StatusCode, Transport,
-};
 use proto_test_peer::{Chat, Count, Echo, Join, ListStream, Numbers, RunningPeer, Say};
 
 const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
@@ -191,11 +196,11 @@ impl Fixture {
     }
 
     fn typed(text: &str) -> CallRequest<Say> {
-        CallRequest::create(Say::of(text), CallOptions::default())
+        CallRequest::new(Say::of(text), CallOptions::default())
     }
 
     fn raw(say: &Say) -> CallRequest<Vec<u8>> {
-        CallRequest::create(prost::Message::encode_to_vec(say), CallOptions::default())
+        CallRequest::new(prost::Message::encode_to_vec(say), CallOptions::default())
     }
 
     fn encode(text: &str) -> Vec<u8> {
@@ -240,11 +245,16 @@ async fn test_call_raw_unary_header_added_by_an_interceptor_reaches_the_peer(
     let client = Fixture::client(&peer, vec![Fixture::tag()])?;
 
     let response = client
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::of("hi")),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::of("hi")).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     assert_eq!(Fixture::decode_say(response.get_message())?, Say::of("hi"));
     assert_eq!(peer.get_last_header("x-tag").as_deref(), Some("tagged"));
@@ -258,10 +268,20 @@ async fn test_call_server_stream_typed_header_added_by_an_interceptor_reaches_th
     let client = Fixture::client(&peer, vec![Fixture::tag()])?;
 
     let mut stream = client
-        .call_server_stream::<Numbers>(Fixture::typed("2"))
-        .await?;
+        .call_server_stream::<Numbers>({
+            let (message, options) = Fixture::typed("2").into_parts();
+            CallServerStreamRequest::new(message, options)
+        })
+        .await
+        .map(CallServerStreamResponse::into_stream)?;
 
-    assert_eq!(stream.read_message().await?, Some(Count { value: 1 }));
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        Some(Count { value: 1 })
+    );
     assert_eq!(peer.get_last_header("x-tag").as_deref(), Some("tagged"));
     Ok(())
 }
@@ -273,13 +293,22 @@ async fn test_call_raw_server_stream_header_added_by_an_interceptor_reaches_the_
     let client = Fixture::client(&peer, vec![Fixture::tag()])?;
 
     let mut stream = client
-        .call_raw_server_stream(
-            CallFixture::path("/test.Peer/Numbers"),
-            Fixture::raw(&Say::of("2")),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) = Fixture::raw(&Say::of("2")).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Numbers"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
 
-    let first = stream.read_message().await?.ok_or("no message")?;
+    let first = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+        .ok_or("no message")?;
     assert_eq!(Fixture::decode_count(&first)?, Count { value: 1 });
     assert_eq!(peer.get_last_header("x-tag").as_deref(), Some("tagged"));
     Ok(())
@@ -292,11 +321,12 @@ async fn test_call_client_stream_typed_header_added_by_an_interceptor_reaches_th
     let client = Fixture::client(&peer, vec![Fixture::tag()])?;
 
     let response = client
-        .call_client_stream::<Join, _>(
+        .call_client_stream::<Join, _>(CallClientStreamRequest::new(
             ListStream::of(vec![Say::of("a"), Say::of("b")]),
             CallOptions::default(),
-        )
-        .await?;
+        ))
+        .await
+        .map(CallClientStreamResponse::into_response)?;
 
     assert_eq!(response.get_message(), &Say::of("a,b"));
     assert_eq!(peer.get_last_header("x-tag").as_deref(), Some("tagged"));
@@ -311,11 +341,17 @@ async fn test_call_raw_client_stream_header_added_by_an_interceptor_reaches_the_
 
     let response = client
         .call_raw_client_stream(
-            CallFixture::path("/test.Peer/Join"),
-            ListStream::of(vec![Fixture::encode("a"), Fixture::encode("b")]),
-            CallOptions::default(),
+            CallRawClientStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Join"))
+                .with_requests(ListStream::of(vec![
+                    Fixture::encode("a"),
+                    Fixture::encode("b"),
+                ]))
+                .with_options(CallOptions::default())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawClientStreamResponse::into_response)?;
 
     assert_eq!(Fixture::decode_say(response.get_message())?, Say::of("a,b"));
     assert_eq!(peer.get_last_header("x-tag").as_deref(), Some("tagged"));
@@ -329,10 +365,20 @@ async fn test_call_bidi_stream_typed_header_added_by_an_interceptor_reaches_the_
     let client = Fixture::client(&peer, vec![Fixture::tag()])?;
 
     let mut stream = client
-        .call_bidi_stream::<Chat, _>(ListStream::of(vec![Say::of("one")]), CallOptions::default())
-        .await?;
+        .call_bidi_stream::<Chat, _>(CallBidiStreamRequest::new(
+            ListStream::of(vec![Say::of("one")]),
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallBidiStreamResponse::into_stream)?;
 
-    assert_eq!(stream.read_message().await?, Some(Say::of("ONE")));
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        Some(Say::of("ONE"))
+    );
     assert_eq!(peer.get_last_header("x-tag").as_deref(), Some("tagged"));
     Ok(())
 }
@@ -345,13 +391,20 @@ async fn test_call_raw_bidi_stream_header_added_by_an_interceptor_reaches_the_pe
 
     let mut stream = client
         .call_raw_bidi_stream(
-            CallFixture::path("/test.Peer/Chat"),
-            ListStream::of(vec![Fixture::encode("one")]),
-            CallOptions::default(),
+            CallRawBidiStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Chat"))
+                .with_requests(ListStream::of(vec![Fixture::encode("one")]))
+                .with_options(CallOptions::default())
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawBidiStreamResponse::into_stream)?;
 
-    let first = stream.read_message().await?.ok_or("no message")?;
+    let first = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+        .ok_or("no message")?;
     assert_eq!(Fixture::decode_say(&first)?, Say::of("ONE"));
     assert_eq!(peer.get_last_header("x-tag").as_deref(), Some("tagged"));
     Ok(())
@@ -457,11 +510,16 @@ async fn test_call_raw_unary_interceptor_that_refuses_stops_the_call_before_the_
     let client = Fixture::client(&peer, vec![Arc::new(Deny)])?;
 
     let result = client
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::of("hi")),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::of("hi")).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     assert!(
         matches!(
@@ -485,8 +543,12 @@ async fn test_call_server_stream_typed_interceptor_that_refuses_stops_the_call_b
     let client = Fixture::client(&peer, vec![Arc::new(Deny)])?;
 
     let result = client
-        .call_server_stream::<Numbers>(Fixture::typed("2"))
-        .await;
+        .call_server_stream::<Numbers>({
+            let (message, options) = Fixture::typed("2").into_parts();
+            CallServerStreamRequest::new(message, options)
+        })
+        .await
+        .map(CallServerStreamResponse::into_stream);
 
     assert!(
         matches!(
@@ -510,11 +572,14 @@ async fn test_call_raw_bidi_stream_interceptor_that_refuses_stops_the_call_befor
 
     let result = client
         .call_raw_bidi_stream(
-            CallFixture::path("/test.Peer/Chat"),
-            ListStream::of(vec![Fixture::encode("one")]),
-            CallOptions::default(),
+            CallRawBidiStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Chat"))
+                .with_requests(ListStream::of(vec![Fixture::encode("one")]))
+                .with_options(CallOptions::default())
+                .build(),
         )
-        .await;
+        .await
+        .map(CallRawBidiStreamResponse::into_stream);
 
     assert!(
         matches!(
@@ -571,7 +636,7 @@ async fn test_call_unary_peer_answers_an_error_status_runs_no_after_call(
     )?;
 
     let result = client
-        .call::<Echo>(CallRequest::create(
+        .call::<Echo>(CallRequest::new(
             Say::failing(StatusCode::NotFound.get_code()),
             CallOptions::default(),
         ))
@@ -609,18 +674,40 @@ async fn test_call_after_call_runs_for_unary_and_client_stream_and_not_for_the_o
     client.call::<Echo>(Fixture::typed("hi")).await?;
     assert_eq!(after.load(Ordering::SeqCst), 1, "unary");
     client
-        .call_client_stream::<Join, _>(ListStream::of(vec![Say::of("a")]), CallOptions::default())
-        .await?;
+        .call_client_stream::<Join, _>(CallClientStreamRequest::new(
+            ListStream::of(vec![Say::of("a")]),
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallClientStreamResponse::into_response)?;
     assert_eq!(after.load(Ordering::SeqCst), 2, "client stream");
     let mut numbers = client
-        .call_server_stream::<Numbers>(Fixture::typed("2"))
-        .await?;
-    while numbers.read_message().await?.is_some() {}
+        .call_server_stream::<Numbers>({
+            let (message, options) = Fixture::typed("2").into_parts();
+            CallServerStreamRequest::new(message, options)
+        })
+        .await
+        .map(CallServerStreamResponse::into_stream)?;
+    while numbers
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+        .is_some()
+    {}
     assert_eq!(after.load(Ordering::SeqCst), 2, "server stream");
     let mut chat = client
-        .call_bidi_stream::<Chat, _>(ListStream::of(vec![Say::of("a")]), CallOptions::default())
-        .await?;
-    while chat.read_message().await?.is_some() {}
+        .call_bidi_stream::<Chat, _>(CallBidiStreamRequest::new(
+            ListStream::of(vec![Say::of("a")]),
+            CallOptions::default(),
+        ))
+        .await
+        .map(CallBidiStreamResponse::into_stream)?;
+    while chat
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+        .is_some()
+    {}
     assert_eq!(after.load(Ordering::SeqCst), 2, "bidi stream");
     assert_eq!(
         before.load(Ordering::SeqCst),
@@ -655,7 +742,14 @@ async fn test_call_unary_response_headers_and_the_path_reach_after_call(
         .clone();
     let reply = seen.first().ok_or("after_call was not given a reply")?;
     assert_eq!(reply.path, "/test.Peer/Echo");
-    assert_eq!(reply.headers.get_values("x-seen"), ["tok"]);
+    assert_eq!(
+        reply
+            .headers
+            .get_values(GetValuesRequest::new("x-seen"))
+            .map(GetValuesResponse::into_values)
+            .unwrap_or_default(),
+        ["tok"]
+    );
     Ok(())
 }
 
@@ -672,11 +766,16 @@ async fn test_call_interceptor_that_sets_a_timeout_ends_the_call_at_it(
     let started = Instant::now();
 
     let result = client
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::slow(3000)),
-        )
-        .await;
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::slow(3000)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     let error = result
         .err()
@@ -701,7 +800,7 @@ async fn test_call_with_no_interceptor_forwards_the_callers_headers_and_adds_non
     let client = Fixture::client(&peer, Vec::new())?;
 
     client
-        .call::<Echo>(CallRequest::create(
+        .call::<Echo>(CallRequest::new(
             Say::of("hi"),
             Fixture::caller_header("x-caller", "mine")?,
         ))
@@ -719,7 +818,7 @@ async fn test_call_interceptor_keeps_the_headers_the_caller_set_and_adds_its_own
     let client = Fixture::client(&peer, vec![Fixture::tag()])?;
 
     client
-        .call::<Echo>(CallRequest::create(
+        .call::<Echo>(CallRequest::new(
             Say::of("hi"),
             Fixture::caller_header("x-caller", "mine")?,
         ))
@@ -781,7 +880,7 @@ async fn test_call_static_trace_context_keeps_the_traceparent_the_caller_carries
     )?;
 
     client
-        .call::<Echo>(CallRequest::create(
+        .call::<Echo>(CallRequest::new(
             Say::of("hi"),
             Fixture::caller_header("traceparent", "caller-value")?,
         ))

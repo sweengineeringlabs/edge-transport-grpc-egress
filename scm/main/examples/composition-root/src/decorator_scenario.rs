@@ -1,5 +1,8 @@
 //! `DecoratorScenario` -- retry and breaker applied by the root, after `build()`.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, CallRequest, RawTransport, StatusCode,
+};
 use std::error::Error;
 use std::time::Duration;
 
@@ -15,7 +18,6 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallError, CallRequest, RawTransport, StatusCode};
 
 use crate::{EchoServer, ScenarioReport};
 
@@ -61,16 +63,32 @@ impl DecoratorScenario {
         .build(BuildGrpcBreakerRequest { inner: retrying })?;
 
         let _ = client
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-            .await;
+            .call_raw({
+                let (message, options) = Self::request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         report.record(
             "a failing call is retried up to the attempt limit",
             server.count_requests() == ATTEMPTS,
         );
 
         let _ = client
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-            .await;
+            .call_raw({
+                let (message, options) = Self::request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         let state = client.state(ObserveStateRequest).await?.state;
         report.record(
             "the breaker opens after the threshold of failed calls",
@@ -79,8 +97,16 @@ impl DecoratorScenario {
 
         let hits = server.count_requests();
         let refused = client
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request())
-            .await;
+            .call_raw({
+                let (message, options) = Self::request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         report.record(
             "an open breaker answers Unavailable without reaching the peer",
             matches!(

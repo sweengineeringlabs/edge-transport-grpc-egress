@@ -1,13 +1,18 @@
 //! `EndpointTransport` -- one endpoint, or several backends behind a load balancer, each with a client of its own.
 
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallRawBidiStreamRequest, CallRawBidiStreamRequestBuilder,
+    CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamRequestBuilder,
+    CallRawClientStreamResponse, CallRawRequest, CallRawRequestBuilder, CallRawResponse,
+    CallRawServerStreamRequest, CallRawServerStreamRequestBuilder, CallRawServerStreamResponse,
+    CallRequest, CallResponse, CallServerStreamRequest, CallServerStreamResponse,
+    ClientStreamMethod, MessageStream, RawTransport, ResponseStream, ServerStreamMethod,
+    StatusCode, Transport, UnaryMethod,
+};
 use std::sync::Arc;
 
 use grpc_egress_transport::{BalancingStrategy, GrpcChannelConfigError, LoadbalancerSettings};
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, MethodPath, RawTransport, ResponseStream, ServerStreamMethod, StatusCode,
-    Transport, UnaryMethod,
-};
 use swe_edge_loadbalancer::{
     Backend, BackendConfig, BackendPoolInstance, LoadbalancerConfig, LoadbalancerSvc, Outcome,
     Strategy,
@@ -161,9 +166,13 @@ impl<T: Transport + RawTransport> Transport for EndpointTransport<T> {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
         let pick = self.pick(M::PATH)?;
         let result = pick.client.call_server_stream::<M>(request).await;
         self.report(&pick, &result);
@@ -172,29 +181,26 @@ impl<T: Transport + RawTransport> Transport for EndpointTransport<T> {
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<M::Response, <Self as Transport>::Metadata>, CallError> {
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, <Self as Transport>::Metadata>, CallError>
+    {
         let pick = self.pick(M::PATH)?;
-        let result = pick
-            .client
-            .call_client_stream::<M, S>(requests, options)
-            .await;
+        let result = pick.client.call_client_stream::<M, S>(request).await;
         self.report(&pick, &result);
         result
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
         let pick = self.pick(M::PATH)?;
-        let result = pick
-            .client
-            .call_bidi_stream::<M, S>(requests, options)
-            .await;
+        let result = pick.client.call_bidi_stream::<M, S>(request).await;
         self.report(&pick, &result);
         result
     }
@@ -205,37 +211,65 @@ impl<T: Transport + RawTransport> RawTransport for EndpointTransport<T> {
 
     async fn call_raw(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, message, options) = request.into_parts();
         let pick = self.pick(path.get_path())?;
-        let result = pick.client.call_raw(path, request).await;
+        let result = pick
+            .client
+            .call_raw(
+                CallRawRequestBuilder::new()
+                    .with_path(path)
+                    .with_message(message)
+                    .with_options(options)
+                    .build(),
+            )
+            .await;
         self.report(&pick, &result);
         result
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
         let pick = self.pick(path.get_path())?;
-        let result = pick.client.call_raw_server_stream(path, request).await;
+        let result = pick
+            .client
+            .call_raw_server_stream(
+                CallRawServerStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_message(message)
+                    .with_options(options)
+                    .build(),
+            )
+            .await;
         self.report(&pick, &result);
         result
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, requests, options) = request.into_parts();
+
         let pick = self.pick(path.get_path())?;
         let result = pick
             .client
-            .call_raw_client_stream(path, requests, options)
+            .call_raw_client_stream(
+                CallRawClientStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
             .await;
         self.report(&pick, &result);
         result
@@ -243,15 +277,25 @@ impl<T: Transport + RawTransport> RawTransport for EndpointTransport<T> {
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, requests, options) = request.into_parts();
+
         let pick = self.pick(path.get_path())?;
         let result = pick
             .client
-            .call_raw_bidi_stream(path, requests, options)
+            .call_raw_bidi_stream(
+                CallRawBidiStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
             .await;
         self.report(&pick, &result);
         result

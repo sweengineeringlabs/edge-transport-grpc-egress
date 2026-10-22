@@ -2,6 +2,9 @@
 //! client certificate is presented, the configured root CA is the only one trusted, the server name is checked,
 //! and a file that cannot be used fails when the client is built, naming its path.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, TlsIdentity, TlsSettings,
+};
 use std::error::Error;
 use std::time::Duration;
 
@@ -17,7 +20,6 @@ use grpc_egress_transport_std::{
     GrpcChannelConfigFactory, MtlsConfigFactory, TlsSettingsResolver,
     TonicGrpcEgressBuilderSpiFactory,
 };
-use proto_pattern::{CallError, RawTransport, TlsIdentity, TlsSettings};
 
 fn path_of(path: std::path::PathBuf) -> String {
     path.to_string_lossy().into_owned()
@@ -35,11 +37,17 @@ async fn start_peer(pki: &TestPki, mode: TlsServerMode) -> Result<RunningPeer, B
 /// What the client under test makes: one raw call, and the bytes of the answer.
 async fn call(client: &impl RawTransport) -> Result<Vec<u8>, CallError> {
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", Duration::from_secs(5)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .map(|response| response.into_message())
 }
 

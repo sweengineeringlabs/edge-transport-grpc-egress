@@ -2,6 +2,11 @@
 //! says, a backend that is down is avoided, and every other option applies to a balanced call exactly as to a
 //! single-endpoint one.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequestBuilder,
+    CallRawServerStreamResponse, CallRequest, Compression, MessageStream, MethodPath, RawTransport,
+    ReadMessageRequest, ReadMessageResponse, StatusCode, TlsIdentity, TlsSettings,
+};
 use std::error::Error;
 use std::io::Read as _;
 use std::sync::Arc;
@@ -17,10 +22,6 @@ use grpc_egress_transport::{
     OutboundCall, TraceContextSource,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{
-    CallError, CallRequest, Compression, MessageStream, RawTransport, StatusCode, TlsIdentity,
-    TlsSettings,
-};
 
 const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
 
@@ -61,7 +62,7 @@ fn request() -> CallRequest<Vec<u8>> {
     CallFixture::request(b"ping", Duration::from_secs(5))
 }
 
-fn path() -> proto_pattern::MethodPath {
+fn path() -> MethodPath {
     CallFixture::path("pkg.Service/Method")
 }
 
@@ -89,7 +90,20 @@ async fn test_call_balanced_round_robin_alternates_between_the_backends_in_order
 
     let mut replies = Vec::new();
     for _ in 0..4 {
-        replies.push(client.call_raw(path(), request()).await?.into_message());
+        replies.push(
+            client
+                .call_raw({
+                    let (message, options) = request().into_parts();
+                    CallRawRequestBuilder::new()
+                        .with_path(path())
+                        .with_message(message)
+                        .with_options(options)
+                        .build()
+                })
+                .await
+                .map(CallRawResponse::into_response)?
+                .into_message(),
+        );
     }
 
     assert_eq!(
@@ -119,8 +133,28 @@ async fn test_call_balanced_over_the_decoding_limit_returns_out_of_range_from_ev
         .with_max_decoding_message_size(1024)
         .build()?;
 
-    let first = client.call_raw(path(), request()).await;
-    let second = client.call_raw(path(), request()).await;
+    let first = client
+        .call_raw({
+            let (message, options) = request().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path())
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
+    let second = client
+        .call_raw({
+            let (message, options) = request().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path())
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     for result in [&first, &second] {
         assert!(
@@ -163,11 +197,17 @@ async fn test_call_balanced_with_send_compression_reaches_every_backend_compress
 
     for _ in 0..2 {
         client
-            .call_raw(
-                path(),
-                CallFixture::request(&[b'a'; 2048], Duration::from_secs(5)),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request(&[b'a'; 2048], Duration::from_secs(5)).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
     }
 
     for peer in [&one, &two] {
@@ -197,7 +237,17 @@ async fn test_call_balanced_with_interceptor_runs_it_before_each_call_to_every_b
         .build()?;
 
     for _ in 0..4 {
-        client.call_raw(path(), request()).await?;
+        client
+            .call_raw({
+                let (message, options) = request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
     }
 
     for peer in [&one, &two] {
@@ -227,7 +277,17 @@ async fn test_call_balanced_with_trace_context_sends_the_traceparent_to_every_ba
         .build()?;
 
     for _ in 0..2 {
-        client.call_raw(path(), request()).await?;
+        client
+            .call_raw({
+                let (message, options) = request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
     }
 
     for peer in [&one, &two] {
@@ -254,16 +314,24 @@ async fn test_call_balanced_with_request_timeout_ends_a_slow_call_at_it_on_every
 
     let first = client
         .call_raw(
-            path(),
-            CallRequest::create(b"ping".to_vec(), Default::default()),
+            CallRawRequestBuilder::new()
+                .with_path(path())
+                .with_message(b"ping".to_vec())
+                .with_options(Default::default())
+                .build(),
         )
-        .await;
+        .await
+        .map(CallRawResponse::into_response);
     let second = client
         .call_raw(
-            path(),
-            CallRequest::create(b"ping".to_vec(), Default::default()),
+            CallRawRequestBuilder::new()
+                .with_path(path())
+                .with_message(b"ping".to_vec())
+                .with_options(Default::default())
+                .build(),
         )
-        .await;
+        .await
+        .map(CallRawResponse::into_response);
 
     for result in [&first, &second] {
         assert_eq!(
@@ -319,7 +387,17 @@ async fn test_call_balanced_with_tls_identity_presents_the_client_certificate_to
         .build()?;
 
     for _ in 0..4 {
-        client.call_raw(path(), request()).await?;
+        client
+            .call_raw({
+                let (message, options) = request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
     }
 
     assert_eq!(one.get_recorded_requests().len(), 2, "backend one");
@@ -338,7 +416,18 @@ async fn test_call_balanced_one_backend_down_uses_the_other() -> Result<(), Box<
     let mut failures = 0;
     let mut answered = 0;
     for _ in 0..8 {
-        match client.call_raw(path(), request()).await {
+        match client
+            .call_raw({
+                let (message, options) = request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)
+        {
             Ok(response) => {
                 assert_eq!(response.get_message(), b"live");
                 answered += 1;
@@ -371,7 +460,19 @@ async fn test_call_balanced_all_backends_down_returns_unavailable_each_time(
 
     let mut outcomes = Vec::new();
     for _ in 0..3 {
-        outcomes.push(client.call_raw(path(), request()).await);
+        outcomes.push(
+            client
+                .call_raw({
+                    let (message, options) = request().into_parts();
+                    CallRawRequestBuilder::new()
+                        .with_path(path())
+                        .with_message(message)
+                        .with_options(options)
+                        .build()
+                })
+                .await
+                .map(CallRawResponse::into_response),
+        );
     }
 
     for (i, outcome) in outcomes.iter().enumerate() {
@@ -400,9 +501,23 @@ async fn test_call_balanced_raw_server_stream_reaches_a_backend() -> Result<(), 
     .await?;
     let client = builder_over(&urls).build()?;
 
-    let mut stream = client.call_raw_server_stream(path(), request()).await?;
+    let mut stream = client
+        .call_raw_server_stream({
+            let (message, options) = request().into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(path())
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
 
-    let first = stream.read_message().await?.ok_or("no message")?;
+    let first = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?
+        .ok_or("no message")?;
     assert_eq!(first, b"s1", "round robin starts at the first backend");
     assert_eq!(
         one.get_recorded_requests().len() + two.get_recorded_requests().len(),
@@ -439,7 +554,17 @@ async fn test_call_balanced_weighted_strategy_follows_the_weights_exactly(
         .build()?;
 
     for _ in 0..20 {
-        client.call_raw(path(), request()).await?;
+        client
+            .call_raw({
+                let (message, options) = request().into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(path())
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
     }
 
     // The pool walks the weights in turn: in every 10 calls the heavier backend takes 9 and the lighter 1.
@@ -471,12 +596,35 @@ async fn test_call_balanced_least_connections_takes_the_first_backend_even_while
     );
     let busy = {
         let client = Arc::clone(&client);
-        tokio::spawn(async move { client.call_raw(path(), request()).await.map(|_| ()) })
+        tokio::spawn(async move {
+            client
+                .call_raw({
+                    let (message, options) = request().into_parts();
+                    CallRawRequestBuilder::new()
+                        .with_path(path())
+                        .with_message(message)
+                        .with_options(options)
+                        .build()
+                })
+                .await
+                .map(CallRawResponse::into_response)
+                .map(|_| ())
+        })
     };
     // The first call is in flight at the first backend: a strategy that counts connections sends the next elsewhere.
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    client.call_raw(path(), request()).await?;
+    client
+        .call_raw({
+            let (message, options) = request().into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path())
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
     busy.await??;
 
     assert_eq!(

@@ -2,6 +2,12 @@
 //! what the engine reports for a refused connection and for the statuses a peer answers is what the breaker
 //! classifies, and an open circuit keeps calls away from the peer.
 
+use proto_pattern::{
+    CallError, CallOptions, CallRawRequestBuilder, CallRawResponse,
+    CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
+    DecodeError, EncodeError, MessageStream, Metadata, Method, Payload, RawTransport,
+    ReadMessageRequest, ReadMessageResponse, StatusCode, Transport, UnaryMethod,
+};
 use std::error::Error;
 use std::time::Duration;
 
@@ -15,10 +21,6 @@ use grpc_egress_test_support::{
 };
 use grpc_egress_transport::GrpcChannelConfig;
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::{
-    CallError, DecodeError, EncodeError, MessageStream, Method, Payload, RawTransport, StatusCode,
-    Transport, UnaryMethod,
-};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -90,12 +92,17 @@ async fn state_of(client: &impl BreakerObservable) -> Result<BreakerState, Box<d
 
 async fn call_raw(client: &impl RawTransport) -> Result<Vec<u8>, CallError> {
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", TIMEOUT),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", TIMEOUT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
-        .map(proto_pattern::CallResponse::into_message)
+        .map(CallRawResponse::into_response)
+        .map(CallResponse::into_message)
 }
 
 /// @covers: StdGrpcBreakerFactory::build
@@ -214,11 +221,16 @@ async fn test_call_raw_server_stream_failed_opens_open_the_circuit_and_a_refused
 
     for attempt in 1..=3 {
         let failure = client
-            .call_raw_server_stream(
-                CallFixture::path("pkg.Service/Watch"),
-                CallFixture::request(b"watch", TIMEOUT),
-            )
+            .call_raw_server_stream({
+                let (message, options) = CallFixture::request(b"watch", TIMEOUT).into_parts();
+                CallRawServerStreamRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Watch"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
             .await
+            .map(CallRawServerStreamResponse::into_stream)
             .err();
         assert!(
             matches!(
@@ -234,11 +246,16 @@ async fn test_call_raw_server_stream_failed_opens_open_the_circuit_and_a_refused
     assert_eq!(peer.get_recorded_requests().len(), 3);
 
     let refused = client
-        .call_raw_server_stream(
-            CallFixture::path("pkg.Service/Watch"),
-            CallFixture::request(b"watch", TIMEOUT),
-        )
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"watch", TIMEOUT).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Watch"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawServerStreamResponse::into_stream)
         .err();
     assert!(
         matches!(
@@ -267,12 +284,20 @@ async fn test_call_raw_server_stream_admitted_open_returns_the_stream_and_keeps_
     let client = guarded(&peer.get_endpoint())?;
 
     let mut stream = client
-        .call_raw_server_stream(
-            CallFixture::path("pkg.Service/Watch"),
-            CallFixture::request(b"watch", TIMEOUT),
-        )
-        .await?;
-    let first = stream.read_message().await?;
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"watch", TIMEOUT).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Watch"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
+    let first = stream
+        .read_message(ReadMessageRequest::new())
+        .await
+        .map(ReadMessageResponse::into_message)?;
 
     assert_eq!(first, Some(b"hello".to_vec()));
     assert_eq!(state_of(&client).await?, BreakerState::Closed);
@@ -287,9 +312,9 @@ async fn test_call_typed_unavailable_peer_opens_the_circuit_and_the_refusal_name
     let peer = peer_answering_status(StatusCode::Unavailable).await?;
     let client = guarded(&peer.get_endpoint())?;
     let request = || {
-        proto_pattern::CallRequest::create(
+        CallRequest::new(
             Bytes(b"ping".to_vec()),
-            proto_pattern::CallOptions::create(Some(TIMEOUT), proto_pattern::Metadata::default()),
+            CallOptions::create(Some(TIMEOUT), Metadata::default()),
         )
     };
 
@@ -322,9 +347,9 @@ async fn test_call_typed_answered_call_returns_the_typed_response_and_keeps_the_
     let client = guarded(&peer.get_endpoint())?;
 
     let response = client
-        .call::<Ping>(proto_pattern::CallRequest::create(
+        .call::<Ping>(CallRequest::new(
             Bytes(b"ping".to_vec()),
-            proto_pattern::CallOptions::create(Some(TIMEOUT), proto_pattern::Metadata::default()),
+            CallOptions::create(Some(TIMEOUT), Metadata::default()),
         ))
         .await?;
 

@@ -7,6 +7,7 @@
 //! and is proved by `tests/breaker_int_test.rs`.
 //!
 //! [`StdGrpcBreakerFactory`]: grpc_egress_breaker_std::StdGrpcBreakerFactory
+use proto_pattern::{CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode};
 use std::time::Duration;
 
 use grpc_egress_breaker::{
@@ -17,7 +18,6 @@ use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::GrpcChannelConfig;
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::{CallError, RawTransport, StatusCode};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,11 +37,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         half_open_probe_count: 1,
     })
     .build(BuildGrpcBreakerRequest { inner: client })?;
-    let call = || {
-        client.call_raw(
-            CallFixture::path("example.Service/Method"),
-            CallFixture::request(b"hi", Duration::from_secs(1)),
-        )
+    let call = || async {
+        client
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request(b"hi", Duration::from_secs(1)).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("example.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)
     };
 
     // Two real failures reach the upstream and trip the breaker.

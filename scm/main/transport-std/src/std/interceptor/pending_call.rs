@@ -1,9 +1,11 @@
 //! `PendingCall` -- the implementation of [`OutboundCall`]: a call that has not been sent.
 
+use proto_pattern::{
+    CallError, CallOptions, GetValuesRequest, GetValuesResponse, Metadata, MetadataView, StatusCode,
+};
 use std::time::Duration;
 
 use grpc_egress_transport::OutboundCall;
-use proto_pattern::{CallError, CallOptions, Metadata, StatusCode};
 
 use crate::std::client::MetadataExtender;
 
@@ -44,11 +46,19 @@ impl OutboundCall for PendingCall<'_> {
     }
 
     fn has_header(&self, key: &str) -> bool {
-        !self.metadata.get_values(key).is_empty()
+        !self
+            .metadata
+            .get_values(GetValuesRequest::new(key))
+            .map(GetValuesResponse::into_values)
+            .unwrap_or_default()
+            .is_empty()
     }
 
     fn get_header_values(&self, key: &str) -> Vec<&str> {
-        self.metadata.get_values(key)
+        self.metadata
+            .get_values(GetValuesRequest::new(key))
+            .map(GetValuesResponse::into_values)
+            .unwrap_or_default()
     }
 
     fn add_header(&mut self, key: &str, value: &str) -> Result<(), CallError> {

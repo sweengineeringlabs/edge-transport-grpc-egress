@@ -5,6 +5,16 @@ Task 1 of `edge-transport-grpc-egress#18`, as executed. Checked against v0.8.0 (
 (`TonicTransportSpiFactory`). Each row is **replaced** (by a contract item), **kept** (with the reason) or **removed**
 (with the reason). The design is ADR-009; the behaviour differences found while moving are in `behaviour-comparison.md`.
 
+## Current dependency API
+
+The workspace now pins `proto-pattern` v0.12.0 and `proto-svc` v0.4.2.
+Raw calls accept a single operation-specific request built with `CallRaw*RequestBuilder`;
+streaming typed calls use `Call*StreamRequest`. Their response envelopes expose
+`into_response()` or `into_stream()`. Stream and metadata queries likewise take request
+DTOs and return fallible response envelopes. Typed unary `CallRequest` and `CallResponse`
+use `new`. Engine configuration starts at `tonic_dual_builder()` and terminates with
+`DualTransportBuilder::build`. The historical mapping below records the original migration.
+
 ## The finding that shaped the rest
 
 `GrpcEgress` was a byte-oriented call over a path given as a string: `GrpcRequest { method: String, body: Vec<u8>, .. }`.

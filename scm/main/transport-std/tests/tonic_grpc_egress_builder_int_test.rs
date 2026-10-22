@@ -1,6 +1,10 @@
 //! Tests of the builder of the client over the `proto-svc` engine, through its public factory, against a real
 //! in-process peer: every option must reach the call it describes, and none may be ignored.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, CallRequest, CallResponse, Compression,
+    Metadata, MetadataEntry, MethodPath, RawTransport, StatusCode,
+};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -12,10 +16,6 @@ use grpc_egress_transport::{
     TraceContextSource,
 };
 use grpc_egress_transport_std::{GrpcChannelConfigFactory, TonicGrpcEgressBuilderSpiFactory};
-use proto_pattern::{
-    CallError, CallRequest, CallResponse, Compression, Metadata, MetadataEntry, MethodPath,
-    RawTransport, StatusCode,
-};
 
 const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
 const SECONDS: Duration = Duration::from_secs(5);
@@ -91,8 +91,16 @@ async fn send(
     request: CallRequest<Vec<u8>>,
 ) -> Result<Vec<u8>, CallError> {
     client
-        .call_raw(path(), request)
+        .call_raw({
+            let (message, options) = request.into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path())
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .map(CallResponse::into_message)
 }
 

@@ -1,5 +1,9 @@
 //! `AllOptionsScenario` -- every option of the client builder, one after the other.
 
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, CallRequest, Compression, RawTransport,
+    StatusCode,
+};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -12,7 +16,6 @@ use grpc_egress_transport::{
 use grpc_egress_transport_std::{
     MtlsConfigFactory, TlsSettingsResolver, TonicGrpcEgressBuilderSpiFactory,
 };
-use proto_pattern::{CallError, CallRequest, Compression, RawTransport, StatusCode};
 
 use crate::{EchoServer, OrderInterceptor, ScenarioReport};
 
@@ -54,11 +57,16 @@ impl AllOptionsScenario {
             .build()?;
 
         let echoed = client
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                Self::request(b"ping"),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request(b"ping").into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
         report.record(
             "the peer's answer arrives",
             echoed.get_message().as_slice() == b"pong",
@@ -111,11 +119,16 @@ impl AllOptionsScenario {
             .with_max_decoding_message_size(MESSAGE_CAP_BYTES)
             .build()?;
         let result = client
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                Self::request(b"ping"),
-            )
-            .await;
+            .call_raw({
+                let (message, options) = Self::request(b"ping").into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         Ok(matches!(
             result,
             Err(CallError::Status {
@@ -133,11 +146,17 @@ impl AllOptionsScenario {
             .with_request_timeout(Duration::from_millis(150))
             .build()?;
         let result = client
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                CallFixture::request(b"ping", Duration::from_secs(5)),
-            )
-            .await;
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         Ok(matches!(
             result,
             Err(CallError::Status {
@@ -168,11 +187,16 @@ impl AllOptionsScenario {
             .with_tls(tls)
             .build()?;
         let answered = client
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                Self::request(b"ping"),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request(b"ping").into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
         Ok(answered.get_message().as_slice() == b"secure")
     }
 }

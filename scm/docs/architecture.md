@@ -14,7 +14,7 @@ sequenceDiagram
     participant Engine as proto-svc engine
     participant RemoteService
 
-    Caller->>Client: call_raw(MethodPath, CallRequest) or call::<M>(CallRequest)
+    Caller->>Client: call_raw(CallRawRequest) or call::<M>(CallRequest)
     Client->>Client: before_call of each interceptor, in order
     Note over Client: for example the trace-context interceptor adds traceparent and tracestate
     Client->>Endpoint: the call, with the headers the interceptors added

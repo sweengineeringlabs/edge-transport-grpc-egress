@@ -1,10 +1,13 @@
 //! `CancellableResponseStream` -- a response stream whose reads end when a signal fires.
 
+use proto_pattern::{
+    CallError, GetHeadersRequest, GetHeadersResponse, MessageStream, ReadMessageRequest,
+    ReadMessageResponse, ReadTrailersRequest, ReadTrailersResponse, ResponseStream, StatusCode,
+};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 use grpc_egress_transport::CancellationSignal;
-use proto_pattern::{CallError, MessageStream, ResponseStream, StatusCode};
 
 /// A response stream of messages `R` that fails with `Cancelled` when `signal` fires while a message or the trailers
 /// are being read.
@@ -38,11 +41,14 @@ impl<S, R, G> CancellableResponseStream<S, R, G> {
 impl<R: Send, S: ResponseStream<R>, G: CancellationSignal> MessageStream<R>
     for CancellableResponseStream<S, R, G>
 {
-    async fn read_message(&mut self) -> Result<Option<R>, CallError> {
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<R>, CallError> {
         tokio::select! {
             biased;
             () = self.signal.wait_cancelled() => Err(self.cancelled()),
-            message = self.inner.read_message() => message,
+            message = self.inner.read_message(ReadMessageRequest::new()) => message,
         }
     }
 }
@@ -52,15 +58,21 @@ impl<R: Send, S: ResponseStream<R>, G: CancellationSignal> ResponseStream<R>
 {
     type Metadata = S::Metadata;
 
-    fn get_headers(&self) -> &S::Metadata {
-        self.inner.get_headers()
+    fn get_headers(
+        &self,
+        request: GetHeadersRequest,
+    ) -> Result<GetHeadersResponse<'_, S::Metadata>, CallError> {
+        self.inner.get_headers(request)
     }
 
-    async fn read_trailers(&mut self) -> Result<S::Metadata, CallError> {
+    async fn read_trailers(
+        &mut self,
+        _request: ReadTrailersRequest,
+    ) -> Result<ReadTrailersResponse<S::Metadata>, CallError> {
         tokio::select! {
             biased;
             () = self.signal.wait_cancelled() => Err(self.cancelled()),
-            trailers = self.inner.read_trailers() => trailers,
+            trailers = self.inner.read_trailers(ReadTrailersRequest::new()) => trailers,
         }
     }
 }

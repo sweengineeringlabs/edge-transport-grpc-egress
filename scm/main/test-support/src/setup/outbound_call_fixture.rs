@@ -1,9 +1,12 @@
 //! [`OutboundCallFixture`] -- a call that has not been sent, for a test that runs an interceptor on its own.
 
+use proto_pattern::{
+    CallError, GetBinaryEntriesRequest, GetEntriesRequest, GetValuesRequest, GetValuesResponse,
+    Metadata, MetadataBuilder, MetadataView, StatusCode,
+};
 use std::time::Duration;
 
 use grpc_egress_transport::OutboundCall;
-use proto_pattern::{CallError, Metadata, MetadataBuilder, MetadataView, StatusCode};
 
 /// An implementation of [`OutboundCall`] for tests, written without the library's own: a test that runs an interceptor
 /// on its own needs a call to hand it, and one that shares code with the code under test would prove nothing.
@@ -57,19 +60,45 @@ impl OutboundCall for OutboundCallFixture {
     }
 
     fn has_header(&self, key: &str) -> bool {
-        !self.metadata.get_values(key).is_empty()
+        !self
+            .metadata
+            .get_values(GetValuesRequest::new(key))
+            .map(GetValuesResponse::into_values)
+            .unwrap_or_default()
+            .is_empty()
     }
 
     fn get_header_values(&self, key: &str) -> Vec<&str> {
-        self.metadata.get_values(key)
+        self.metadata
+            .get_values(GetValuesRequest::new(key))
+            .map(GetValuesResponse::into_values)
+            .unwrap_or_default()
     }
 
     fn add_header(&mut self, key: &str, value: &str) -> Result<(), CallError> {
         let mut builder = MetadataBuilder::create();
-        for entry in self.metadata.get_entries() {
+        for entry in self
+            .metadata
+            .get_entries(GetEntriesRequest::new())
+            .map_err(|e| CallError::Transport {
+                path: self.path.as_str().into(),
+                code: StatusCode::InvalidArgument,
+                reason: e.to_string(),
+            })?
+            .into_entries()
+        {
             let _ = builder.append(entry.get_key(), entry.get_value());
         }
-        for entry in MetadataView::get_binary_entries(&self.metadata).flatten() {
+        for entry in
+            MetadataView::get_binary_entries(&self.metadata, GetBinaryEntriesRequest::new())
+                .map_err(|e| CallError::Transport {
+                    path: self.path.as_str().into(),
+                    code: StatusCode::InvalidArgument,
+                    reason: e.to_string(),
+                })?
+                .into_entries()
+                .flatten()
+        {
             let _ = builder.append_binary(entry.get_key(), entry.get_value());
         }
         builder

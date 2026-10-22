@@ -26,8 +26,8 @@
   {
     "name": "I05 after_call gets the trailers as headers",
     "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
-    "find": "            headers: MetadataExtender::copy(headers),\n            trailers: MetadataExtender::copy(trailers),",
-    "replace": "            headers: MetadataExtender::copy(trailers),\n            trailers: MetadataExtender::copy(headers),"
+    "find": "            headers: MetadataExtender::copy(headers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,\n            trailers: MetadataExtender::copy(trailers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,",
+    "replace": "            headers: MetadataExtender::copy(trailers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,\n            trailers: MetadataExtender::copy(headers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,"
   },
   {
     "name": "C01 after_call runs in reverse order",
@@ -62,20 +62,20 @@
   {
     "name": "H01 has_header says no header is there",
     "file": "scm/main/transport-std/src/std/interceptor/pending_call.rs",
-    "find": "        !self.metadata.get_values(key).is_empty()",
+    "find": "        !self\n            .metadata\n            .get_values(GetValuesRequest::new(key))\n            .map(GetValuesResponse::into_values)\n            .unwrap_or_default()\n            .is_empty()",
     "replace": "        false"
   },
   {
     "name": "M01 an extension overwrites a header the call carries",
     "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
-    "find": "            if source.get_values(key).is_empty() {",
+    "find": "            if source\n                .get_values(GetValuesRequest::new(key))?\n                .into_values()\n                .is_empty()\n            {",
     "replace": "            if true {"
   },
   {
     "name": "M02 binary entries are lost when metadata is extended",
     "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
-    "find": "        for entry in MetadataView::get_binary_entries(source).flatten() {",
-    "replace": "        for entry in MetadataView::get_binary_entries(source).flatten().filter(|_| false) {"
+    "find": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries()\n        {",
+    "replace": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries().filter(|_| false)\n        {"
   },
   {
     "name": "E01 the pool is never told a backend failed",
@@ -104,14 +104,14 @@
   {
     "name": "X02 a raised signal does not end a message read",
     "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
-    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            message = self.inner.read_message() => message,",
-    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            message = self.inner.read_message() => message,"
+    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            message = self.inner.read_message(ReadMessageRequest::new()) => message,",
+    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            message = self.inner.read_message(ReadMessageRequest::new()) => message,"
   },
   {
     "name": "X03 a raised signal does not end the read of the trailers",
     "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
-    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,",
-    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,"
+    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers(ReadTrailersRequest::new()) => trailers,",
+    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            trailers = self.inner.read_trailers(ReadTrailersRequest::new()) => trailers,"
   },
   {
     "name": "X04 a cancelled call fails with another code",
@@ -170,8 +170,8 @@
   {
     "name": "B03 the request timeout is not applied",
     "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
-    "find": "TonicTransportSpiFactory::new(url).with_timeout(self.request_timeout);",
-    "replace": "TonicTransportSpiFactory::new(url);"
+    "find": ".with_timeout(self.request_timeout)",
+    "replace": ""
   },
   {
     "name": "B04 keep-alive while idle is inverted",

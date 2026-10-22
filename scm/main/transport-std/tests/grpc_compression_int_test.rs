@@ -1,13 +1,13 @@
 //! The compression of a channel configuration, end to end: `with_compression(Gzip)` makes the client send gzip
 //! and list gzip as accepted (`grpc-encoding` and `grpc-accept-encoding`), and `None` makes it send neither.
 
+use proto_pattern::{CallRawRequestBuilder, CallRawResponse, RawTransport};
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::RawTransport;
 
 const SHORT: Duration = Duration::from_secs(2);
 
@@ -24,11 +24,16 @@ async fn test_call_raw_with_gzip_in_the_config_advertises_grpc_encoding_gzip_and
     )?;
 
     client
-        .call_raw(
-            CallFixture::path("svc/M"),
-            CallFixture::request(b"payload", SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"payload", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc/M"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let request = requests.first().ok_or("the peer saw no request")?;
@@ -54,11 +59,16 @@ async fn test_call_raw_with_no_compression_in_the_config_sets_no_grpc_encoding(
         ClientFixture::from_config(&GrpcChannelConfig::new(peer.get_endpoint()).allow_plaintext())?;
 
     client
-        .call_raw(
-            CallFixture::path("svc/M"),
-            CallFixture::request(b"payload", SHORT),
-        )
-        .await?;
+        .call_raw({
+            let (message, options) = CallFixture::request(b"payload", SHORT).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc/M"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let requests = peer.get_recorded_requests();
     let request = requests.first().ok_or("the peer saw no request")?;

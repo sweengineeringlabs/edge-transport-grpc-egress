@@ -1,5 +1,8 @@
 //! `SecurityContextScenario` -- ruling 3 of ADR-008: the identity of the caller travels as headers of the call.
 
+use proto_pattern::{
+    CallRawRequestBuilder, CallRawResponse, CallRequest, Metadata, MetadataEntry, RawTransport,
+};
 use std::error::Error;
 use std::time::Duration;
 
@@ -12,7 +15,6 @@ use grpc_egress_transport_std::{
     SecurityContext, SecurityContextIdentity, StdGrpcCallerIdentityFactory,
     TonicGrpcEgressBuilderSpiFactory,
 };
-use proto_pattern::{Metadata, MetadataEntry, RawTransport};
 
 use crate::{EchoServer, ScenarioReport};
 
@@ -42,11 +44,16 @@ impl SecurityContextScenario {
             identity: &SecurityContextIdentity::new(&ctx),
         });
         bound
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                Self::request(Metadata::default()),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request(Metadata::default()).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
         report.record(
             "the trace id and the tenant reach the peer",
             server.get_last_header("x-trace-id").as_deref() == Some("trace-1")
@@ -59,8 +66,16 @@ impl SecurityContextScenario {
 
         let own = Metadata::create(vec![MetadataEntry::create("x-trace-id", "caller")?]);
         bound
-            .call_raw(CallFixture::path("pkg.Service/Method"), Self::request(own))
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request(own).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
         report.record(
             "a header the call carries is kept",
             server.get_last_header("x-trace-id").as_deref() == Some("caller"),
@@ -73,11 +88,16 @@ impl SecurityContextScenario {
                 identity: &SecurityContextIdentity::new(&ctx),
             });
         unauthenticated
-            .call_raw(
-                CallFixture::path("pkg.Service/Method"),
-                Self::request(Metadata::default()),
-            )
-            .await?;
+            .call_raw({
+                let (message, options) = Self::request(Metadata::default()).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response)?;
         report.record(
             "an unauthenticated context sends no authorization",
             server.get_last_header("authorization").is_none(),
@@ -85,7 +105,7 @@ impl SecurityContextScenario {
         Ok(report)
     }
 
-    fn request(metadata: Metadata) -> proto_pattern::CallRequest<Vec<u8>> {
+    fn request(metadata: Metadata) -> CallRequest<Vec<u8>> {
         CallFixture::request_with(b"ping", Duration::from_secs(5), metadata)
     }
 }

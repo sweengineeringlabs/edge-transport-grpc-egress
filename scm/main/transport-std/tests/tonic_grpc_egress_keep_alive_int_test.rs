@@ -4,6 +4,9 @@
 
 use grpc_egress_test_support::{CallFixture, ClientFixture};
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode, Transport,
+};
 use std::error::Error;
 use std::time::{Duration, Instant};
 
@@ -15,7 +18,6 @@ use grpc_egress_transport::{
     KeepAliveConfig,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallError, RawTransport, StatusCode, Transport};
 
 const PING_INTERVAL: Duration = Duration::from_millis(200);
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
@@ -30,11 +32,16 @@ fn keep_alive(permit_without_calls: bool) -> KeepAliveConfig {
 
 async fn call<C: RawTransport>(client: &C, timeout: Duration) -> Result<(), CallError> {
     client
-        .call_raw(
-            CallFixture::path("pkg.Service/Method"),
-            CallFixture::request(b"ping", timeout),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"ping", timeout).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("pkg.Service/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .map(|_| ())
 }
 

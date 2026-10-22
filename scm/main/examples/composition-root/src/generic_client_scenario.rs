@@ -57,7 +57,7 @@ impl GenericClientScenario {
         );
 
         let typed = guarded
-            .call::<EchoText>(CallRequest::create(
+            .call::<EchoText>(CallRequest::new(
                 Text("typed".to_string()),
                 CallOptions::default(),
             ))

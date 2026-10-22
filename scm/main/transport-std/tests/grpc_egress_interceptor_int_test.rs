@@ -4,7 +4,8 @@
 use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{GrpcEgressInterceptor, OutboundCall};
 use proto_pattern::{
-    BinaryMetadataEntry, CallError, Metadata, MetadataEntry, MetadataView, StatusCode,
+    BinaryMetadataEntry, CallError, GetBinaryEntriesRequest, GetCountRequest, Metadata,
+    MetadataEntry, MetadataView, StatusCode,
 };
 
 #[test]
@@ -51,7 +52,12 @@ fn test_add_header_adds_after_the_headers_the_call_carries(
 
     assert_eq!(call.get_header_values("x-caller"), ["original"]);
     assert_eq!(call.get_header_values("x-added"), ["1"]);
-    assert_eq!(call.get_metadata().get_count(), 2);
+    assert_eq!(
+        call.get_metadata()
+            .get_count(GetCountRequest::new())?
+            .into_count(),
+        2
+    );
     Ok(())
 }
 
@@ -79,10 +85,12 @@ fn test_add_header_keeps_the_binary_entries_the_call_carries(
 
     call.add_header("x-added", "1")?;
 
-    let kept: Vec<(String, Vec<u8>)> = MetadataView::get_binary_entries(call.get_metadata())
-        .flatten()
-        .map(|b| (b.get_key().to_string(), b.get_value().to_vec()))
-        .collect();
+    let kept: Vec<(String, Vec<u8>)> =
+        MetadataView::get_binary_entries(call.get_metadata(), GetBinaryEntriesRequest::new())?
+            .into_entries()
+            .flatten()
+            .map(|b| (b.get_key().to_string(), b.get_value().to_vec()))
+            .collect();
     assert_eq!(kept, [("x-blob-bin".to_string(), vec![1, 2, 3])]);
     Ok(())
 }
@@ -107,7 +115,9 @@ fn test_add_header_invalid_key_returns_invalid_argument_naming_the_path_and_chan
         "got {error:?}"
     );
     assert_eq!(
-        call.get_metadata().get_count(),
+        call.get_metadata()
+            .get_count(GetCountRequest::new())?
+            .into_count(),
         1,
         "a refused header is not added"
     );

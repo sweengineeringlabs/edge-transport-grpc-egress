@@ -1,9 +1,14 @@
 //! `ContextTransport` -- a view of a client whose calls carry the headers of a caller's identity.
 
 use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, MethodPath, RawTransport, ResponseStream, ServerStreamMethod, StatusCode,
-    Transport, UnaryMethod,
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
+    CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequest,
+    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
+    CallServerStreamRequest, CallServerStreamResponse, ClientStreamMethod, MessageStream,
+    RawTransport, ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
 };
 
 use super::ContextHeaders;
@@ -57,41 +62,52 @@ impl<T: Transport + RawTransport> Transport for ContextTransport<'_, T> {
         let (message, options) = request.into_parts();
         let options = self.add_headers(M::PATH, options)?;
         self.inner
-            .call::<M>(CallRequest::create(message, options))
+            .call::<M>(CallRequest::new(message, options))
             .await
     }
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
         let (message, options) = request.into_parts();
         let options = self.add_headers(M::PATH, options)?;
         self.inner
-            .call_server_stream::<M>(CallRequest::create(message, options))
+            .call_server_stream::<M>(CallServerStreamRequest::new(message, options))
             .await
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<M::Response, <Self as Transport>::Metadata>, CallError> {
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, <Self as Transport>::Metadata>, CallError>
+    {
+        let (requests, options) = request.into_parts();
         let options = self.add_headers(M::PATH, options)?;
         self.inner
-            .call_client_stream::<M, S>(requests, options)
+            .call_client_stream::<M, S>(CallClientStreamRequest::new(requests, options))
             .await
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (requests, options) = request.into_parts();
         let options = self.add_headers(M::PATH, options)?;
-        self.inner.call_bidi_stream::<M, S>(requests, options).await
+        self.inner
+            .call_bidi_stream::<M, S>(CallBidiStreamRequest::new(requests, options))
+            .await
     }
 }
 
@@ -100,51 +116,79 @@ impl<T: Transport + RawTransport> RawTransport for ContextTransport<'_, T> {
 
     async fn call_raw(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
-        let (message, options) = request.into_parts();
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, message, options) = request.into_parts();
         let options = self.add_headers(path.get_path(), options)?;
         self.inner
-            .call_raw(path, CallRequest::create(message, options))
+            .call_raw(
+                CallRawRequestBuilder::new()
+                    .with_path(path)
+                    .with_message(message)
+                    .with_options(options)
+                    .build(),
+            )
             .await
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
-        let (message, options) = request.into_parts();
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
         let options = self.add_headers(path.get_path(), options)?;
         self.inner
-            .call_raw_server_stream(path, CallRequest::create(message, options))
+            .call_raw_server_stream(
+                CallRawServerStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_message(message)
+                    .with_options(options)
+                    .build(),
+            )
             .await
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, requests, options) = request.into_parts();
         let options = self.add_headers(path.get_path(), options)?;
         self.inner
-            .call_raw_client_stream(path, requests, options)
+            .call_raw_client_stream(
+                CallRawClientStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
             .await
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, requests, options) = request.into_parts();
         let options = self.add_headers(path.get_path(), options)?;
         self.inner
-            .call_raw_bidi_stream(path, requests, options)
+            .call_raw_bidi_stream(
+                CallRawBidiStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
             .await
     }
 }

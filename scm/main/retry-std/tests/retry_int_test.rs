@@ -4,17 +4,24 @@
 //! twice, then succeed) are made with a scripted client that implements both contract traits and counts its calls.
 //! The cases a real peer can make are in `retry_peer_int_test.rs`.
 
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
+    CallRawRequest, CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamResponse, CallRequest, CallResponse, CallServerStreamRequest,
+    CallServerStreamResponse, ClientStreamMethod, DecodeError, EncodeError, GetHeadersRequest,
+    GetHeadersResponse, GetValuesRequest, GetValuesResponse, MessageStream, Metadata,
+    MetadataEntry, MetadataView, Method, MethodPath, Payload, RawTransport, ReadMessageRequest,
+    ReadMessageResponse, ReadTrailersRequest, ReadTrailersResponse, ResponseStream,
+    ServerStreamMethod, StatusCode, Transport, UnaryMethod,
+};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_std::{GrpcRetryConfigProvider, StdGrpcRetryFactory};
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    DecodeError, EncodeError, MessageStream, Metadata, MetadataEntry, Method, MethodPath, Payload,
-    RawTransport, ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
-};
 
 const OK_BODY: &[u8] = b"ok";
 const PATH: &str = "/svc.Test/Method";
@@ -158,7 +165,9 @@ impl ScriptedTransport {
                 body,
                 tokens: options
                     .get_metadata()
-                    .get_values("x-token")
+                    .get_values(GetValuesRequest::new("x-token"))
+                    .map(GetValuesResponse::into_values)
+                    .unwrap_or_default()
                     .into_iter()
                     .map(str::to_string)
                     .collect(),
@@ -199,20 +208,29 @@ struct NoStream {
 }
 
 impl<T: Send> MessageStream<T> for NoStream {
-    async fn read_message(&mut self) -> Result<Option<T>, CallError> {
-        Ok(None)
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<T>, CallError> {
+        Ok(ReadMessageResponse::new(None))
     }
 }
 
 impl<T: Send> ResponseStream<T> for NoStream {
     type Metadata = Metadata;
 
-    fn get_headers(&self) -> &Metadata {
-        &self.headers
+    fn get_headers(
+        &self,
+        _request: GetHeadersRequest,
+    ) -> Result<GetHeadersResponse<'_, Metadata>, CallError> {
+        Ok(GetHeadersResponse::new(&self.headers))
     }
 
-    async fn read_trailers(&mut self) -> Result<Metadata, CallError> {
-        Ok(Metadata::default())
+    async fn read_trailers(
+        &mut self,
+        _request: ReadTrailersRequest,
+    ) -> Result<ReadTrailersResponse<Metadata>, CallError> {
+        Ok(ReadTrailersResponse::new(Metadata::default()))
     }
 }
 
@@ -228,7 +246,7 @@ impl Transport for ScriptedTransport {
         message.encode_into(&mut body).map_err(CallError::Encode)?;
         self.dispatch(&options, body).await?;
         let answer = M::Response::decode(OK_BODY).map_err(CallError::Decode)?;
-        Ok(CallResponse::create(
+        Ok(CallResponse::new(
             answer,
             Metadata::default(),
             Metadata::default(),
@@ -237,25 +255,33 @@ impl Transport for ScriptedTransport {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        _request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallServerStreamResponse::new)
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<M::Response, Metadata>, CallError> {
-        Err(Self::refusal(M::PATH))
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, Metadata>, CallError> {
+        let (_requests, _options) = request.into_parts();
+        { Err(Self::refusal(M::PATH)) }.map(CallClientStreamResponse::new)
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(M::PATH))
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<impl ResponseStream<M::Response, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (_requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(M::PATH)) }.map(CallBidiStreamResponse::new)
     }
 }
 
@@ -264,42 +290,47 @@ impl RawTransport for ScriptedTransport {
 
     async fn call_raw(
         &self,
-        _path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        let (body, options) = request.into_parts();
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<Metadata>, CallError> {
+        let (_path, message, options) = request.into_parts();
+        let body = message;
         self.dispatch(&options, body).await?;
-        Ok(CallResponse::create(
+        Ok(CallRawResponse::new(CallResponse::new(
             OK_BODY.to_vec(),
             Metadata::default(),
             Metadata::default(),
-        ))
+        )))
     }
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        _request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        let _request = CallRequest::new(message, options);
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawServerStreamResponse::new)
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, Metadata>, CallError> {
-        Err(Self::refusal(path.get_path()))
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<Metadata>, CallError> {
+        let (path, _requests, _options) = request.into_parts();
+        { Err(Self::refusal(path.get_path())) }.map(CallRawClientStreamResponse::new)
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        _requests: S,
-        _options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = Metadata>, CallError> {
-        Err::<NoStream, _>(Self::refusal(path.get_path()))
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<impl ResponseStream<Vec<u8>, Metadata = Metadata>>,
+        CallError,
+    > {
+        let (path, _requests, _options) = request.into_parts();
+        { Err::<NoStream, _>(Self::refusal(path.get_path())) }.map(CallRawBidiStreamResponse::new)
     }
 }
 
@@ -327,14 +358,14 @@ fn path() -> Result<MethodPath, Box<dyn std::error::Error>> {
 }
 
 fn raw_request(timeout: Option<Duration>) -> CallRequest<Vec<u8>> {
-    CallRequest::create(
+    CallRequest::new(
         b"hello".to_vec(),
         CallOptions::create(timeout, Metadata::default()),
     )
 }
 
 fn typed_request(text: &str, timeout: Option<Duration>) -> CallRequest<Text> {
-    CallRequest::create(
+    CallRequest::new(
         Text(text.to_string()),
         CallOptions::create(timeout, Metadata::default()),
     )
@@ -355,7 +386,17 @@ async fn test_call_raw_first_attempt_success_does_not_retry(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (inner, seen) = ScriptedTransport::new(vec![Outcome::Ok]);
     let client = wrap(inner, fast_config()?);
-    let response = client.call_raw(path()?, raw_request(FIVE_SECONDS)).await?;
+    let response = client
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
     assert_eq!(response.get_message(), OK_BODY);
     assert_eq!(seen.call_count(), 1, "no retry on success");
     Ok(())
@@ -369,8 +410,16 @@ async fn test_call_raw_permission_denied_is_never_retried() -> Result<(), Box<dy
         ScriptedTransport::new(vec![Outcome::Status(StatusCode::PermissionDenied, "no")]);
     let client = wrap(inner, fast_config()?);
     let err = client
-        .call_raw(path()?, raw_request(FIVE_SECONDS))
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("must fail")?;
     assert!(
@@ -397,8 +446,16 @@ async fn test_call_raw_unauthenticated_is_never_retried() -> Result<(), Box<dyn 
     )]);
     let client = wrap(inner, fast_config()?);
     let err = client
-        .call_raw(path()?, raw_request(FIVE_SECONDS))
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("must fail")?;
     assert!(matches!(
@@ -422,7 +479,17 @@ async fn test_call_raw_unavailable_then_ok_succeeds_after_retry(
         Outcome::Ok,
     ]);
     let client = wrap(inner, fast_config()?);
-    let response = client.call_raw(path()?, raw_request(FIVE_SECONDS)).await?;
+    let response = client
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
     assert_eq!(response.get_message(), OK_BODY);
     assert_eq!(seen.call_count(), 3, "two retries before the Ok");
     Ok(())
@@ -436,8 +503,16 @@ async fn test_call_raw_unavailable_throughout_exhausts_max_attempts(
         ScriptedTransport::new(vec![Outcome::Status(StatusCode::Unavailable, "down")]);
     let client = wrap(inner, fast_config()?);
     let err = client
-        .call_raw(path()?, raw_request(FIVE_SECONDS))
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("never recovers")?;
     assert!(matches!(
@@ -457,8 +532,16 @@ async fn test_call_raw_internal_is_terminal() -> Result<(), Box<dyn std::error::
     let (inner, seen) = ScriptedTransport::new(vec![Outcome::Status(StatusCode::Internal, "bug")]);
     let client = wrap(inner, fast_config()?);
     let _ = client
-        .call_raw(path()?, raw_request(FIVE_SECONDS))
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("terminal")?;
     assert_eq!(seen.call_count(), 1, "Internal must not be retried");
@@ -472,8 +555,16 @@ async fn test_call_raw_deadline_exceeded_is_terminal() -> Result<(), Box<dyn std
         ScriptedTransport::new(vec![Outcome::Status(StatusCode::DeadlineExceeded, "tick")]);
     let client = wrap(inner, fast_config()?);
     let _ = client
-        .call_raw(path()?, raw_request(FIVE_SECONDS))
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("terminal")?;
     assert_eq!(
@@ -494,8 +585,16 @@ async fn test_call_raw_transport_unavailable_retries_then_internal_terminates(
     ]);
     let client = wrap(inner, fast_config()?);
     let _ = client
-        .call_raw(path()?, raw_request(FIVE_SECONDS))
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("Internal is terminal")?;
     assert_eq!(seen.call_count(), 2);
@@ -524,7 +623,17 @@ async fn test_call_raw_resource_exhausted_rate_limit_retries_on_rate_limit_track
         "#,
     )?;
     let client = wrap(inner, cfg);
-    let response = client.call_raw(path()?, raw_request(FIVE_SECONDS)).await?;
+    let response = client
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
     assert_eq!(response.get_message(), OK_BODY);
     assert_eq!(seen.call_count(), 3);
     Ok(())
@@ -540,8 +649,16 @@ async fn test_call_raw_resource_exhausted_hard_quota_is_terminal(
     ]);
     let client = wrap(inner, fast_config()?);
     let _ = client
-        .call_raw(path()?, raw_request(FIVE_SECONDS))
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("HardQuota is terminal, must not succeed")?;
     assert_eq!(seen.call_count(), 1, "HardQuota must not retry");
@@ -557,7 +674,17 @@ async fn test_call_raw_resource_exhausted_capacity_retries_on_standard_track(
         Outcome::Ok,
     ]);
     let client = wrap(inner, fast_config()?);
-    let response = client.call_raw(path()?, raw_request(FIVE_SECONDS)).await?;
+    let response = client
+        .call_raw({
+            let (message, options) = raw_request(FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
     assert_eq!(response.get_message(), OK_BODY);
     assert_eq!(seen.call_count(), 2);
     Ok(())
@@ -593,8 +720,16 @@ async fn test_call_raw_timeout_is_the_total_budget_of_all_attempts(
     let total_budget = Duration::from_millis(200);
     let started = Instant::now();
     let _ = client
-        .call_raw(path()?, raw_request(Some(total_budget)))
+        .call_raw({
+            let (message, options) = raw_request(Some(total_budget)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("budget exhausts")?;
     let elapsed = started.elapsed();
@@ -629,7 +764,17 @@ async fn test_call_raw_each_attempt_gets_the_timeout_that_is_left(
     let client = wrap(inner, fast_config()?);
     let budget = Duration::from_secs(5);
 
-    let _ = client.call_raw(path()?, raw_request(Some(budget))).await;
+    let _ = client
+        .call_raw({
+            let (message, options) = raw_request(Some(budget)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response);
 
     let timeouts: Vec<Duration> = seen
         .attempts()
@@ -657,8 +802,16 @@ async fn test_call_raw_without_a_timeout_is_bounded_by_max_attempts_alone(
     let client = wrap(inner, fast_config()?);
 
     let _ = client
-        .call_raw(path()?, raw_request(None))
+        .call_raw({
+            let (message, options) = raw_request(None).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("never recovers")?;
 
@@ -683,12 +836,22 @@ async fn test_call_raw_every_attempt_carries_the_same_headers_and_bytes(
     ]);
     let client = wrap(inner, fast_config()?);
     let metadata = Metadata::create(vec![MetadataEntry::create("x-token", "abc")?]);
-    let request = CallRequest::create(
+    let request = CallRequest::new(
         b"payload".to_vec(),
         CallOptions::create(FIVE_SECONDS, metadata),
     );
 
-    client.call_raw(path()?, request).await?;
+    client
+        .call_raw({
+            let (message, options) = request.into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(path()?)
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawResponse::into_response)?;
 
     let attempts = seen.attempts();
     assert_eq!(attempts.len(), 3);
@@ -798,7 +961,7 @@ async fn test_call_typed_message_that_cannot_be_encoded_fails_before_any_attempt
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (inner, seen) = ScriptedTransport::new(vec![Outcome::Ok]);
     let client = wrap(inner, fast_config()?);
-    let request = CallRequest::create(
+    let request = CallRequest::new(
         Unencodable,
         CallOptions::create(FIVE_SECONDS, Metadata::default()),
     );

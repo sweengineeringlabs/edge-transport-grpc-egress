@@ -73,7 +73,7 @@ fn client_for(endpoint: String) -> Result<impl Transport, Box<dyn Error>> {
 }
 
 fn ask(service: &str) -> CallRequest<HealthCheckRequest> {
-    CallRequest::create(
+    CallRequest::new(
         HealthCheckRequest {
             service: service.to_string(),
         },

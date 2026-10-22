@@ -1,13 +1,18 @@
 //! [`Transport`] and [`RawTransport`] for [`GrpcRetryClient`].
 
+use proto_pattern::{
+    BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
+    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
+    CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
+    CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequest,
+    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
+    CallServerStreamRequest, CallServerStreamResponse, ClientStreamMethod, MessageStream, Payload,
+    RawTransport, ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
+};
 use std::future::Future;
 use std::time::{Duration, Instant};
 
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, MethodPath, Payload, RawTransport, ResponseStream, ServerStreamMethod,
-    StatusCode, Transport, UnaryMethod,
-};
 use tracing::{debug, trace, warn};
 
 use edge_transport_retry::{BackoffScheduler, DefaultJitterRng};
@@ -28,14 +33,14 @@ impl<T: Transport + RawTransport> Transport for GrpcRetryClient<T> {
         if self.config.max_attempts <= 1 {
             return self
                 .inner
-                .call::<M>(CallRequest::create(message, options))
+                .call::<M>(CallRequest::new(message, options))
                 .await;
         }
         let mut encoded = Vec::with_capacity(message.estimate_encoded_len());
         message
             .encode_into(&mut encoded)
             .map_err(CallError::Encode)?;
-        let encoded = encoded;
+
         let mut first = Some(message);
         self.run_with_retry(M::PATH, options.get_timeout(), |attempt_timeout| {
             let message = first.take();
@@ -47,7 +52,7 @@ impl<T: Transport + RawTransport> Transport for GrpcRetryClient<T> {
                     None => <M::Request as Payload>::decode(encoded).map_err(CallError::Decode)?,
                 };
                 self.inner
-                    .call::<M>(CallRequest::create(
+                    .call::<M>(CallRequest::new(
                         message,
                         CallOptions::create(attempt_timeout, metadata),
                     ))
@@ -59,29 +64,34 @@ impl<T: Transport + RawTransport> Transport for GrpcRetryClient<T> {
 
     async fn call_server_stream<M: ServerStreamMethod>(
         &self,
-        request: CallRequest<M::Request>,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
+        request: CallServerStreamRequest<M::Request>,
+    ) -> Result<
+        CallServerStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
         self.inner.call_server_stream::<M>(request).await
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<M::Response, <Self as Transport>::Metadata>, CallError> {
-        self.inner
-            .call_client_stream::<M, S>(requests, options)
-            .await
+        request: CallClientStreamRequest<S>,
+    ) -> Result<CallClientStreamResponse<M::Response, <Self as Transport>::Metadata>, CallError>
+    {
+        self.inner.call_client_stream::<M, S>(request).await
     }
 
     async fn call_bidi_stream<M: BidiStreamMethod, S: MessageStream<M::Request> + 'static>(
         &self,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>, CallError>
-    {
-        self.inner.call_bidi_stream::<M, S>(requests, options).await
+        request: CallBidiStreamRequest<S>,
+    ) -> Result<
+        CallBidiStreamResponse<
+            impl ResponseStream<M::Response, Metadata = <Self as Transport>::Metadata>,
+        >,
+        CallError,
+    > {
+        self.inner.call_bidi_stream::<M, S>(request).await
     }
 }
 
@@ -91,10 +101,10 @@ impl<T: Transport + RawTransport> RawTransport for GrpcRetryClient<T> {
     /// A raw unary call, retried: the bytes of the request are sent again on each attempt.
     async fn call_raw(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
-        let (body, options) = request.into_parts();
+        request: CallRawRequest,
+    ) -> Result<CallRawResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, message, options) = request.into_parts();
+        let body = message;
         self.run_with_retry(path.get_path(), options.get_timeout(), |attempt_timeout| {
             let path = path.clone();
             let body = body.clone();
@@ -102,8 +112,11 @@ impl<T: Transport + RawTransport> RawTransport for GrpcRetryClient<T> {
             async move {
                 self.inner
                     .call_raw(
-                        path,
-                        CallRequest::create(body, CallOptions::create(attempt_timeout, metadata)),
+                        CallRawRequestBuilder::new()
+                            .with_path(path)
+                            .with_message(body)
+                            .with_options(CallOptions::create(attempt_timeout, metadata))
+                            .build(),
                     )
                     .await
             }
@@ -113,33 +126,59 @@ impl<T: Transport + RawTransport> RawTransport for GrpcRetryClient<T> {
 
     async fn call_raw_server_stream(
         &self,
-        path: MethodPath,
-        request: CallRequest<Vec<u8>>,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
-        self.inner.call_raw_server_stream(path, request).await
+        request: CallRawServerStreamRequest,
+    ) -> Result<
+        CallRawServerStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, message, options) = request.into_parts();
+        self.inner
+            .call_raw_server_stream(
+                CallRawServerStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_message(message)
+                    .with_options(options)
+                    .build(),
+            )
+            .await
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<CallResponse<Vec<u8>, <Self as RawTransport>::Metadata>, CallError> {
+        request: CallRawClientStreamRequest<S>,
+    ) -> Result<CallRawClientStreamResponse<<Self as RawTransport>::Metadata>, CallError> {
+        let (path, requests, options) = request.into_parts();
         self.inner
-            .call_raw_client_stream(path, requests, options)
+            .call_raw_client_stream(
+                CallRawClientStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
             .await
     }
 
     async fn call_raw_bidi_stream<S: MessageStream<Vec<u8>> + 'static>(
         &self,
-        path: MethodPath,
-        requests: S,
-        options: CallOptions,
-    ) -> Result<impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>, CallError>
-    {
+        request: CallRawBidiStreamRequest<S>,
+    ) -> Result<
+        CallRawBidiStreamResponse<
+            impl ResponseStream<Vec<u8>, Metadata = <Self as RawTransport>::Metadata>,
+        >,
+        CallError,
+    > {
+        let (path, requests, options) = request.into_parts();
         self.inner
-            .call_raw_bidi_stream(path, requests, options)
+            .call_raw_bidi_stream(
+                CallRawBidiStreamRequestBuilder::new()
+                    .with_path(path)
+                    .with_requests(requests)
+                    .with_options(options)
+                    .build(),
+            )
             .await
     }
 }

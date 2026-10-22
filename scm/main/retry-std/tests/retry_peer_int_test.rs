@@ -1,6 +1,14 @@
 //! The retry decorator against a real in-process gRPC peer: what the peer sees of a retried call, a call that is not
 //! retried, and the three streaming shapes the decorator forwards.
 
+use proto_pattern::{
+    CallError, CallOptions, CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse,
+    CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequestBuilder,
+    CallRawResponse, CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest,
+    CallServerStreamRequest, CallServerStreamResponse, DecodeError, EncodeError, MessageStream,
+    Metadata, Method, Payload, RawTransport, ReadMessageRequest, ReadMessageResponse,
+    ServerStreamMethod, StatusCode, Transport, UnaryMethod,
+};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::time::{Duration, Instant};
@@ -11,10 +19,6 @@ use grpc_egress_retry_std::{GrpcRetryConfigProvider, StdGrpcRetryFactory};
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::GrpcChannelConfig;
 use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::{
-    CallError, CallOptions, CallRequest, DecodeError, EncodeError, MessageStream, Method, Payload,
-    RawTransport, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
-};
 
 /// A text message, as a `Payload`: its encoding is its bytes.
 #[derive(Debug, Clone, PartialEq)]
@@ -73,8 +77,11 @@ impl ListSource {
 }
 
 impl MessageStream<Vec<u8>> for ListSource {
-    async fn read_message(&mut self) -> Result<Option<Vec<u8>>, CallError> {
-        Ok(self.messages.pop_front())
+    async fn read_message(
+        &mut self,
+        _request: ReadMessageRequest,
+    ) -> Result<ReadMessageResponse<Vec<u8>>, CallError> {
+        Ok(ReadMessageResponse::new(self.messages.pop_front()))
     }
 }
 
@@ -130,11 +137,16 @@ async fn test_call_raw_invalid_argument_status_is_not_retried_and_the_peer_sees_
     let client = retrying(&peer.get_endpoint(), fast_config(5)?)?;
 
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", FIVE_SECONDS),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("must fail")?;
 
@@ -160,11 +172,16 @@ async fn test_call_raw_unavailable_status_throughout_reaches_the_peer_max_attemp
     let client = retrying(&peer.get_endpoint(), fast_config(3)?)?;
 
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", FIVE_SECONDS),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("never recovers")?;
 
@@ -190,11 +207,16 @@ async fn test_call_raw_hard_quota_resource_exhausted_is_terminal_and_the_peer_se
     let client = retrying(&peer.get_endpoint(), fast_config(5)?)?;
 
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", FIVE_SECONDS),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("must fail")?;
 
@@ -221,11 +243,17 @@ async fn test_call_raw_rate_limit_waits_for_the_retry_after_the_peer_asked(
 
     let started = Instant::now();
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", Duration::from_secs(10)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"x", Duration::from_secs(10)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the peer limits every call")?;
     let elapsed = started.elapsed();
@@ -260,11 +288,17 @@ async fn test_call_raw_rate_limit_without_a_hint_waits_only_the_configured_backo
 
     let started = Instant::now();
     let _ = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", Duration::from_secs(10)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"x", Duration::from_secs(10)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the peer limits every call")?;
     let elapsed = started.elapsed();
@@ -288,11 +322,17 @@ async fn test_call_raw_timeout_shorter_than_the_next_backoff_stops_after_one_att
 
     let started = Instant::now();
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", Duration::from_millis(200)),
-        )
+        .call_raw({
+            let (message, options) =
+                CallFixture::request(b"x", Duration::from_millis(200)).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the peer is down")?;
     let elapsed = started.elapsed();
@@ -341,22 +381,32 @@ async fn test_call_raw_connection_refused_pauses_at_least_the_backoff_of_the_sha
         let client = retrying(&closed.get_endpoint(), fast_config(1)?)?;
         let started = Instant::now();
         let _ = client
-            .call_raw(
-                CallFixture::path("svc.Test/Method"),
-                CallFixture::request(b"x", FIVE_SECONDS),
-            )
-            .await;
+            .call_raw({
+                let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("svc.Test/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
         started.elapsed()
     };
     let client = retrying(&closed.get_endpoint(), cfg)?;
 
     let started = Instant::now();
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", FIVE_SECONDS),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("nothing listens")?;
     let elapsed = started.elapsed();
@@ -385,9 +435,9 @@ async fn test_call_typed_unavailable_status_throughout_sends_the_encoded_message
 ) -> Result<(), Box<dyn Error>> {
     let peer = PeerServer::start(status_peer("14", "down", None)).await?;
     let client = retrying(&peer.get_endpoint(), fast_config(3)?)?;
-    let request = CallRequest::create(
+    let request = CallRequest::new(
         Text("typed payload".to_string()),
-        CallOptions::create(Some(FIVE_SECONDS), proto_pattern::Metadata::default()),
+        CallOptions::create(Some(FIVE_SECONDS), Metadata::default()),
     );
 
     let err = client
@@ -418,9 +468,9 @@ async fn test_call_typed_unavailable_status_throughout_sends_the_encoded_message
 async fn test_call_typed_answered_once_returns_the_decoded_message() -> Result<(), Box<dyn Error>> {
     let peer = PeerServer::start(PeerBehaviour::Reply(b"typed answer".to_vec())).await?;
     let client = retrying(&peer.get_endpoint(), fast_config(3)?)?;
-    let request = CallRequest::create(
+    let request = CallRequest::new(
         Text("question".to_string()),
-        CallOptions::create(Some(FIVE_SECONDS), proto_pattern::Metadata::default()),
+        CallOptions::create(Some(FIVE_SECONDS), Metadata::default()),
     );
 
     let response = client.call::<Echo>(request).await?;
@@ -438,14 +488,31 @@ async fn test_call_raw_server_stream_forwards_and_returns_the_peers_message(
     let client = retrying(&peer.get_endpoint(), fast_config(3)?)?;
 
     let mut stream = client
-        .call_raw_server_stream(
-            CallFixture::path("svc.Test/Watch"),
-            CallFixture::request(b"x", FIVE_SECONDS),
-        )
-        .await?;
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Watch"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
+        .await
+        .map(CallRawServerStreamResponse::into_stream)?;
 
-    assert_eq!(stream.read_message().await?, Some(b"one".to_vec()));
-    assert_eq!(stream.read_message().await?, None);
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        Some(b"one".to_vec())
+    );
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        None
+    );
     assert_eq!(peer.get_recorded_requests().len(), 1);
     Ok(())
 }
@@ -456,18 +523,33 @@ async fn test_call_server_stream_typed_forwards_and_returns_the_decoded_message(
 ) -> Result<(), Box<dyn Error>> {
     let peer = PeerServer::start(PeerBehaviour::Reply(b"typed one".to_vec())).await?;
     let client = retrying(&peer.get_endpoint(), fast_config(3)?)?;
-    let request = CallRequest::create(
+    let request = CallRequest::new(
         Text("x".to_string()),
-        CallOptions::create(Some(FIVE_SECONDS), proto_pattern::Metadata::default()),
+        CallOptions::create(Some(FIVE_SECONDS), Metadata::default()),
     );
 
-    let mut stream = client.call_server_stream::<Watch>(request).await?;
+    let mut stream = client
+        .call_server_stream::<Watch>({
+            let (message, options) = request.into_parts();
+            CallServerStreamRequest::new(message, options)
+        })
+        .await
+        .map(CallServerStreamResponse::into_stream)?;
 
     assert_eq!(
-        stream.read_message().await?,
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
         Some(Text("typed one".to_string()))
     );
-    assert_eq!(stream.read_message().await?, None);
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        None
+    );
     Ok(())
 }
 
@@ -480,11 +562,14 @@ async fn test_call_raw_client_stream_forwards_every_request_message_and_returns_
 
     let response = client
         .call_raw_client_stream(
-            CallFixture::path("svc.Test/Join"),
-            ListSource::of(&[b"a", b"b"]),
-            CallOptions::create(Some(FIVE_SECONDS), proto_pattern::Metadata::default()),
+            CallRawClientStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Join"))
+                .with_requests(ListSource::of(&[b"a", b"b"]))
+                .with_options(CallOptions::create(Some(FIVE_SECONDS), Metadata::default()))
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawClientStreamResponse::into_response)?;
 
     assert_eq!(response.get_message(), b"joined");
     let requests = peer.get_recorded_requests();
@@ -507,15 +592,36 @@ async fn test_call_raw_bidi_stream_forwards_and_returns_the_peers_echo(
 
     let mut stream = client
         .call_raw_bidi_stream(
-            CallFixture::path("svc.Test/Chat"),
-            ListSource::of(&[b"one", b"two"]),
-            CallOptions::create(Some(FIVE_SECONDS), proto_pattern::Metadata::default()),
+            CallRawBidiStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Chat"))
+                .with_requests(ListSource::of(&[b"one", b"two"]))
+                .with_options(CallOptions::create(Some(FIVE_SECONDS), Metadata::default()))
+                .build(),
         )
-        .await?;
+        .await
+        .map(CallRawBidiStreamResponse::into_stream)?;
 
-    assert_eq!(stream.read_message().await?, Some(b"one".to_vec()));
-    assert_eq!(stream.read_message().await?, Some(b"two".to_vec()));
-    assert_eq!(stream.read_message().await?, None);
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        Some(b"one".to_vec())
+    );
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        Some(b"two".to_vec())
+    );
+    assert_eq!(
+        stream
+            .read_message(ReadMessageRequest::new())
+            .await
+            .map(ReadMessageResponse::into_message)?,
+        None
+    );
     Ok(())
 }
 
@@ -529,16 +635,22 @@ async fn test_call_raw_server_stream_unavailable_status_is_not_retried(
     let client = retrying(&peer.get_endpoint(), fast_config(5)?)?;
 
     let failure = match client
-        .call_raw_server_stream(
-            CallFixture::path("svc.Test/Watch"),
-            CallFixture::request(b"x", FIVE_SECONDS),
-        )
+        .call_raw_server_stream({
+            let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+            CallRawServerStreamRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Watch"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawServerStreamResponse::into_stream)
     {
         Err(error) => error,
         Ok(mut stream) => stream
-            .read_message()
+            .read_message(ReadMessageRequest::new())
             .await
+            .map(ReadMessageResponse::into_message)
             .err()
             .ok_or("the peer answers every call with a failure")?,
     };
@@ -569,11 +681,16 @@ async fn test_call_raw_unavailable_throughout_pauses_between_attempts_only_and_n
 
     let started = Instant::now();
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", FIVE_SECONDS),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"x", FIVE_SECONDS).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("the peer is down")?;
     let elapsed = started.elapsed();
@@ -610,11 +727,16 @@ async fn test_call_raw_zero_timeout_fails_with_deadline_exceeded_and_the_peer_se
     let client = retrying(&peer.get_endpoint(), fast_config(3)?)?;
 
     let err = client
-        .call_raw(
-            CallFixture::path("svc.Test/Method"),
-            CallFixture::request(b"x", Duration::ZERO),
-        )
+        .call_raw({
+            let (message, options) = CallFixture::request(b"x", Duration::ZERO).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("svc.Test/Method"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await
+        .map(CallRawResponse::into_response)
         .err()
         .ok_or("a zero budget cannot make a call")?;
 
