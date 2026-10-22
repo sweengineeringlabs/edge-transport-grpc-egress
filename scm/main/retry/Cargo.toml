@@ -1,2 +1,37 @@
 [package]
-name = "edge-transport-grpc-egress-retry"
+name = "grpc-egress-retry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "gRPC egress retry domain: contracts, requests, responses, errors and the retry policy. No implementation."
+keywords = ["grpc", "retry", "domain", "swe"]
+categories = ["network-programming"]
+
+[package.metadata.struct-engine]
+application_type = "port"
+service_type = "processor"
+
+[package.metadata.arch]
+application_type = "port"
+service_type = "processor"
+
+[dependencies]
+grpc-egress-transport = { path = "../transport" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
+edge-transport-retry-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
+serde = { version = "1.0", features = ["derive"] }
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+
+[dev-dependencies]
+tokio = { version = "1.52", features = ["macros", "rt"] }
+
+[lints.rust]
+unsafe_code  = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
