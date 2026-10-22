@@ -9,7 +9,15 @@ word.
 
 ## [Unreleased]
 
-Issue 60: programming over the interface (ADR-010). Everything another module calls is defined in a domain crate;
+## [0.10.0] - 2026-10-22
+
+### Security
+
+Updated `webpki-roots` to 1.0.10 and `rustls-webpki` to 0.103.16 in the lockfile to resolve RustSec-2026-0381 and RustSec-2026-0382.
+
+### Issue 60: programming over the interface (ADR-010)
+
+Everything another module calls is defined in a domain crate;
 `std/` and `spi/` only implement those traits on `pub(crate)` types; `std/` names no third-party crate. No method is
 removed and no behaviour changes: every operation below is reachable by the new way, and the tests that exercised
 the old path keep their names. `TonicGrpcEgressBuilderSpiFactory::new(endpoint)`, the builder traits and every `saf/`
