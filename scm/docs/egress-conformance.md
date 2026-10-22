@@ -4,7 +4,7 @@
 **Source revision:** `f318b44` (`dev`, 2026-10-22).
 **Governing reference:** [Agent Deployment Architecture](https://github.com/sweengineeringlabs/llm-agent-deployment-spec/blob/6a71e2ddac31579ca314919e3e54ca5c45d054cf/docs/3-design/architecture.md), especially **Two Phases**, **Direct identity accessors**, **Value Objects**, **VO constructor visibility**, **Responses Own Their VOs**, **Response Field Privacy**, **Request Construction**, and **SAF Encapsulation**. Local implementation boundaries are additionally governed by [ADR-006](adr/ADR-006-domain-first.md) and [ADR-010](adr/ADR-010-programming-over-the-interface.md).
 
-This is deliberately a source-evidence document, not a compliance claim. Issue #62 requires a complete inventory across transport, retry, breaker, resilient composition and bearer authentication before implementation changes. The rows below capture the first confirmed construction and encapsulation gaps; other public types and method families remain to be inventoried.
+This is deliberately a source-evidence document, not a compliance claim. Issue #62 requires a complete inventory across transport, retry, breaker, resilient composition and bearer authentication before implementation changes. The inventory below records the public API families and export boundaries; the rows after it capture confirmed construction and encapsulation gaps.
 
 ## Phase and ownership distinctions applied
 
@@ -16,6 +16,26 @@ This is deliberately a source-evidence document, not a compliance claim. Issue #
 | Response-owned configuration VOs are created internally by their response constructor. | Do not apply this visibility rule to caller-supplied configuration inputs. Preserve the distinction between a caller's policy value and a configuration value created only as response data. | Classify each VO by ownership before setting constructor visibility. |
 | Requests use `new()` for zero or fewer than three parameters and a builder for three or more. Build requests are construction-phase parameter bundles and are explicitly exempt. | Do not blanket-wrap identity accessors or rename build requests as exposure requests. | Request/response scanner and compile-fail constructor/field tests. |
 | SAF modules are private; public factory types are canonically re-exported; implementation types stay opaque. | Consumers import root-level SAF factory exports and domain-owned traits/types. Contract types remain owned by `proto-pattern`; implementations do not duplicate them. | Compile-fail hidden-module tests and canonical-export scanner. |
+
+## Public API inventory
+
+The following is the root-export inventory from the domain crates at `f318b44`. Build DTOs below are construction-phase factory inputs and therefore use the build-request exception. The only identified exposure operation is breaker state observation; its `ObserveStateRequest`/`ObserveStateResponse` pair is present. Caller identity methods are direct property accessors, not exposure operations, and carry no request wrapper.
+
+| Domain | Public traits and method families | Public DTO / value / error families | Phase classification |
+|---|---|---|---|
+| `grpc-egress-transport` | Builder and builder factory (`with_*`, `build`); metadata extender; cancellation signal/factory; caller identity/factory; interceptor and chain/factories; outbound-call view; TLS resolver/factory, mTLS factory, channel-config builder/factory; load-balancer provider/factory. | Build requests for builder, cancellation, caller identity, interceptor/chain, channel config, mTLS, TLS resolution, and load-balancer provider; `InboundReply`; `GrpcChannelConfig`, `KeepAliveConfig`, `MtlsConfig`, compression mode; `BackendTarget`, `BalancingStrategy`, `LoadbalancerSettings`; channel error; `TraceContextSource`. | Builder/factory `with_*` and `build` methods are configuration/construction. Resolver, provider, interceptor, and cancellation methods are operational APIs. `CallerIdentity` is direct identity/property access. No request/response pair is needed for its accessors. |
+| `grpc-egress-retry` | Retry config builder/factory; config provider/factory; retry decorator factory; retry classifier/factory. | Build requests for config builder/provider, retry decorator, classifier; `GrpcRetryConfig`; `RetryDecision`; `ResourceExhaustedContext`; retry error. | Builders/factories are construction/configuration. Provider parsing/validation and classifier operations are operational; these return values directly rather than exposing response DTOs. |
+| `grpc-egress-breaker` | Breaker config provider/factory; breaker decorator factory; failure classifier; observable. | Build requests for provider and decorator; `ObserveStateRequest`/`ObserveStateResponse`; `GrpcBreakerConfig`; `BreakerState`; `Outcome`; breaker errors and logging constants. | Provider/decorator are construction/configuration. `BreakerObservable::state` is an exposure operation and has the matching operation-specific request/response. Classification is operational. |
+| `grpc-egress-resilient` | Resilient decorator factory; resilience config provider/factory. | Build requests for decorator and provider; `ResilienceConfig`; resilient transport error. | Factories are construction/configuration. Provider parse/validate/convert methods are operational APIs returning their corresponding domain values. |
+| `grpc-egress-auth-bearer` | Bearer config builder/factory; secret guard/factory; JWT claims builder/factory; validator. | Build requests for bearer config, secret guard, and claims builder; `BearerEgressConfig`, `BearerSecret`, `JwtClaims`; bearer-auth error and metadata-key constants. | Builders/factories are construction/configuration. Secret comparison and validation are operational APIs. |
+
+### Export-boundary findings
+
+All five domain crates expose their API through root-level re-exports and keep their internal `api` module private. The five implementation crates also declare `mod saf` privately and re-export their SAF factory types from the crate root, which matches the canonical factory path rule. `proto_pattern` is re-exported by transport, retry, and breaker as the contract namespace; resilient and bearer do not add that re-export.
+
+`grpc-egress-transport-std` additionally root-re-exports `edge_security_runtime::SecurityContext` and SPI types `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, `HealthStatus`, `SecurityContextIdentity`, and `TokenCancellation`. These are public crate-root paths but are not SAF factories. They are an API-boundary exception requiring consumer/use-site evidence and explicit classification before removal or relocation; this audit alone does not treat them as violations. The other four implementation roots expose only SAF factories in their current `pub use` declarations.
+
+Build-request DTOs mostly carry private fields and are created through `new()`; generic requests such as `BuildGrpcRetryRequest<T>` carry the caller's transport through `new(...)`. Exposure DTO fields and constructors still require a per-type visibility audit. The inventory does not establish that every public type is canonical or that every operation DTO meets its exact constructor/field rules.
 
 ## Confirmed VO construction gaps
 
@@ -30,9 +50,9 @@ This is deliberately a source-evidence document, not a compliance claim. Issue #
 
 These findings identify real construction bypasses; they do not prescribe request wrappers or redesign exposure APIs. Existing per-factory validation remains useful defense in depth, but it does not make an invalid public VO impossible to construct.
 
-## Inventory still required before implementation selection
+## Remaining evidence required before implementation selection
 
-- Enumerate every public trait method, DTO, VO, error, factory and canonical root export in each domain/implementation pair, including interceptor, cancellation, caller identity, TLS, load balancing, bearer auth and health types.
-- Classify methods as configuration, exposure operation or direct identity accessor; map each exposure operation to request/response files and each constructor to its ownership rule.
+- Audit each inventoried public trait method and DTO constructor/field at line level, including ownership and parameter count; check all re-exported health/SPI types against external use sites.
+- Resolve whether the extra transport-std root exports are intentional public API, then add a canonical-export/hidden-module enforcement check.
 - Recheck source paths and line-level evidence at the implementation commit, and record the required scanner or test for every row.
 - Separate egress-local changes from changes that need released `proto-pattern`/`proto-svc` APIs. Keep #61's unaccepted cross-cutting migration outside this issue.
