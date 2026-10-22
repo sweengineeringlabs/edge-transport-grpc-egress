@@ -1,0 +1,43 @@
+# Dependency policy for the whole workspace (run `cargo deny check` from scm/).
+#
+# The license list is the set of permissive licenses that the resolved dependency tree actually
+# uses (checked with `cargo metadata`, 228 external packages); an `OR` expression is accepted when
+# one of its branches is allowed. A new license is added here on purpose, with a reason, never to
+# make a check pass.
+
+[advisories]
+# No advisory is ignored. A real advisory is fixed by updating the dependency.
+ignore = []
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+    "Unlicense",
+    "MIT-0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+]
+# `option-ext` (a transitive dependency of `dirs`, through edge-security) is the only package under
+# MPL-2.0, a file-level copyleft: it is allowed for that package alone and for no other.
+exceptions = [{ allow = ["MPL-2.0"], crate = "option-ext" }]
+
+[bans]
+multiple-versions = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = [
+    "https://github.com/sweengineeringlabs/edge-security.git",
+    "https://github.com/sweengineeringlabs/edge-configbuilder.git",
+    "https://github.com/sweengineeringlabs/edge-loadbalancer.git",
+    "https://github.com/sweengineeringlabs/edge-transport-breaker.git",
+    "https://github.com/sweengineeringlabs/edge-transport-retry.git",
+    "https://github.com/sweengineeringlabs/proto-pattern.git",
+    "https://github.com/sweengineeringlabs/proto-svc.git",
+]

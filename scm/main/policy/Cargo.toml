@@ -1,2 +1,0 @@
-[dependencies]
-edge-transport-grpc-egress-retry-policy = "1"
