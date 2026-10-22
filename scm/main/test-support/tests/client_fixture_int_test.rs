@@ -39,11 +39,10 @@ async fn test_from_config_plaintext_endpoint_builds_a_client_that_reaches_the_pe
 
 /// @covers: ClientFixture::from_config
 #[test]
-fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused() {
+fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused() -> Result<(), Box<dyn Error>>
+{
     Fixture::ensure_tls_provider();
-    let config = config_builder("http://127.0.0.1:1")
-        .build()
-        .expect("valid endpoint configuration");
+    let config = config_builder("http://127.0.0.1:1").build()?;
 
     let result = ClientFixture::from_config(&config);
 
@@ -51,6 +50,7 @@ fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused() {
         result,
         Err(GrpcChannelConfigError::PlaintextRejected(_))
     ));
+    Ok(())
 }
 
 fn config_builder(
