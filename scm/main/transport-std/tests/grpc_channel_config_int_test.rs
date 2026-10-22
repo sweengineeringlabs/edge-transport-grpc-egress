@@ -3,15 +3,8 @@
 //! Verifies the **fail-closed TLS-by-default invariant** at the
 //! public-facade boundary via the `create_transport_from_config` factory.
 
-<<<<<<< HEAD
 use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use grpc_egress_transport::GrpcEgressInterceptorChain as _;
-=======
-use proto_pattern::{
-    CallError, CallRawRequestBuilder, CallRawResponse, CallResponse, Metadata, RawTransport,
-    StatusCode,
-};
->>>>>>> fix/18-deny-allow-git
 use std::sync::Arc;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture};
@@ -19,15 +12,11 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError,
     GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
 };
-<<<<<<< HEAD
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallError, CallResponse, Metadata, RawTransport, StatusCode};
-=======
-use grpc_egress_transport_std::{
-    GrpcChannelConfigFactory, GrpcEgressInterceptorChain, TonicGrpcEgressBuilderSpiFactory,
-    TraceContextGrpcEgressInterceptor,
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, CallResponse, Metadata, RawTransport,
+    StatusCode,
 };
->>>>>>> fix/18-deny-allow-git
 
 fn ensure_rustls_provider() {
     use std::sync::Once;

@@ -1,11 +1,7 @@
 //! The retry decorator against a real in-process gRPC peer: what the peer sees of a retried call, a call that is not
 //! retried, and the three streaming shapes the decorator forwards.
 
-<<<<<<< HEAD
-use grpc_egress_retry::GrpcRetryConfigProvider as _;
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{
+use grpc_egress_retry::proto_pattern::{
     CallError, CallOptions, CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse,
     CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequestBuilder,
     CallRawResponse, CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest,
@@ -13,24 +9,16 @@ use proto_pattern::{
     Metadata, Method, Payload, RawTransport, ReadMessageRequest, ReadMessageResponse,
     ServerStreamMethod, StatusCode, Transport, UnaryMethod,
 };
->>>>>>> fix/18-deny-allow-git
 use std::collections::VecDeque;
 use std::error::Error;
 use std::time::{Duration, Instant};
 
 use edge_transport_retry::BackoffScheduler;
+use grpc_egress_retry::GrpcRetryConfigProvider as _;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-<<<<<<< HEAD
-use proto_pattern::{
-    CallError, CallOptions, CallRequest, DecodeError, EncodeError, MessageStream, Method, Payload,
-    RawTransport, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
-};
-=======
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
->>>>>>> fix/18-deny-allow-git
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 
 /// A text message, as a `Payload`: its encoding is its bytes.
 #[derive(Debug, Clone, PartialEq)]
@@ -141,7 +129,7 @@ fn status_peer(status: &str, message: &str, retry_after_secs: Option<u64>) -> Pe
 
 const FIVE_SECONDS: Duration = Duration::from_secs(5);
 
-/// @covers: GrpcRetryClient::call_raw — a status that is the caller's fault is not retried.
+/// @covers: GrpcRetryClient::call_raw â€” a status that is the caller's fault is not retried.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_invalid_argument_status_is_not_retried_and_the_peer_sees_one_request(
 ) -> Result<(), Box<dyn Error>> {
@@ -176,7 +164,7 @@ async fn test_call_raw_invalid_argument_status_is_not_retried_and_the_peer_sees_
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call_raw — an Unavailable status is retried up to max_attempts.
+/// @covers: GrpcRetryClient::call_raw â€” an Unavailable status is retried up to max_attempts.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_unavailable_status_throughout_reaches_the_peer_max_attempts_times(
 ) -> Result<(), Box<dyn Error>> {
@@ -211,7 +199,7 @@ async fn test_call_raw_unavailable_status_throughout_reaches_the_peer_max_attemp
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call_raw — a hard quota is terminal.
+/// @covers: GrpcRetryClient::call_raw â€” a hard quota is terminal.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_hard_quota_resource_exhausted_is_terminal_and_the_peer_sees_one_request(
 ) -> Result<(), Box<dyn Error>> {
@@ -246,7 +234,7 @@ async fn test_call_raw_hard_quota_resource_exhausted_is_terminal_and_the_peer_se
 /// The peer asks the caller to wait one second (`retry-after`): the pause before the retry is that long, though the
 /// configured rate-limit backoff is a millisecond.
 ///
-/// @covers: GrpcRetryClient::call_raw — the retry-after trailer.
+/// @covers: GrpcRetryClient::call_raw â€” the retry-after trailer.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_rate_limit_waits_for_the_retry_after_the_peer_asked(
 ) -> Result<(), Box<dyn Error>> {
@@ -291,7 +279,7 @@ async fn test_call_raw_rate_limit_waits_for_the_retry_after_the_peer_asked(
 
 /// The control of the test above: with no `retry-after` the pause is the configured backoff, a few milliseconds.
 ///
-/// @covers: GrpcRetryClient::call_raw — a rate limit with no hint.
+/// @covers: GrpcRetryClient::call_raw â€” a rate limit with no hint.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_rate_limit_without_a_hint_waits_only_the_configured_backoff(
 ) -> Result<(), Box<dyn Error>> {
@@ -325,7 +313,7 @@ async fn test_call_raw_rate_limit_without_a_hint_waits_only_the_configured_backo
 
 /// The next backoff does not fit in the call's timeout, so the decorator gives up after the first attempt.
 ///
-/// @covers: GrpcRetryClient::call_raw — the timeout is the total budget.
+/// @covers: GrpcRetryClient::call_raw â€” the timeout is the total budget.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_timeout_shorter_than_the_next_backoff_stops_after_one_attempt(
 ) -> Result<(), Box<dyn Error>> {
@@ -367,7 +355,7 @@ async fn test_call_raw_timeout_shorter_than_the_next_backoff_stops_after_one_att
 /// A refused connection is retried, and the pause between attempts is the one the shared backoff scheduler of
 /// `edge-transport-retry` computes for the policy.
 ///
-/// @covers: StdGrpcRetryFactory::build — the pause between attempts.
+/// @covers: StdGrpcRetryFactory::build â€” the pause between attempts.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_connection_refused_pauses_at_least_the_backoff_of_the_shared_scheduler(
 ) -> Result<(), Box<dyn Error>> {
@@ -441,7 +429,7 @@ async fn test_call_raw_connection_refused_pauses_at_least_the_backoff_of_the_sha
 
 /// A typed call is retried and the peer receives the encoded message of the caller on every attempt.
 ///
-/// @covers: GrpcRetryClient::call — the message of each attempt.
+/// @covers: GrpcRetryClient::call â€” the message of each attempt.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_typed_unavailable_status_throughout_sends_the_encoded_message_on_every_attempt(
 ) -> Result<(), Box<dyn Error>> {
@@ -475,7 +463,7 @@ async fn test_call_typed_unavailable_status_throughout_sends_the_encoded_message
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call — a typed call that succeeds is answered once, decoded.
+/// @covers: GrpcRetryClient::call â€” a typed call that succeeds is answered once, decoded.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_typed_answered_once_returns_the_decoded_message() -> Result<(), Box<dyn Error>> {
     let peer = PeerServer::start(PeerBehaviour::Reply(b"typed answer".to_vec())).await?;
@@ -492,7 +480,7 @@ async fn test_call_typed_answered_once_returns_the_decoded_message() -> Result<(
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call_raw_server_stream — forwarded to the inner client.
+/// @covers: GrpcRetryClient::call_raw_server_stream â€” forwarded to the inner client.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_server_stream_forwards_and_returns_the_peers_message(
 ) -> Result<(), Box<dyn Error>> {
@@ -529,7 +517,7 @@ async fn test_call_raw_server_stream_forwards_and_returns_the_peers_message(
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call_server_stream — forwarded to the inner client, typed.
+/// @covers: GrpcRetryClient::call_server_stream â€” forwarded to the inner client, typed.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_server_stream_typed_forwards_and_returns_the_decoded_message(
 ) -> Result<(), Box<dyn Error>> {
@@ -565,7 +553,7 @@ async fn test_call_server_stream_typed_forwards_and_returns_the_decoded_message(
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call_raw_client_stream — forwarded to the inner client.
+/// @covers: GrpcRetryClient::call_raw_client_stream â€” forwarded to the inner client.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_client_stream_forwards_every_request_message_and_returns_the_answer(
 ) -> Result<(), Box<dyn Error>> {
@@ -595,7 +583,7 @@ async fn test_call_raw_client_stream_forwards_every_request_message_and_returns_
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call_raw_bidi_stream — forwarded to the inner client.
+/// @covers: GrpcRetryClient::call_raw_bidi_stream â€” forwarded to the inner client.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_bidi_stream_forwards_and_returns_the_peers_echo(
 ) -> Result<(), Box<dyn Error>> {
@@ -639,7 +627,7 @@ async fn test_call_raw_bidi_stream_forwards_and_returns_the_peers_echo(
 
 /// A stream cannot be re-sent, so a stream that fails with a retryable status is not retried: the peer sees one request.
 ///
-/// @covers: GrpcRetryClient::call_raw_server_stream — streams are not retried.
+/// @covers: GrpcRetryClient::call_raw_server_stream â€” streams are not retried.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_server_stream_unavailable_status_is_not_retried(
 ) -> Result<(), Box<dyn Error>> {
@@ -684,7 +672,7 @@ async fn test_call_raw_server_stream_unavailable_status_is_not_retried(
 
 /// The last attempt is not followed by a pause: with three attempts there are two pauses, not three.
 ///
-/// @covers: GrpcRetryClient::call_raw — no backoff after the last attempt.
+/// @covers: GrpcRetryClient::call_raw â€” no backoff after the last attempt.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_unavailable_throughout_pauses_between_attempts_only_and_not_after_the_last(
 ) -> Result<(), Box<dyn Error>> {
@@ -731,7 +719,7 @@ async fn test_call_raw_unavailable_throughout_pauses_between_attempts_only_and_n
 
 /// A call whose budget is spent before the first attempt fails with `DeadlineExceeded` and never reaches the peer.
 ///
-/// @covers: GrpcRetryClient::call_raw — the budget is exhausted before an attempt.
+/// @covers: GrpcRetryClient::call_raw â€” the budget is exhausted before an attempt.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_zero_timeout_fails_with_deadline_exceeded_and_the_peer_sees_no_request(
 ) -> Result<(), Box<dyn Error>> {
@@ -766,20 +754,17 @@ async fn test_call_raw_zero_timeout_fails_with_deadline_exceeded_and_the_peer_se
     Ok(())
 }
 
-fn config_builder(
-    endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    new_config_builder().with_endpoint(endpoint)
-}
-
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
-    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
-}
-
 fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
     use grpc_egress_retry::GrpcRetryConfigProviderFactory;
     grpc_egress_retry_std::StdGrpcRetryConfigProviderFactory
         .build(grpc_egress_retry::BuildGrpcRetryConfigProviderRequest)
+}
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .with_endpoint(endpoint)
 }

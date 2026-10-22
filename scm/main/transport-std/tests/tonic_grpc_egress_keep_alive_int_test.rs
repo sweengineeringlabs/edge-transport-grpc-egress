@@ -3,14 +3,7 @@
 //! client can notice is by a PING that is not answered, and the proxy sees the client close.
 
 use grpc_egress_test_support::{CallFixture, ClientFixture};
-<<<<<<< HEAD
 use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
-use proto_pattern::{
-    CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode, Transport,
-};
->>>>>>> fix/18-deny-allow-git
 use std::error::Error;
 use std::time::{Duration, Instant};
 
@@ -21,6 +14,7 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallError, CallRawRequestBuilder, RawTransport, StatusCode, Transport};
 
 const PING_INTERVAL: Duration = Duration::from_millis(200);
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
@@ -44,7 +38,6 @@ async fn call<C: RawTransport>(client: &C, timeout: Duration) -> Result<(), Call
                 .build()
         })
         .await
-        .map(CallRawResponse::into_response)
         .map(|_| ())
 }
 

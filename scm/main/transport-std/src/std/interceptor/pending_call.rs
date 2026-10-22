@@ -1,16 +1,11 @@
 //! `PendingCall` -- the implementation of [`OutboundCall`]: a call that has not been sent.
 
-use proto_pattern::{
-    CallError, CallOptions, GetValuesRequest, GetValuesResponse, Metadata, MetadataView, StatusCode,
-};
 use std::time::Duration;
 
-<<<<<<< HEAD
-use grpc_egress_transport::proto_pattern::{CallError, CallOptions, Metadata, StatusCode};
+use grpc_egress_transport::proto_pattern::{
+    CallError, CallOptions, GetValuesRequest, GetValuesResponse, Metadata, MetadataView, StatusCode,
+};
 use grpc_egress_transport::{MetadataExtender, OutboundCall};
-=======
-use grpc_egress_transport::OutboundCall;
->>>>>>> fix/18-deny-allow-git
 
 use crate::std::client::StdMetadataExtender;
 

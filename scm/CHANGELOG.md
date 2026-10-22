@@ -9,7 +9,13 @@ word.
 
 ## [Unreleased]
 
-<<<<<<< HEAD
+### Proto dependency upgrade
+
+- Pin every consumer to `proto-pattern` v0.12.0 and the `proto-svc` crates v0.4.2.
+- Migrate raw and streaming calls, stream reads, and metadata queries to their operation-specific request/response types; typed unary requests and responses use `new`.
+- Build the engine through `TonicTransportSpiFactoryOptions::tonic_dual_builder`, `TransportConfiguration`, and `DualTransportBuilder`, retaining the existing keep-alive options.
+- Propagate metadata query and binary decoding errors when preparing interceptor replies.
+
 ## [0.10.0] - 2026-10-22
 
 ### Security
@@ -66,17 +72,6 @@ implementation depends on the domain crate only); `grpc_egress_transport::Metada
 `grpc_egress_breaker::FailureClassifier` and `Outcome`. In `-std` crates the code that names a third-party crate
 moved from `std/` to `spi/` (no public path changed for it, except as listed above). `scripts/check_layout.py` has
 rules 19 (`program_over_the_interface`), 20 (`std_names_no_third_party`) and 21 (`every_function_a_method`: no free function in `src/`). `deny.toml` lists the two git repositories (`proto-pattern`, `proto-svc`) that made `cargo deny check` fail on `sources`.
-=======
-### Proto dependency upgrade
-
-- Pin every consumer to `proto-pattern` v0.12.0 and the `proto-svc` crates v0.4.2.
-- Migrate raw and streaming calls, stream reads, and metadata queries to their operation-specific request/response types; typed unary requests and responses use `new`.
-- Build the engine through `TonicTransportSpiFactoryOptions::tonic_dual_builder`, `TransportConfiguration`, and `DualTransportBuilder`, retaining the existing keep-alive options.
-- Propagate metadata query and binary decoding errors when preparing interceptor replies.
-
-The issue 18 migration record below describes the original v0.10/v0.4 transition.
-Current call examples are in the root README and the composition-root example.
->>>>>>> fix/18-deny-allow-git
 
 
 Issue 18: the contract (`proto-pattern` 0.10) and the engine (`proto-svc` 0.4) are external, and the client is a

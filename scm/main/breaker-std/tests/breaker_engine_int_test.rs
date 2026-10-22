@@ -2,39 +2,38 @@
 //! what the engine reports for a refused connection and for the statuses a peer answers is what the breaker
 //! classifies, and an open circuit keeps calls away from the peer.
 
-<<<<<<< HEAD
-use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{
+use grpc_egress_breaker::proto_pattern::{
     CallError, CallOptions, CallRawRequestBuilder, CallRawResponse,
     CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
     DecodeError, EncodeError, MessageStream, Metadata, Method, Payload, RawTransport,
     ReadMessageRequest, ReadMessageResponse, StatusCode, Transport, UnaryMethod,
 };
->>>>>>> fix/18-deny-allow-git
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_breaker::{
     BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
-    GrpcBreakerFactory, ObserveStateRequest,
+    GrpcBreakerConfigProvider, GrpcBreakerFactory, ObserveStateRequest,
 };
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{
     CallFixture, ClientFixture, ClosedPort, Fixture, PeerBehaviour, PeerServer, RunningPeer,
 };
-<<<<<<< HEAD
-use proto_pattern::{
-    CallError, DecodeError, EncodeError, MessageStream, Method, Payload, RawTransport, StatusCode,
-    Transport, UnaryMethod,
-};
-=======
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
->>>>>>> fix/18-deny-allow-git
+use grpc_egress_transport::GrpcChannelConfigBuilder;
 
 const TIMEOUT: Duration = Duration::from_secs(5);
+
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    new_config_builder().with_endpoint(endpoint)
+}
+
+fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+}
 
 /// A message that is its own bytes.
 #[derive(Debug, PartialEq)]
@@ -75,6 +74,12 @@ fn fast_config() -> Result<GrpcBreakerConfig, Box<dyn Error>> {
             half_open_probe_count = 1
         "#,
     )?)
+}
+
+fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
+        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
 }
 
 /// A breaker around a real client for `endpoint`.
@@ -368,22 +373,4 @@ async fn test_call_typed_answered_call_returns_the_typed_response_and_keeps_the_
     assert_eq!(response.get_message(), &Bytes(b"pong".to_vec()));
     assert_eq!(state_of(&client).await?, BreakerState::Closed);
     Ok(())
-}
-
-fn config_builder(
-    endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    new_config_builder().with_endpoint(endpoint)
-}
-
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
-    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
-}
-
-fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
-    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
-    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
-        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
 }

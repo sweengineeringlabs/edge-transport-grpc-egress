@@ -2,13 +2,7 @@
 //! client certificate is presented, the configured root CA is the only one trusted, the server name is checked,
 //! and a file that cannot be used fails when the client is built, naming its path.
 
-<<<<<<< HEAD
 use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{
-    CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, TlsIdentity, TlsSettings,
-};
->>>>>>> fix/18-deny-allow-git
 use std::error::Error;
 use std::time::Duration;
 
@@ -20,15 +14,10 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, MtlsConfig,
 };
-<<<<<<< HEAD
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{CallError, RawTransport, TlsIdentity, TlsSettings};
-=======
-use grpc_egress_transport_std::{
-    GrpcChannelConfigFactory, MtlsConfigFactory, TlsSettingsResolver,
-    TonicGrpcEgressBuilderSpiFactory,
+use proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, TlsIdentity, TlsSettings,
 };
->>>>>>> fix/18-deny-allow-git
 
 fn path_of(path: std::path::PathBuf) -> String {
     path.to_string_lossy().into_owned()

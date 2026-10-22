@@ -818,19 +818,28 @@ async fn test_call_interceptor_sees_the_timeout_the_caller_set_and_none_when_the
     let client = Fixture::client(&peer, vec![Arc::new(SeeTimeout(Arc::clone(&seen)))])?;
 
     client
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            CallRequest::create(
+        .call_raw({
+            let (message, options) = CallRequest::new(
                 prost::Message::encode_to_vec(&Say::of("a")),
                 CallOptions::create(Some(Duration::from_secs(7)), Metadata::default()),
-            ),
-        )
+            )
+            .into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await?;
     client
-        .call_raw(
-            CallFixture::path("/test.Peer/Echo"),
-            Fixture::raw(&Say::of("b")),
-        )
+        .call_raw({
+            let (message, options) = Fixture::raw(&Say::of("b")).into_parts();
+            CallRawRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Echo"))
+                .with_message(message)
+                .with_options(options)
+                .build()
+        })
         .await?;
 
     let seen = seen

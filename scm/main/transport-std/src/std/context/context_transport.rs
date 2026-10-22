@@ -1,12 +1,6 @@
 //! `ContextTransport` -- a view of a client whose calls carry the headers of a caller's identity.
 
-<<<<<<< HEAD
 use grpc_egress_transport::proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, MethodPath, RawTransport, ResponseStream, ServerStreamMethod, StatusCode,
-    Transport, UnaryMethod,
-=======
-use proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
@@ -15,7 +9,6 @@ use proto_pattern::{
     CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
     CallServerStreamRequest, CallServerStreamResponse, ClientStreamMethod, MessageStream,
     RawTransport, ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
->>>>>>> fix/18-deny-allow-git
 };
 
 use super::ContextHeaders;
@@ -33,7 +26,6 @@ pub(crate) struct ContextTransport<'a, T> {
 }
 
 impl<'a, T> From<BuildGrpcCallerIdentityRequest<'a, '_, T>> for ContextTransport<'a, T> {
-    /// A view of the client that carries the headers of the identity.
     fn from(req: BuildGrpcCallerIdentityRequest<'a, '_, T>) -> Self {
         Self {
             inner: req.inner,

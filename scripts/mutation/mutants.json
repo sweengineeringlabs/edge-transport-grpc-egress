@@ -26,13 +26,8 @@
   {
     "name": "I05 after_call gets the trailers as headers",
     "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
-<<<<<<< HEAD
-    "find": "            headers: StdMetadataExtender.copy(headers),\n            trailers: StdMetadataExtender.copy(trailers),",
-    "replace": "            headers: StdMetadataExtender.copy(trailers),\n            trailers: StdMetadataExtender.copy(headers),"
-=======
-    "find": "            headers: MetadataExtender::copy(headers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,\n            trailers: MetadataExtender::copy(trailers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,",
-    "replace": "            headers: MetadataExtender::copy(trailers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,\n            trailers: MetadataExtender::copy(headers).map_err(|error| CallError::Transport {\n                path: path.into(),\n                code: StatusCode::Internal,\n                reason: error.to_string(),\n            })?,"
->>>>>>> fix/18-deny-allow-git
+    "find": "            headers: StdMetadataExtender\n                .copy(headers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,\n            trailers: StdMetadataExtender\n                .copy(trailers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,",
+    "replace": "            headers: StdMetadataExtender\n                .copy(trailers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,\n            trailers: StdMetadataExtender\n                .copy(headers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,"
   },
   {
     "name": "C01 after_call runs in reverse order",
@@ -72,26 +67,15 @@
   },
   {
     "name": "M01 an extension overwrites a header the call carries",
-<<<<<<< HEAD
     "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
-    "find": "            if source.get_values(key).is_empty() {",
-=======
-    "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
     "find": "            if source\n                .get_values(GetValuesRequest::new(key))?\n                .into_values()\n                .is_empty()\n            {",
->>>>>>> fix/18-deny-allow-git
     "replace": "            if true {"
   },
   {
     "name": "M02 binary entries are lost when metadata is extended",
-<<<<<<< HEAD
     "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
-    "find": "        for entry in MetadataView::get_binary_entries(source).flatten() {",
-    "replace": "        for entry in MetadataView::get_binary_entries(source).flatten().filter(|_| false) {"
-=======
-    "file": "scm/main/transport-std/src/std/client/metadata_extender.rs",
     "find": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries()\n        {",
     "replace": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries().filter(|_| false)\n        {"
->>>>>>> fix/18-deny-allow-git
   },
   {
     "name": "E01 the pool is never told a backend failed",
@@ -119,27 +103,15 @@
   },
   {
     "name": "X02 a raised signal does not end a message read",
-<<<<<<< HEAD
     "file": "scm/main/transport-std/src/spi/cancellation/signal/cancellable_response_stream.rs",
-    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            message = self.inner.read_message() => message,",
-    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            message = self.inner.read_message() => message,"
+    "find": "            () = self.signal.wait_cancelled() => Err(self.cancelled()),\n            message = self.inner.read_message(ReadMessageRequest::new()) => message,",
+    "replace": "            () = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            message = self.inner.read_message(ReadMessageRequest::new()) => message,"
   },
   {
     "name": "X03 a raised signal does not end the read of the trailers",
     "file": "scm/main/transport-std/src/spi/cancellation/signal/cancellable_response_stream.rs",
-    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,",
-    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            trailers = self.inner.read_trailers() => trailers,"
-=======
-    "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
-    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            message = self.inner.read_message(ReadMessageRequest::new()) => message,",
-    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            message = self.inner.read_message(ReadMessageRequest::new()) => message,"
-  },
-  {
-    "name": "X03 a raised signal does not end the read of the trailers",
-    "file": "scm/main/transport-std/src/std/cancellation/cancellable_response_stream.rs",
-    "find": "() = self.signal.wait_cancelled() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers(ReadTrailersRequest::new()) => trailers,",
-    "replace": "() = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            trailers = self.inner.read_trailers(ReadTrailersRequest::new()) => trailers,"
->>>>>>> fix/18-deny-allow-git
+    "find": "            () = self.signal.wait_cancelled() => Err(self.cancelled()),\n            trailers = self.inner.read_trailers(ReadTrailersRequest::new()) => trailers,",
+    "replace": "            () = async { let _ = &self.signal; std::future::pending::<()>().await } => Err(self.cancelled()),\n            trailers = self.inner.read_trailers(ReadTrailersRequest::new()) => trailers,"
   },
   {
     "name": "X04 a cancelled call fails with another code",
@@ -474,8 +446,8 @@
   {
     "name": "D14 copying metadata loses the text entries",
     "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
-    "find": "for entry in source.get_entries() {\n            // A key and value read from valid metadata are valid; if the check ever disagrees the entry is left out.",
-    "replace": "for entry in source.get_entries().take(0) {\n            // A key and value read from valid metadata are valid; if the check ever disagrees the entry is left out."
+    "find": "        for entry in source.get_entries(GetEntriesRequest::new())?.into_entries() {",
+    "replace": "        for entry in source.get_entries(GetEntriesRequest::new())?.into_entries().take(0) {"
   },
   {
     "name": "D15 a pending call forgets the timeout of the options",

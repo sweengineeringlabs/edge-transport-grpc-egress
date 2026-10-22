@@ -1,6 +1,6 @@
 //! `CancellableTransport` -- a view of a client whose calls end when a signal fires.
 
-use proto_pattern::{
+use grpc_egress_transport::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallRawBidiStreamRequest, CallRawBidiStreamRequestBuilder,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamRequestBuilder,
@@ -13,16 +13,7 @@ use proto_pattern::{
 use std::future::Future;
 use std::sync::Arc;
 
-<<<<<<< HEAD:scm/main/transport-std/src/spi/cancellation/signal/cancellable_transport.rs
 use grpc_egress_transport::{BuildGrpcCancellationRequest, CancellationSignal};
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, MethodPath, RawTransport, ResponseStream, ServerStreamMethod, StatusCode,
-    Transport, UnaryMethod,
-};
-=======
-use grpc_egress_transport::CancellationSignal;
->>>>>>> fix/18-deny-allow-git:scm/main/transport-std/src/std/cancellation/cancellable_transport.rs
 
 use super::cancellable_response_stream::CancellableResponseStream;
 
@@ -38,7 +29,6 @@ pub(crate) struct CancellableTransport<'a, T, S> {
 impl<'a, T, S: CancellationSignal> From<BuildGrpcCancellationRequest<'a, T, S>>
     for CancellableTransport<'a, T, S>
 {
-    /// A view of the client ended by the signal.
     fn from(req: BuildGrpcCancellationRequest<'a, T, S>) -> Self {
         Self {
             inner: req.inner,
@@ -47,7 +37,7 @@ impl<'a, T, S: CancellationSignal> From<BuildGrpcCancellationRequest<'a, T, S>>
     }
 }
 
-impl<T, S: CancellationSignal> CancellableTransport<'_, T, S> {
+impl<'a, T, S: CancellationSignal> CancellableTransport<'a, T, S> {
     fn cancelled(path: &str) -> CallError {
         CallError::Transport {
             path: path.into(),
@@ -99,17 +89,9 @@ impl<T: Transport + RawTransport, S: CancellationSignal + 'static> Transport
                     .map(CallServerStreamResponse::into_stream)
             })
             .await?;
-<<<<<<< HEAD:scm/main/transport-std/src/spi/cancellation/signal/cancellable_transport.rs
-        Ok(CancellableResponseStream::from((
-            stream,
-            Arc::clone(&self.signal),
-            M::PATH,
-        )))
-=======
         Ok(CallServerStreamResponse::new(
-            CancellableResponseStream::create(stream, Arc::clone(&self.signal), M::PATH),
+            CancellableResponseStream::from((stream, Arc::clone(&self.signal), M::PATH)),
         ))
->>>>>>> fix/18-deny-allow-git:scm/main/transport-std/src/std/cancellation/cancellable_transport.rs
     }
 
     async fn call_client_stream<M: ClientStreamMethod, R: MessageStream<M::Request> + 'static>(
@@ -138,17 +120,9 @@ impl<T: Transport + RawTransport, S: CancellationSignal + 'static> Transport
                     .map(CallBidiStreamResponse::into_stream)
             })
             .await?;
-<<<<<<< HEAD:scm/main/transport-std/src/spi/cancellation/signal/cancellable_transport.rs
-        Ok(CancellableResponseStream::from((
-            stream,
-            Arc::clone(&self.signal),
-            M::PATH,
-        )))
-=======
         Ok(CallBidiStreamResponse::new(
-            CancellableResponseStream::create(stream, Arc::clone(&self.signal), M::PATH),
+            CancellableResponseStream::from((stream, Arc::clone(&self.signal), M::PATH)),
         ))
->>>>>>> fix/18-deny-allow-git:scm/main/transport-std/src/std/cancellation/cancellable_transport.rs
     }
 }
 
@@ -201,17 +175,9 @@ impl<T: Transport + RawTransport, S: CancellationSignal + 'static> RawTransport
                     .map(CallRawServerStreamResponse::into_stream)
             })
             .await?;
-<<<<<<< HEAD:scm/main/transport-std/src/spi/cancellation/signal/cancellable_transport.rs
-        Ok(CancellableResponseStream::from((
-            stream,
-            Arc::clone(&self.signal),
-            &text[..],
-        )))
-=======
         Ok(CallRawServerStreamResponse::new(
-            CancellableResponseStream::create(stream, Arc::clone(&self.signal), &text),
+            CancellableResponseStream::from((stream, Arc::clone(&self.signal), text.as_str())),
         ))
->>>>>>> fix/18-deny-allow-git:scm/main/transport-std/src/std/cancellation/cancellable_transport.rs
     }
 
     async fn call_raw_client_stream<R: MessageStream<Vec<u8>> + 'static>(
@@ -258,16 +224,8 @@ impl<T: Transport + RawTransport, S: CancellationSignal + 'static> RawTransport
                     .map(CallRawBidiStreamResponse::into_stream)
             })
             .await?;
-<<<<<<< HEAD:scm/main/transport-std/src/spi/cancellation/signal/cancellable_transport.rs
-        Ok(CancellableResponseStream::from((
-            stream,
-            Arc::clone(&self.signal),
-            &text[..],
-        )))
-=======
         Ok(CallRawBidiStreamResponse::new(
-            CancellableResponseStream::create(stream, Arc::clone(&self.signal), &text),
+            CancellableResponseStream::from((stream, Arc::clone(&self.signal), text.as_str())),
         ))
->>>>>>> fix/18-deny-allow-git:scm/main/transport-std/src/std/cancellation/cancellable_transport.rs
     }
 }

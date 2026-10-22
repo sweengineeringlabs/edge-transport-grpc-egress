@@ -7,17 +7,13 @@
 
 mod tonic_peer;
 
-<<<<<<< HEAD
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{
+use grpc_egress_transport::proto_pattern::{
     BinaryMetadataEntry, CallError, CallOptions, CallRawRequestBuilder, CallRawResponse,
     CallRequest, CallServerStreamRequest, CallServerStreamResponse, GetBinaryEntriesRequest,
     GetValuesRequest, GetValuesResponse, MessageStream, Metadata, MetadataEntry, MetadataView,
     Method, Payload, RawTransport, ReadMessageRequest, ReadMessageResponse, ServerStreamMethod,
     StatusCode, Transport, UnaryMethod,
 };
->>>>>>> fix/18-deny-allow-git
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -25,7 +21,7 @@ use std::time::{Duration, Instant};
 use grpc_egress_test_support::{CallFixture, ClosedPort, Fixture};
 use grpc_egress_transport::{
     BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, GrpcCancellationFactory,
-    GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    GrpcChannelConfigBuilder as _, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::{
     StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
@@ -872,11 +868,8 @@ async fn test_call_raw_on_the_client_after_a_token_ended_a_call_through_a_view_s
 fn config_builder(
     endpoint: impl Into<String>,
 ) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    new_config_builder().with_endpoint(endpoint)
-}
-
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
     use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
         .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .with_endpoint(endpoint)
 }

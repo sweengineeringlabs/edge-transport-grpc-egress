@@ -5,10 +5,7 @@
 //! for every call, and these cases need a failure at a chosen call. The second group runs the whole stack against
 //! a real in-process gRPC peer and the real engine client.
 
-<<<<<<< HEAD
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{
+use grpc_egress_transport::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
@@ -19,7 +16,6 @@ use proto_pattern::{
     ReadMessageRequest, ReadMessageResponse, ReadTrailersRequest, ReadTrailersResponse,
     ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
 };
->>>>>>> fix/18-deny-allow-git
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -37,20 +33,20 @@ use grpc_egress_resilient_std::StdGrpcResilientFactory;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_std::StdGrpcRetryFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-<<<<<<< HEAD
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    DecodeError, EncodeError, MessageStream, Metadata, Method, MethodPath, Payload, RawTransport,
-    ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
-};
-=======
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
->>>>>>> fix/18-deny-allow-git
+use grpc_egress_transport::GrpcChannelConfigBuilder;
 
 const PATH: &str = "/svc/Method";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+fn config_builder(
+    endpoint: impl Into<String>,
+) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
+        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .with_endpoint(endpoint)
+}
+
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 fn guard<T: Transport + RawTransport + Send + Sync + 'static>(
     inner: T,
@@ -125,7 +121,7 @@ fn valid_resilience() -> ResilienceConfig {
     }
 }
 
-// ── ScriptedClient ─────────────────────────────────────────────────────────────
+// â”€â”€ ScriptedClient â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// A client that counts its calls and answers them from a script, in order; past the end of the script it
 /// succeeds. The decorators around it are the real ones; only the answers are scripted, so that a failure can be
@@ -345,9 +341,9 @@ fn never_trips() -> GrpcBreakerConfig {
     }
 }
 
-// ── facade smoke tests ────────────────────────────────────────────────────────
+// â”€â”€ facade smoke tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
-// `StdGrpcResilientFactory` is a decorator only — it never builds a base client (that is the composition root's
+// `StdGrpcResilientFactory` is a decorator only â€” it never builds a base client (that is the composition root's
 // job, ADR-004 amendment). These tests wrap `ScriptedClient` rather than a real transport; the stack against a real
 // peer is the second group of this file.
 
@@ -374,7 +370,7 @@ async fn test_apply_resilience_default_config_wraps_and_delegates_happy(
     Ok(())
 }
 
-/// @covers: apply_resilience — a transient failure is genuinely retried
+/// @covers: apply_resilience â€” a transient failure is genuinely retried
 #[tokio::test]
 async fn test_apply_resilience_retries_a_transient_failure_happy(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -404,7 +400,7 @@ async fn test_apply_resilience_retries_a_transient_failure_happy(
 
 /// A typed call goes through the stack as a typed call and is retried like a raw one.
 ///
-/// @covers: apply_resilience — typed unary
+/// @covers: apply_resilience â€” typed unary
 #[tokio::test]
 async fn test_apply_resilience_retries_a_typed_transient_failure_happy(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -437,23 +433,23 @@ fn test_apply_resilience_invalid_resilience_returns_error_edge() {
     ));
 }
 
-// ── retry amplification ───────────────────────────────────────────────────────
+// â”€â”€ retry amplification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// @covers: retry amplification — factor ≤ 1.5× under 20% failure rate
+/// @covers: retry amplification â€” factor â‰¤ 1.5Ã— under 20% failure rate
 ///
 /// 10 client calls; 2 fail once then succeed on the first retry.
-/// Expected server hits: 10 + 2 = 12 (1.2× amplification ≤ 1.5× threshold).
+/// Expected server hits: 10 + 2 = 12 (1.2Ã— amplification â‰¤ 1.5Ã— threshold).
 #[tokio::test]
 async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let hits = Arc::new(AtomicUsize::new(0));
     // Responses in pop order:
-    // call 1: ok              → 1 hit
-    // call 2: unavail → ok    → 2 hits (1 retry)
-    // calls 3-8: ok ×6        → 6 hits
-    // call 9: unavail → ok    → 2 hits (1 retry)
-    // call 10: ok             → 1 hit
-    // total: 12 hits for 10 calls → 1.2×
+    // call 1: ok              â†’ 1 hit
+    // call 2: unavail â†’ ok    â†’ 2 hits (1 retry)
+    // calls 3-8: ok Ã—6        â†’ 6 hits
+    // call 9: unavail â†’ ok    â†’ 2 hits (1 retry)
+    // call 10: ok             â†’ 1 hit
+    // total: 12 hits for 10 calls â†’ 1.2Ã—
     let responses = vec![
         ok_response(),
         unavailable(),
@@ -497,14 +493,14 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times(
     let amplification = server_hits as f64 / n_calls as f64;
     assert!(
         amplification <= 1.5,
-        "amplification {amplification:.2}× exceeds 1.5× ({server_hits} hits / {n_calls} calls)",
+        "amplification {amplification:.2}Ã— exceeds 1.5Ã— ({server_hits} hits / {n_calls} calls)",
     );
     Ok(())
 }
 
-// ── retry exhaustion ─────────────────────────────────────────────────────────
+// â”€â”€ retry exhaustion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// @covers: retry — all attempts exhausted returns the last error
+/// @covers: retry â€” all attempts exhausted returns the last error
 ///
 /// max_attempts=3, all 3 fail with Unavailable.
 /// Server is hit exactly 3 times; result is Err(Status(Unavailable)).
@@ -542,9 +538,9 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails(
     Ok(())
 }
 
-// ── hard quota — never retried ────────────────────────────────────────────────
+// â”€â”€ hard quota â€” never retried â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// @covers: retry — HardQuota ResourceExhausted is never retried
+/// @covers: retry â€” HardQuota ResourceExhausted is never retried
 ///
 /// max_attempts=3 would allow up to 3 hits, but HardQuota is Terminal.
 /// Server must be hit exactly once.
@@ -574,14 +570,14 @@ async fn test_hard_quota_resource_exhausted_is_not_retried(
     assert_eq!(
         hits.load(Ordering::SeqCst),
         1,
-        "HardQuota must not be retried — server should see exactly 1 hit",
+        "HardQuota must not be retried â€” server should see exactly 1 hit",
     );
     Ok(())
 }
 
-// ── rate-limit retry track ────────────────────────────────────────────────────
+// â”€â”€ rate-limit retry track â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// @covers: retry — rate-limit error uses rate_limit_max_attempts track
+/// @covers: retry â€” rate-limit error uses rate_limit_max_attempts track
 ///
 /// rate_limit_max_attempts=2, standard max_attempts=5.
 /// Semantics: 1 initial call + rate_limit_max_attempts retries = 3 total server hits,
@@ -635,9 +631,9 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard(
     Ok(())
 }
 
-// ── circuit breaker — opens at threshold ─────────────────────────────────────
+// â”€â”€ circuit breaker â€” opens at threshold â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// @covers: circuit breaker — opens after failure_threshold consecutive failures
+/// @covers: circuit breaker â€” opens after failure_threshold consecutive failures
 ///
 /// failure_threshold=3, max_attempts=1.
 /// After 3 failing calls, breaker is Open.
@@ -712,14 +708,14 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold(
     Ok(())
 }
 
-// ── circuit breaker — recovers via HalfOpen ──────────────────────────────────
+// â”€â”€ circuit breaker â€” recovers via HalfOpen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// @covers: circuit breaker — Closed→Open→HalfOpen→Closed transition
+/// @covers: circuit breaker â€” Closedâ†’Openâ†’HalfOpenâ†’Closed transition
 ///
 /// Trips the breaker (3 failures), waits for cool-down (1.1 s), then sends
-/// a probe that succeeds — confirming the breaker closes again.
+/// a probe that succeeds â€” confirming the breaker closes again.
 ///
-/// NOTE: This test takes ≈1.1 s due to the real-time cool-down wait.
+/// NOTE: This test takes â‰ˆ1.1 s due to the real-time cool-down wait.
 #[tokio::test]
 async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -799,7 +795,7 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
     Ok(())
 }
 
-// ── the stack against a real peer ─────────────────────────────────────────────
+// â”€â”€ the stack against a real peer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// The engine client of `endpoint` inside the resilient stack.
 fn resilient_over(
@@ -807,11 +803,12 @@ fn resilient_over(
     config: ResilienceConfig,
 ) -> Result<impl Transport + RawTransport + BreakerObservable, Box<dyn std::error::Error>> {
     Fixture::ensure_tls_provider();
-    let inner = ClientFixture::from_config(&config_builder(endpoint).allow_plaintext().build()?)?;
+    let channel_config = config_builder(endpoint).allow_plaintext().build()?;
+    let inner = ClientFixture::from_config(&channel_config)?;
     Ok(apply_resilience(inner, config)?)
 }
 
-/// @covers: StdGrpcResilientFactory::build — the stack reaches a real peer and returns its answer
+/// @covers: StdGrpcResilientFactory::build â€” the stack reaches a real peer and returns its answer
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_through_the_stack_reaches_the_peer_and_returns_its_answer(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -840,7 +837,7 @@ async fn test_call_raw_through_the_stack_reaches_the_peer_and_returns_its_answer
 /// A peer that answers `Unavailable` to every call trips the breaker; once it is open the stack refuses calls
 /// itself and the peer sees no more of them.
 ///
-/// @covers: circuit breaker — opens against a real peer and short-circuits
+/// @covers: circuit breaker â€” opens against a real peer and short-circuits
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_unavailable_peer_trips_the_breaker_and_the_peer_sees_no_more_calls(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -921,7 +918,7 @@ async fn test_call_raw_unavailable_peer_trips_the_breaker_and_the_peer_sees_no_m
 
 /// The retry inside the stack re-sends to a real peer, `max_attempts` times, before the failure reaches the breaker.
 ///
-/// @covers: StdGrpcResilientFactory::build — retry inside the breaker, against a real peer
+/// @covers: StdGrpcResilientFactory::build â€” retry inside the breaker, against a real peer
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_unavailable_peer_is_retried_max_attempts_times_through_the_stack(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -957,16 +954,4 @@ async fn test_call_raw_unavailable_peer_is_retried_max_attempts_times_through_th
     assert!(result.is_err());
     assert_eq!(peer.get_recorded_requests().len(), 3);
     Ok(())
-}
-
-fn config_builder(
-    endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    new_config_builder().with_endpoint(endpoint)
-}
-
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
-    grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
 }

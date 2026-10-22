@@ -1,13 +1,6 @@
 //! `InterceptedTransport` -- a client whose calls run through a chain of interceptors.
 
-<<<<<<< HEAD
 use grpc_egress_transport::proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    MessageStream, MetadataView, MethodPath, RawTransport, ResponseStream, ServerStreamMethod,
-    Transport, UnaryMethod,
-=======
-use grpc_egress_transport::InboundReply;
-use proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
@@ -17,12 +10,12 @@ use proto_pattern::{
     CallServerStreamRequest, CallServerStreamResponse, ClientStreamMethod, MessageStream,
     MetadataView, RawTransport, ResponseStream, ServerStreamMethod, StatusCode, Transport,
     UnaryMethod,
->>>>>>> fix/18-deny-allow-git
 };
-use grpc_egress_transport::{GrpcEgressInterceptorChain, InboundReply, MetadataExtender};
+use grpc_egress_transport::InboundReply;
 
 use crate::std::client::StdMetadataExtender;
 use crate::std::{PendingCall, StdGrpcEgressInterceptorChain};
+use grpc_egress_transport::{GrpcEgressInterceptorChain, MetadataExtender};
 
 /// Runs `chain` around every call of `inner`: `before_call` on every shape before anything is sent, `after_call`
 /// after a unary or client-streaming response. A call with no interceptor in the chain is forwarded as it is.
@@ -35,7 +28,6 @@ pub(crate) struct InterceptedTransport<T> {
 }
 
 impl<T> From<(T, StdGrpcEgressInterceptorChain)> for InterceptedTransport<T> {
-    /// The client with the chain around its calls.
     fn from((inner, chain): (T, StdGrpcEgressInterceptorChain)) -> Self {
         Self { inner, chain }
     }
@@ -64,21 +56,20 @@ impl<T> InterceptedTransport<T> {
         }
         self.chain.run_after(&InboundReply {
             path,
-<<<<<<< HEAD
-            headers: StdMetadataExtender.copy(headers),
-            trailers: StdMetadataExtender.copy(trailers),
-=======
-            headers: MetadataExtender::copy(headers).map_err(|error| CallError::Transport {
-                path: path.into(),
-                code: StatusCode::Internal,
-                reason: error.to_string(),
-            })?,
-            trailers: MetadataExtender::copy(trailers).map_err(|error| CallError::Transport {
-                path: path.into(),
-                code: StatusCode::Internal,
-                reason: error.to_string(),
-            })?,
->>>>>>> fix/18-deny-allow-git
+            headers: StdMetadataExtender
+                .copy(headers)
+                .map_err(|error| CallError::Transport {
+                    path: path.into(),
+                    code: StatusCode::Internal,
+                    reason: error.to_string(),
+                })?,
+            trailers: StdMetadataExtender
+                .copy(trailers)
+                .map_err(|error| CallError::Transport {
+                    path: path.into(),
+                    code: StatusCode::Internal,
+                    reason: error.to_string(),
+                })?,
         })
     }
 }

@@ -4,11 +4,8 @@
 //! The scripted transport is a test double because a real peer cannot be told to fail on the third call and
 //! recover on the fifth; what a real peer and the real engine do is in `breaker_engine_int_test.rs`.
 
-<<<<<<< HEAD
 use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
-=======
-use grpc_egress_breaker_std::GrpcBreakerConfigProvider;
-use proto_pattern::{
+use grpc_egress_transport::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
@@ -21,7 +18,6 @@ use proto_pattern::{
     ReadTrailersRequest, ReadTrailersResponse, ResponseStream, ServerStreamMethod, StatusCode,
     Transport, UnaryMethod,
 };
->>>>>>> fix/18-deny-allow-git
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -416,6 +412,12 @@ fn fast_cfg() -> Result<GrpcBreakerConfig, BreakerDomainError> {
     )
 }
 
+fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
+        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
+}
+
 fn build(
     script: &Arc<Script>,
     config: GrpcBreakerConfig,
@@ -433,14 +435,14 @@ fn is_open(state: BreakerState) -> bool {
     matches!(state, BreakerState::Open { .. })
 }
 
-/// @covers: GrpcBreakerConfig::default — SWE default has positive threshold.
+/// @covers: GrpcBreakerConfig::default â€” SWE default has positive threshold.
 #[test]
 fn test_grpc_breaker_config_default_has_positive_failure_threshold() {
     let cfg = GrpcBreakerConfig::default();
     assert!(cfg.failure_threshold >= 1);
 }
 
-/// @covers: StdGrpcBreakerFactory::build — a closed breaker passes every shape through.
+/// @covers: StdGrpcBreakerFactory::build â€” a closed breaker passes every shape through.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_closed_state_passes_every_shape_through_to_the_inner_client(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -460,7 +462,7 @@ async fn test_call_closed_state_passes_every_shape_through_to_the_inner_client(
     Ok(())
 }
 
-/// @covers: state machine — N failures trip Open; Open short-circuits without calling inner, for every shape.
+/// @covers: state machine â€” N failures trip Open; Open short-circuits without calling inner, for every shape.
 ///
 /// **Acceptance test gate**: tripped state returns `Unavailable` immediately without calling inner (verify via call
 /// counter).
@@ -516,15 +518,15 @@ async fn test_call_open_state_short_circuits_every_shape_without_calling_inner(
     Ok(())
 }
 
-/// @covers: state machine — full lifecycle:
-/// closed → N failures → open → cool-down → half-open → success → closed.
+/// @covers: state machine â€” full lifecycle:
+/// closed â†’ N failures â†’ open â†’ cool-down â†’ half-open â†’ success â†’ closed.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_full_state_lifecycle_closed_open_half_open_closed(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let script = Script::new(Mode::Status(StatusCode::Unavailable));
     let client = build(&script, fast_cfg()?)?;
 
-    // 1) Closed → Open after 3 failures.
+    // 1) Closed â†’ Open after 3 failures.
     assert_eq!(state_of(&client).await?, BreakerState::Closed);
     for _ in 0..3 {
         let _ = invoke(&client, Shape::RawUnary).await;
@@ -544,13 +546,13 @@ async fn test_call_full_state_lifecycle_closed_open_half_open_closed(
     tokio::time::sleep(Duration::from_millis(1100)).await;
     script.set_mode(Mode::Ok);
 
-    // 4) Open → HalfOpen probe → Closed.
+    // 4) Open â†’ HalfOpen probe â†’ Closed.
     invoke(&client, Shape::RawUnary).await?;
     assert_eq!(state_of(&client).await?, BreakerState::Closed);
     Ok(())
 }
 
-/// @covers: state machine — a stream open is the probe of a half-open breaker, and a successful one closes it.
+/// @covers: state machine â€” a stream open is the probe of a half-open breaker, and a successful one closes it.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_half_open_probe_that_is_a_stream_open_closes_the_breaker_on_success(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -569,7 +571,7 @@ async fn test_call_half_open_probe_that_is_a_stream_open_closes_the_breaker_on_s
     Ok(())
 }
 
-/// @covers: state machine — half-open probe failure returns to Open.
+/// @covers: state machine â€” half-open probe failure returns to Open.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_half_open_probe_failure_returns_to_open(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -592,7 +594,7 @@ async fn test_call_half_open_probe_failure_returns_to_open(
     Ok(())
 }
 
-/// @covers: failure_kind — the failures that are NOT the peer's fault do not trip the breaker, in any shape.
+/// @covers: failure_kind â€” the failures that are NOT the peer's fault do not trip the breaker, in any shape.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_failures_that_are_not_the_peers_fault_do_not_trip_the_breaker(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -646,7 +648,7 @@ async fn test_call_failures_that_are_not_the_peers_fault_do_not_trip_the_breaker
     Ok(())
 }
 
-/// @covers: failure_kind — the failures that ARE the peer's fault trip the breaker.
+/// @covers: failure_kind â€” the failures that ARE the peer's fault trip the breaker.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_failures_that_are_the_peers_fault_trip_the_breaker(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -677,7 +679,7 @@ async fn test_call_failures_that_are_the_peers_fault_trip_the_breaker(
     Ok(())
 }
 
-/// @covers: state — Closed reset on intermittent success.
+/// @covers: state â€” Closed reset on intermittent success.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_intermittent_success_keeps_breaker_closed(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -708,7 +710,7 @@ async fn test_build_with_default_config_opens_at_the_default_threshold(
     let default_cfg = GrpcBreakerConfig::default();
 
     // Drive exactly (default_cfg.failure_threshold - 1) failures: breaker must still be closed (accepting
-    // calls), proving the DEFAULT threshold — not some other value — was genuinely applied.
+    // calls), proving the DEFAULT threshold â€” not some other value â€” was genuinely applied.
     for _ in 0..default_cfg.failure_threshold - 1 {
         let _ = invoke(&client, Shape::RawUnary).await;
     }
@@ -754,7 +756,7 @@ async fn test_build_with_supplied_config_opens_at_the_supplied_threshold(
     let script = Script::new(Mode::Status(StatusCode::Unavailable));
     let client = build(&script, cfg)?;
 
-    // The supplied threshold is 3 — two failures must not yet trip it.
+    // The supplied threshold is 3 â€” two failures must not yet trip it.
     for _ in 0..2 {
         let _ = invoke(&client, Shape::RawUnary).await;
     }
@@ -785,7 +787,7 @@ fn test_grpc_breaker_config_section_name_is_grpc_breaker() {
     assert_eq!(GrpcBreakerConfig::section_name(), "grpc_breaker");
 }
 
-/// @covers: StdGrpcBreakerFactory::build — after every failed call the state is the one the shared
+/// @covers: StdGrpcBreakerFactory::build â€” after every failed call the state is the one the shared
 /// state machine of `edge-transport-breaker` computes.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_state_after_each_failed_call_follows_the_shared_state_machine(
@@ -827,10 +829,4 @@ async fn test_call_state_after_each_failed_call_follows_the_shared_state_machine
         config.failure_threshold
     );
     Ok(())
-}
-
-fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
-    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
-    grpc_egress_breaker_std::StdGrpcBreakerConfigProviderFactory
-        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
 }

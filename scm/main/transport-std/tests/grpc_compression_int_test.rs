@@ -1,22 +1,12 @@
 //! The compression of a channel configuration, end to end: `with_compression(Gzip)` makes the client send gzip
 //! and list gzip as accepted (`grpc-encoding` and `grpc-accept-encoding`), and `None` makes it send neither.
 
-<<<<<<< HEAD
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{CallRawRequestBuilder, CallRawResponse, RawTransport};
->>>>>>> fix/18-deny-allow-git
+use grpc_egress_transport::proto_pattern::{CallRawRequestBuilder, CallRawResponse, RawTransport};
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-<<<<<<< HEAD
-use grpc_egress_transport::CompressionMode;
-use proto_pattern::RawTransport;
-=======
-use grpc_egress_transport::{CompressionMode, GrpcChannelConfig};
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
->>>>>>> fix/18-deny-allow-git
+use grpc_egress_transport::{CompressionMode, GrpcChannelConfigBuilder as _};
 
 const SHORT: Duration = Duration::from_secs(2);
 
@@ -96,11 +86,8 @@ async fn test_call_raw_with_no_compression_in_the_config_sets_no_grpc_encoding(
 fn config_builder(
     endpoint: impl Into<String>,
 ) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    new_config_builder().with_endpoint(endpoint)
-}
-
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
     use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
         .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .with_endpoint(endpoint)
 }

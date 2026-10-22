@@ -1,33 +1,21 @@
 //! Tests of the builder of the client over the `proto-svc` engine, through its public factory, against a real
 //! in-process peer: every option must reach the call it describes, and none may be ignored.
 
-<<<<<<< HEAD
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{
+use grpc_egress_transport::proto_pattern::{
     CallError, CallRawRequestBuilder, CallRawResponse, CallRequest, CallResponse, Compression,
     Metadata, MetadataEntry, MethodPath, RawTransport, StatusCode,
 };
->>>>>>> fix/18-deny-allow-git
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, Fixture, PeerBehaviour, PeerServer};
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfigError, GrpcEgressBuilder,
-    GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
-    TraceContextSource,
+    BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfigBuilder as _,
+    GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor,
+    InboundReply, OutboundCall, TraceContextSource,
 };
-<<<<<<< HEAD
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
-use proto_pattern::{
-    CallError, CallRequest, CallResponse, Compression, Metadata, MetadataEntry, MethodPath,
-    RawTransport, StatusCode,
-};
-=======
-use grpc_egress_transport_std::{GrpcChannelConfigFactory, TonicGrpcEgressBuilderSpiFactory};
->>>>>>> fix/18-deny-allow-git
 
 const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
 const SECONDS: Duration = Duration::from_secs(5);
@@ -552,7 +540,7 @@ async fn test_with_trace_context_pass_through_adds_no_traceparent_edge(
     let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
-        .with_trace_context(grpc_egress_transport::TraceContextSource::PassThrough)
+        .with_trace_context(TraceContextSource::PassThrough)
         .build()?;
 
     send(&client, ping()).await?;
@@ -749,11 +737,8 @@ async fn test_options_set_in_a_different_order_behave_the_same_edge() -> Result<
 fn config_builder(
     endpoint: impl Into<String>,
 ) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    new_config_builder().with_endpoint(endpoint)
-}
-
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
     use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
         .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .with_endpoint(endpoint)
 }

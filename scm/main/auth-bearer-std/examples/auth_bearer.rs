@@ -7,12 +7,8 @@
 //! [`BearerEgressConfig`]: grpc_egress_auth_bearer::BearerEgressConfig
 //! [`GrpcEgressInterceptorChain`]: grpc_egress_transport_std::GrpcEgressInterceptorChain
 
-<<<<<<< HEAD
 use grpc_egress_auth_bearer::BearerEgressConfigBuilder as _;
 use grpc_egress_transport::GrpcEgressInterceptorChain as _;
-=======
-use proto_pattern::Metadata;
->>>>>>> fix/18-deny-allow-git
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -22,11 +18,7 @@ use grpc_egress_test_support::OutboundCallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, OutboundCall,
 };
-<<<<<<< HEAD
 use proto_pattern::Metadata;
-=======
-use grpc_egress_transport_std::GrpcEgressInterceptorChain;
->>>>>>> fix/18-deny-allow-git
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = egress_config_builder()

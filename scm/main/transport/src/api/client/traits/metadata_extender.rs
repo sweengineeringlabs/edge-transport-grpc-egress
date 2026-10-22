@@ -25,7 +25,10 @@ pub trait MetadataExtender {
         added: impl IntoIterator<Item = (&'a str, &'a str)>,
     ) -> Result<Metadata, MetadataError>;
 
-    /// A copy of any view of metadata. An entry that cannot be copied (a binary entry that cannot be read) is
-    /// left out: the copy is for an interceptor to look at.
-    fn copy<M: MetadataView>(&self, source: &M) -> Metadata;
+    /// A copy of any view of metadata, propagating query and binary decoding failures.
+    ///
+    /// # Errors
+    ///
+    /// [`MetadataError`] when the source cannot be queried or a binary entry cannot be decoded.
+    fn copy<M: MetadataView>(&self, source: &M) -> Result<Metadata, MetadataError>;
 }

@@ -1,6 +1,6 @@
 //! [`Transport`] and [`RawTransport`] impls for [`GrpcBreakerClient`].
 
-use proto_pattern::{
+use grpc_egress_breaker::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallRawBidiStreamRequest, CallRawBidiStreamRequestBuilder,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamRequestBuilder,
@@ -16,10 +16,9 @@ use edge_transport_breaker::DefaultBreakerTransition;
 use edge_transport_breaker_policy::{
     Admission, AdmitRequest, BreakerTransition, Outcome, RecordOutcomeRequest,
 };
+use grpc_egress_breaker::FailureClassifier;
 use grpc_egress_breaker::BREAKER_EGRESS_LOG_PREFIX;
 use tracing::error;
-
-use grpc_egress_breaker::FailureClassifier;
 
 use super::grpc_breaker_client::GrpcBreakerClient;
 use super::std_failure_classifier::StdFailureClassifier;
@@ -175,10 +174,6 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
         let (path, message, options) = request.into_parts();
 
         self.admit(path.get_path()).await?;
-<<<<<<< HEAD:scm/main/breaker-std/src/spi/decorator/breaker_egress.rs
-        let result = self.inner.call_raw(path, request).await;
-        self.record(StdFailureClassifier.classify_result(&result))
-=======
         let result = self
             .inner
             .call_raw(
@@ -189,8 +184,7 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
                     .build(),
             )
             .await;
-        self.record(StdFailureClassifier::classify_result(&result))
->>>>>>> fix/18-deny-allow-git:scm/main/breaker-std/src/std/breaker_egress.rs
+        self.record(StdFailureClassifier.classify_result(&result))
             .await;
         result
     }
@@ -207,10 +201,6 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
         let (path, message, options) = request.into_parts();
 
         self.admit(path.get_path()).await?;
-<<<<<<< HEAD:scm/main/breaker-std/src/spi/decorator/breaker_egress.rs
-        let result = self.inner.call_raw_server_stream(path, request).await;
-        self.record(StdFailureClassifier.classify_result(&result))
-=======
         let result = self
             .inner
             .call_raw_server_stream(
@@ -221,8 +211,7 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
                     .build(),
             )
             .await;
-        self.record(StdFailureClassifier::classify_result(&result))
->>>>>>> fix/18-deny-allow-git:scm/main/breaker-std/src/std/breaker_egress.rs
+        self.record(StdFailureClassifier.classify_result(&result))
             .await;
         result
     }

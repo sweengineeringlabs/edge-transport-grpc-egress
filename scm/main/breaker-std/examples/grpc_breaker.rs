@@ -1,5 +1,5 @@
 //! Reusable example: drive real calls through [`StdGrpcBreakerFactory`] so the circuit-breaker state machine
-//! (`DefaultBreakerTransition`, moved to the shared `edge-transport-breaker` crate) actually executes — not just
+//! (`DefaultBreakerTransition`, moved to the shared `edge-transport-breaker` crate) actually executes â€” not just
 //! constructs.
 //!
 //! The upstream is a real in-process peer that answers `UNAVAILABLE`; the breaker is wrapped around a real client
@@ -7,11 +7,9 @@
 //! and is proved by `tests/breaker_int_test.rs`.
 //!
 //! [`StdGrpcBreakerFactory`]: grpc_egress_breaker_std::StdGrpcBreakerFactory
-<<<<<<< HEAD
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-=======
-use proto_pattern::{CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode};
->>>>>>> fix/18-deny-allow-git
+use grpc_egress_breaker::proto_pattern::{
+    CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode,
+};
 use std::time::Duration;
 
 use grpc_egress_breaker::{
@@ -20,12 +18,7 @@ use grpc_egress_breaker::{
 };
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-<<<<<<< HEAD
-use proto_pattern::{CallError, RawTransport, StatusCode};
-=======
-use grpc_egress_transport::GrpcChannelConfig;
-use grpc_egress_transport_std::GrpcChannelConfigFactory;
->>>>>>> fix/18-deny-allow-git
+use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -81,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(matches!(state, BreakerState::Open { .. }));
 
     // Third call: the circuit is now open. This is the real proof that `DefaultBreakerTransition::admit` executed
-    // and changed state — the call is rejected WITHOUT reaching the upstream (call count unchanged).
+    // and changed state â€” the call is rejected WITHOUT reaching the upstream (call count unchanged).
     let before = upstream.get_recorded_requests().len();
     let result = call().await.map(|response| response.get_message().len());
     let after = upstream.get_recorded_requests().len();
@@ -106,11 +99,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn config_builder(
     endpoint: impl Into<String>,
 ) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    new_config_builder().with_endpoint(endpoint)
-}
-
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
     use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
         .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .with_endpoint(endpoint)
 }

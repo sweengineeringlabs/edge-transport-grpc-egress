@@ -4,10 +4,7 @@
 //! twice, then succeed) are made with a scripted client that implements both contract traits and counts its calls.
 //! The cases a real peer can make are in `retry_peer_int_test.rs`.
 
-<<<<<<< HEAD
-use grpc_egress_retry::GrpcRetryConfigProvider as _;
-=======
-use proto_pattern::{
+use grpc_egress_retry::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
@@ -19,22 +16,13 @@ use proto_pattern::{
     ReadMessageResponse, ReadTrailersRequest, ReadTrailersResponse, ResponseStream,
     ServerStreamMethod, StatusCode, Transport, UnaryMethod,
 };
->>>>>>> fix/18-deny-allow-git
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+use grpc_egress_retry::GrpcRetryConfigProvider as _;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
-<<<<<<< HEAD
 use grpc_egress_retry_std::StdGrpcRetryFactory;
-use proto_pattern::{
-    BidiStreamMethod, CallError, CallOptions, CallRequest, CallResponse, ClientStreamMethod,
-    DecodeError, EncodeError, MessageStream, Metadata, MetadataEntry, Method, MethodPath, Payload,
-    RawTransport, ResponseStream, ServerStreamMethod, StatusCode, Transport, UnaryMethod,
-};
-=======
-use grpc_egress_retry_std::{GrpcRetryConfigProvider, StdGrpcRetryFactory};
->>>>>>> fix/18-deny-allow-git
 
 const OK_BODY: &[u8] = b"ok";
 const PATH: &str = "/svc.Test/Method";
@@ -386,14 +374,14 @@ fn typed_request(text: &str, timeout: Option<Duration>) -> CallRequest<Text> {
 
 const FIVE_SECONDS: Option<Duration> = Some(Duration::from_secs(5));
 
-/// @covers: GrpcRetryConfig::default — SWE default has positive max_attempts.
+/// @covers: GrpcRetryConfig::default â€” SWE default has positive max_attempts.
 #[test]
 fn test_grpc_retry_config_default_has_positive_max_attempts() {
     let cfg = GrpcRetryConfig::default();
     assert!(cfg.max_attempts >= 1);
 }
 
-/// @covers: GrpcRetryClient — first-call success short-circuits.
+/// @covers: GrpcRetryClient â€” first-call success short-circuits.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_first_attempt_success_does_not_retry(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -415,7 +403,7 @@ async fn test_call_raw_first_attempt_success_does_not_retry(
     Ok(())
 }
 
-/// @covers: classify(PermissionDenied) — NEVER retried.
+/// @covers: classify(PermissionDenied) â€” NEVER retried.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_permission_denied_is_never_retried() -> Result<(), Box<dyn std::error::Error>>
 {
@@ -449,7 +437,7 @@ async fn test_call_raw_permission_denied_is_never_retried() -> Result<(), Box<dy
     Ok(())
 }
 
-/// @covers: classify(Unauthenticated) — NEVER retried.
+/// @covers: classify(Unauthenticated) â€” NEVER retried.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_unauthenticated_is_never_retried() -> Result<(), Box<dyn std::error::Error>>
 {
@@ -482,7 +470,7 @@ async fn test_call_raw_unauthenticated_is_never_retried() -> Result<(), Box<dyn 
     Ok(())
 }
 
-/// @covers: classify(Unavailable) — retries until success.
+/// @covers: classify(Unavailable) â€” retries until success.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_unavailable_then_ok_succeeds_after_retry(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -508,7 +496,7 @@ async fn test_call_raw_unavailable_then_ok_succeeds_after_retry(
     Ok(())
 }
 
-/// @covers: classify(Unavailable) — exhausts attempts.
+/// @covers: classify(Unavailable) â€” exhausts attempts.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_unavailable_throughout_exhausts_max_attempts(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -539,7 +527,7 @@ async fn test_call_raw_unavailable_throughout_exhausts_max_attempts(
     Ok(())
 }
 
-/// @covers: classify(Internal) — terminal, no retry.
+/// @covers: classify(Internal) â€” terminal, no retry.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_internal_is_terminal() -> Result<(), Box<dyn std::error::Error>> {
     let (inner, seen) = ScriptedTransport::new(vec![Outcome::Status(StatusCode::Internal, "bug")]);
@@ -561,7 +549,7 @@ async fn test_call_raw_internal_is_terminal() -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
-/// @covers: classify(DeadlineExceeded) — terminal.
+/// @covers: classify(DeadlineExceeded) â€” terminal.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_deadline_exceeded_is_terminal() -> Result<(), Box<dyn std::error::Error>> {
     let (inner, seen) =
@@ -583,12 +571,12 @@ async fn test_call_raw_deadline_exceeded_is_terminal() -> Result<(), Box<dyn std
     assert_eq!(
         seen.call_count(),
         1,
-        "DeadlineExceeded counts retry budget — not retried",
+        "DeadlineExceeded counts retry budget â€” not retried",
     );
     Ok(())
 }
 
-/// @covers: classify(transport Unavailable) → retried; an Internal after it ends the loop.
+/// @covers: classify(transport Unavailable) â†’ retried; an Internal after it ends the loop.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_transport_unavailable_retries_then_internal_terminates(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -614,7 +602,7 @@ async fn test_call_raw_transport_unavailable_retries_then_internal_terminates(
     Ok(())
 }
 
-/// @covers: classify(ResourceExhausted RateLimit) — retried on rate-limit track.
+/// @covers: classify(ResourceExhausted RateLimit) â€” retried on rate-limit track.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_resource_exhausted_rate_limit_retries_on_rate_limit_track(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -652,7 +640,7 @@ async fn test_call_raw_resource_exhausted_rate_limit_retries_on_rate_limit_track
     Ok(())
 }
 
-/// @covers: classify(ResourceExhausted HardQuota) — never retried.
+/// @covers: classify(ResourceExhausted HardQuota) â€” never retried.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_resource_exhausted_hard_quota_is_terminal(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -678,7 +666,7 @@ async fn test_call_raw_resource_exhausted_hard_quota_is_terminal(
     Ok(())
 }
 
-/// @covers: classify(ResourceExhausted Capacity) — retried on standard track.
+/// @covers: classify(ResourceExhausted Capacity) â€” retried on standard track.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_resource_exhausted_capacity_retries_on_standard_track(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -703,9 +691,9 @@ async fn test_call_raw_resource_exhausted_capacity_retries_on_standard_track(
     Ok(())
 }
 
-/// @covers: deadline budget — retry stops when budget exhausted.
+/// @covers: deadline budget â€” retry stops when budget exhausted.
 ///
-/// **Acceptance test gate**: total attempts ≤ timeout / initial_backoff.
+/// **Acceptance test gate**: total attempts â‰¤ timeout / initial_backoff.
 ///
 /// Each call takes ~50ms before failing with `Unavailable`. The total timeout is 200ms. Even though the config
 /// allows up to 100 attempts, the retry loop must abandon when the timeout is exhausted.
@@ -750,7 +738,7 @@ async fn test_call_raw_timeout_is_the_total_budget_of_all_attempts(
     let calls = seen.call_count();
     assert!(
         calls < 100,
-        "calls ({calls}) reached max_attempts — the timeout appears ignored",
+        "calls ({calls}) reached max_attempts â€” the timeout appears ignored",
     );
     let ceiling = 1 + (total_budget.as_millis() / 10) as u32;
     assert!(
@@ -766,7 +754,7 @@ async fn test_call_raw_timeout_is_the_total_budget_of_all_attempts(
 
 /// Each attempt is given what is left of the call's timeout, never the whole of it again.
 ///
-/// @covers: GrpcRetryClient — per-attempt timeout.
+/// @covers: GrpcRetryClient â€” per-attempt timeout.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_each_attempt_gets_the_timeout_that_is_left(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -806,7 +794,7 @@ async fn test_call_raw_each_attempt_gets_the_timeout_that_is_left(
 /// A call that carries no timeout has no total budget: only `max_attempts` bounds the loop, and the attempts carry
 /// no timeout either.
 ///
-/// @covers: GrpcRetryClient — a call without a timeout.
+/// @covers: GrpcRetryClient â€” a call without a timeout.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_without_a_timeout_is_bounded_by_max_attempts_alone(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -838,7 +826,7 @@ async fn test_call_raw_without_a_timeout_is_bounded_by_max_attempts_alone(
 
 /// The headers and the bytes of the request are the same on every attempt.
 ///
-/// @covers: GrpcRetryClient::call_raw — what an attempt carries.
+/// @covers: GrpcRetryClient::call_raw â€” what an attempt carries.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_raw_every_attempt_carries_the_same_headers_and_bytes(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -877,7 +865,7 @@ async fn test_call_raw_every_attempt_carries_the_same_headers_and_bytes(
 
 /// A typed unary call is retried, and the message of every attempt is the one the caller gave.
 ///
-/// @covers: GrpcRetryClient::call — typed unary retry.
+/// @covers: GrpcRetryClient::call â€” typed unary retry.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_typed_unavailable_then_ok_retries_with_the_same_message(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -902,7 +890,7 @@ async fn test_call_typed_unavailable_then_ok_retries_with_the_same_message(
     Ok(())
 }
 
-/// @covers: GrpcRetryClient::call — a typed failure that is terminal is not retried.
+/// @covers: GrpcRetryClient::call â€” a typed failure that is terminal is not retried.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_typed_invalid_argument_is_not_retried() -> Result<(), Box<dyn std::error::Error>>
 {
@@ -929,7 +917,7 @@ async fn test_call_typed_invalid_argument_is_not_retried() -> Result<(), Box<dyn
 
 /// With one attempt allowed nothing can be retried, so the call is forwarded without encoding the message.
 ///
-/// @covers: GrpcRetryClient::call — one attempt.
+/// @covers: GrpcRetryClient::call â€” one attempt.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_typed_with_one_attempt_allowed_forwards_the_call_once(
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -968,7 +956,7 @@ async fn test_call_typed_with_one_attempt_allowed_forwards_the_call_once(
 
 /// A message that cannot be encoded is refused before any attempt: nothing reaches the client.
 ///
-/// @covers: GrpcRetryClient::call — an encode failure.
+/// @covers: GrpcRetryClient::call â€” an encode failure.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_typed_message_that_cannot_be_encoded_fails_before_any_attempt(
 ) -> Result<(), Box<dyn std::error::Error>> {
