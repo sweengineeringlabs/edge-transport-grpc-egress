@@ -9,6 +9,8 @@ word.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-23
+
 ### Issue 63: separate standard and SPI implementation packages
 
 - Split `auth-bearer`, `retry`, and `transport` implementation layers into distinct `-std` and `-spi` packages.
