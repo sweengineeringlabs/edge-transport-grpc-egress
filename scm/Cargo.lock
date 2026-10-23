@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-auth-bearer"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "edge-security-transport-egress-grpc",
  "jsonwebtoken",
@@ -591,7 +591,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-auth-bearer-std"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "edge-security-transport-egress-grpc",
  "grpc-egress-auth-bearer",
@@ -609,7 +609,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-breaker"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "edge-transport-breaker-policy",
  "futures",
@@ -621,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-breaker-std"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "edge-transport-breaker",
  "edge-transport-breaker-policy",
@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-example-composition-root"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",
  "grpc-egress-breaker",
@@ -659,7 +659,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-resilient"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "futures",
  "grpc-egress-breaker",
@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-resilient-std"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "futures",
  "grpc-egress-breaker",
@@ -693,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-retry"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "edge-transport-retry-policy",
  "grpc-egress-transport",
@@ -705,7 +705,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-retry-std"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "edge-transport-retry",
  "futures",
@@ -722,7 +722,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-test-support"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "bytes",
  "grpc-egress-transport",
@@ -742,7 +742,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-transport"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "proto-pattern",
  "serde",
@@ -753,7 +753,7 @@ dependencies = [
 
 [[package]]
 name = "grpc-egress-transport-std"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "bytes",
  "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",

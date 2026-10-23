@@ -9,6 +9,8 @@ word.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-23
+
 ### Issue 60 follow-up: implementation types belong behind domain interfaces
 
 - **Breaking API boundary:** `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, and `HealthStatus` are now exported from `grpc_egress_transport`; their old `grpc_egress_transport_std` paths are removed. They retain the standard `grpc.health.v1` wire format.
