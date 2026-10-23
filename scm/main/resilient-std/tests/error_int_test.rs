@@ -2,8 +2,11 @@
 //! [`StdGrpcResilientFactory::build`].
 
 use grpc_egress_breaker::{BreakerObservable, BreakerState, ObserveStateRequest};
-use grpc_egress_resilient::{BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig};
-use grpc_egress_resilient_std::StdGrpcResilientFactory;
+use grpc_egress_resilient::{
+    BuildGrpcResilientRequest, BuildResilienceConfigProviderRequest, GrpcResilientFactory,
+    ResilienceConfig, ResilienceConfigProvider as _, ResilienceConfigProviderFactory as _,
+};
+use grpc_egress_resilient_std::{StdGrpcResilientFactory, StdResilienceConfigProviderFactory};
 use grpc_egress_test_support::{ClientFixture, Fixture};
 use grpc_egress_transport::GrpcChannelConfigBuilder as _;
 use proto_pattern::{RawTransport, Transport};
@@ -22,15 +25,11 @@ fn built_client() -> Result<impl Transport + RawTransport, Box<dyn std::error::E
 #[test]
 fn test_error_invalid_resilience_variant_produced_on_bad_config(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let cfg = ResilienceConfig {
-        max_attempts: 0,
-        ..ResilienceConfig::default()
-    };
-    let Err(err) = StdGrpcResilientFactory::new(cfg).build(BuildGrpcResilientRequest {
-        inner: built_client()?,
-    }) else {
-        panic!("expected build to reject max_attempts = 0");
-    };
+    let provider = StdResilienceConfigProviderFactory.build(BuildResilienceConfigProviderRequest);
+    let err = provider
+        .parse_config("max_attempts = 0")
+        .err()
+        .ok_or("invalid retry policy must fail")?;
     assert!(matches!(
         err,
         grpc_egress_resilient::ResilientTransportError::InvalidResilience(_)
@@ -49,10 +48,10 @@ async fn test_build_valid_config_returns_a_client_whose_breaker_is_closed(
         },
     )?;
 
-    let observed = client.state(ObserveStateRequest).await?;
+    let observed = client.state(ObserveStateRequest::new()).await?;
 
     assert_eq!(
-        observed.state,
+        observed.state(),
         BreakerState::Closed,
         "a fresh stack has not tripped"
     );

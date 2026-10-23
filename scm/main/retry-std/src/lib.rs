@@ -2,6 +2,10 @@
 //! exponential-backoff-with-jitter retry on gRPC-canonical
 //! retryable status codes.
 //!
+//! ```compile_fail
+//! use grpc_egress_retry_std::saf::StdGrpcRetryFactory;
+//! ```
+//!
 //! ## Retry policy
 //!
 //! Retries on `Unavailable` and `ResourceExhausted` (both are

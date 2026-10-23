@@ -73,14 +73,14 @@ impl GrpcChannelConfigBuilder for StdGrpcChannelConfigBuilder {
 
     fn build(self) -> Result<GrpcChannelConfig, String> {
         let endpoint = self.endpoint.ok_or("endpoint required")?;
-        Ok(GrpcChannelConfig {
+        GrpcChannelConfig::try_new(
             endpoint,
-            tls_required: self.tls_required,
-            mtls: self.mtls,
-            keep_alive: self.keep_alive,
-            max_message_bytes: self.max_message_bytes.unwrap_or(DEFAULT_MAX_MESSAGE_BYTES),
-            compression: self.compression.unwrap_or(CompressionMode::None),
-            request_timeout_secs: self.request_timeout_secs,
-        })
+            self.tls_required,
+            self.mtls,
+            self.keep_alive,
+            self.max_message_bytes.unwrap_or(DEFAULT_MAX_MESSAGE_BYTES),
+            self.compression.unwrap_or(CompressionMode::None),
+            self.request_timeout_secs,
+        )
     }
 }

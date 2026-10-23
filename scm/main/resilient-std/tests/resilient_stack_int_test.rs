@@ -63,7 +63,7 @@ fn apply_resilience<T: Transport + RawTransport + Send + Sync + 'static>(
 }
 
 async fn state_of(client: &impl BreakerObservable) -> Result<BreakerState, BreakerDomainError> {
-    Ok(client.state(ObserveStateRequest).await?.state)
+    Ok(client.state(ObserveStateRequest::new()).await?.state())
 }
 
 fn path() -> Result<MethodPath, Box<dyn std::error::Error>> {
@@ -105,20 +105,21 @@ fn rate_limited() -> Answer {
     status(StatusCode::ResourceExhausted, "rate limit exceeded")
 }
 
-fn valid_resilience() -> ResilienceConfig {
-    ResilienceConfig {
-        max_attempts: 3,
-        initial_backoff_ms: 10,
-        backoff_multiplier: 2.0,
-        jitter_factor: 0.0,
-        max_backoff_ms: 100,
-        rate_limit_max_attempts: 2,
-        rate_limit_initial_backoff_ms: 10,
-        rate_limit_max_backoff_ms: 100,
-        failure_threshold: 5,
-        cool_down_seconds: 10,
-        half_open_probe_count: 1,
-    }
+fn valid_resilience() -> Result<ResilienceConfig, Box<dyn std::error::Error>> {
+    Ok(ResilienceConfig::from_policies(
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: 3,
+            initial_backoff_ms: 10,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.0,
+            max_backoff_ms: 100,
+            rate_limit_max_attempts: 2,
+            rate_limit_initial_backoff_ms: 10,
+            rate_limit_max_backoff_ms: 100,
+        })?,
+        GrpcBreakerConfig::try_new(true, 5, 10, 1)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?,
+    ))
 }
 
 // â”€â”€ ScriptedClient â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -320,8 +321,8 @@ impl Method for Echo {
 impl UnaryMethod for Echo {}
 
 // Minimal retry config suitable for fast tests (1 ms backoff).
-fn fast_retry(max_attempts: u32) -> GrpcRetryConfig {
-    GrpcRetryConfig {
+fn fast_retry(max_attempts: u32) -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
+    GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
         max_attempts,
         initial_backoff_ms: 1,
         backoff_multiplier: 1.0,
@@ -330,15 +331,12 @@ fn fast_retry(max_attempts: u32) -> GrpcRetryConfig {
         rate_limit_max_attempts: 2,
         rate_limit_initial_backoff_ms: 1,
         rate_limit_max_backoff_ms: 1,
-    }
+    })
 }
 
-fn never_trips() -> GrpcBreakerConfig {
-    GrpcBreakerConfig {
-        failure_threshold: 100,
-        cool_down_seconds: 60,
-        half_open_probe_count: 1,
-    }
+fn never_trips() -> Result<GrpcBreakerConfig, std::io::Error> {
+    GrpcBreakerConfig::try_new(true, 100, 60, 1)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
 }
 
 // â”€â”€ facade smoke tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -377,7 +375,7 @@ async fn test_apply_resilience_retries_a_transient_failure_happy(
     let hits = Arc::new(AtomicUsize::new(0));
     let mock =
         ScriptedClient::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
-    let wrapped = apply_resilience(mock, valid_resilience())?;
+    let wrapped = apply_resilience(mock, valid_resilience()?)?;
     let result = wrapped
         .call_raw({
             let (message, options) = req().into_parts();
@@ -407,7 +405,7 @@ async fn test_apply_resilience_retries_a_typed_transient_failure_happy(
     let hits = Arc::new(AtomicUsize::new(0));
     let mock =
         ScriptedClient::with_responses(Arc::clone(&hits), vec![unavailable(), ok_response()]);
-    let wrapped = apply_resilience(mock, valid_resilience())?;
+    let wrapped = apply_resilience(mock, valid_resilience()?)?;
     let request = CallRequest::new(
         Text("typed".to_string()),
         CallOptions::create(Some(Duration::from_secs(10)), Metadata::default()),
@@ -422,15 +420,22 @@ async fn test_apply_resilience_retries_a_typed_transient_failure_happy(
 
 /// @covers: apply_resilience
 #[test]
-fn test_apply_resilience_invalid_resilience_returns_error_edge() {
-    let hits = Arc::new(AtomicUsize::new(0));
-    let mock = ScriptedClient::with_responses(hits, vec![ok_response()]);
-    let mut r = valid_resilience();
-    r.max_attempts = 0;
-    assert!(matches!(
-        apply_resilience(mock, r),
-        Err(ResilientTransportError::InvalidResilience(_))
-    ));
+fn test_retry_policy_constructor_rejects_invalid_resilience(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let r = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        max_attempts: 0,
+        initial_backoff_ms: 100,
+        backoff_multiplier: 2.0,
+        jitter_factor: 0.1,
+        max_backoff_ms: 5000,
+        rate_limit_max_attempts: 2,
+        rate_limit_initial_backoff_ms: 1000,
+        rate_limit_max_backoff_ms: 10000,
+    })
+    .err()
+    .ok_or("zero attempts must be rejected")?;
+    assert!(matches!(r, grpc_egress_retry::Error::InvalidConfig(_)));
+    Ok(())
 }
 
 // â”€â”€ retry amplification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -466,12 +471,8 @@ async fn test_retry_amplification_factor_does_not_exceed_one_point_five_times(
     ];
     let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let client = guard(
-        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
-        GrpcBreakerConfig {
-            failure_threshold: 100,
-            cool_down_seconds: 60,
-            half_open_probe_count: 1,
-        },
+        StdGrpcRetryFactory::new(fast_retry(3)?).build(BuildGrpcRetryRequest { inner: mock }),
+        GrpcBreakerConfig::try_new(true, 100, 60, 1)?,
     )?;
 
     for _ in 0..10_usize {
@@ -511,8 +512,8 @@ async fn test_unavailable_error_is_retried_up_to_max_attempts_then_fails(
     let responses = vec![unavailable(), unavailable(), unavailable()];
     let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let client = guard(
-        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
-        never_trips(),
+        StdGrpcRetryFactory::new(fast_retry(3)?).build(BuildGrpcRetryRequest { inner: mock }),
+        never_trips()?,
     )?;
 
     let result = client
@@ -551,8 +552,8 @@ async fn test_hard_quota_resource_exhausted_is_not_retried(
     let responses = vec![hard_quota(), ok_response(), ok_response()]; // extra ok's unused
     let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let client = guard(
-        StdGrpcRetryFactory::new(fast_retry(3)).build(BuildGrpcRetryRequest { inner: mock }),
-        never_trips(),
+        StdGrpcRetryFactory::new(fast_retry(3)?).build(BuildGrpcRetryRequest { inner: mock }),
+        never_trips()?,
     )?;
 
     let result = client
@@ -595,19 +596,10 @@ async fn test_rate_limit_error_uses_rate_limit_retry_track_not_standard(
         rate_limited(),
     ];
     let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
-    let retry_cfg = GrpcRetryConfig {
-        max_attempts: 5,
-        initial_backoff_ms: 1,
-        backoff_multiplier: 1.0,
-        jitter_factor: 0.0,
-        max_backoff_ms: 1,
-        rate_limit_max_attempts: 2,
-        rate_limit_initial_backoff_ms: 1,
-        rate_limit_max_backoff_ms: 1,
-    };
+    let retry_cfg = fast_retry(5)?;
     let client = guard(
         StdGrpcRetryFactory::new(retry_cfg).build(BuildGrpcRetryRequest { inner: mock }),
-        never_trips(),
+        never_trips()?,
     )?;
 
     let result = client
@@ -645,12 +637,8 @@ async fn test_circuit_breaker_opens_after_consecutive_failures_at_threshold(
     let responses = vec![unavailable(), unavailable(), unavailable(), unavailable()];
     let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let client = guard(
-        StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
-        GrpcBreakerConfig {
-            failure_threshold: 3,
-            cool_down_seconds: 60,
-            half_open_probe_count: 1,
-        },
+        StdGrpcRetryFactory::new(fast_retry(1)?).build(BuildGrpcRetryRequest { inner: mock }),
+        GrpcBreakerConfig::try_new(true, 3, 60, 1)?,
     )?;
 
     for _ in 0..3 {
@@ -729,12 +717,8 @@ async fn test_circuit_breaker_closes_after_probe_succeeds_during_half_open(
     ];
     let mock = ScriptedClient::with_responses(Arc::clone(&hits), responses);
     let client = guard(
-        StdGrpcRetryFactory::new(fast_retry(1)).build(BuildGrpcRetryRequest { inner: mock }),
-        GrpcBreakerConfig {
-            failure_threshold: 3,
-            cool_down_seconds: 1,
-            half_open_probe_count: 1,
-        },
+        StdGrpcRetryFactory::new(fast_retry(1)?).build(BuildGrpcRetryRequest { inner: mock }),
+        GrpcBreakerConfig::try_new(true, 3, 1, 1)?,
     )?;
 
     // Trip the breaker.
@@ -813,7 +797,7 @@ fn resilient_over(
 async fn test_call_raw_through_the_stack_reaches_the_peer_and_returns_its_answer(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let peer = PeerServer::start(PeerBehaviour::Reply(b"pong".to_vec())).await?;
-    let client = resilient_over(&peer.get_endpoint(), valid_resilience())?;
+    let client = resilient_over(&peer.get_endpoint(), valid_resilience()?)?;
 
     let response = client
         .call_raw({
@@ -847,11 +831,10 @@ async fn test_call_raw_unavailable_peer_trips_the_breaker_and_the_peer_sees_no_m
         retry_after_secs: None,
     })
     .await?;
-    let config = ResilienceConfig {
-        max_attempts: 1,
-        failure_threshold: 3,
-        ..valid_resilience()
-    };
+    let config = ResilienceConfig::from_policies(
+        fast_retry(1)?,
+        GrpcBreakerConfig::try_new(true, 3, 10, 1)?,
+    );
     let client = resilient_over(&peer.get_endpoint(), config)?;
 
     for _ in 0..3 {
@@ -916,6 +899,48 @@ async fn test_call_raw_unavailable_peer_trips_the_breaker_and_the_peer_sees_no_m
     Ok(())
 }
 
+/// @covers: ResilienceConfig::breaker_enabled — disabled breaker bypasses admission and state updates
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_raw_disabled_breaker_forwards_calls_and_stays_closed(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let peer = PeerServer::start(PeerBehaviour::ReplyStatus {
+        status: "14".to_string(),
+        message: Some("down".to_string()),
+        retry_after_secs: None,
+    })
+    .await?;
+    let config = ResilienceConfig::from_policies(
+        fast_retry(1)?,
+        GrpcBreakerConfig::try_new(false, 1, 10, 1)?,
+    );
+    let client = resilient_over(&peer.get_endpoint(), config)?;
+
+    for _ in 0..3 {
+        let result = client
+            .call_raw({
+                let (message, options) =
+                    CallFixture::request(b"x", Duration::from_secs(5)).into_parts();
+                CallRawRequestBuilder::new()
+                    .with_path(CallFixture::path("pkg.Service/Method"))
+                    .with_message(message)
+                    .with_options(options)
+                    .build()
+            })
+            .await
+            .map(CallRawResponse::into_response);
+        assert!(matches!(
+            result,
+            Err(CallError::Status {
+                code: StatusCode::Unavailable,
+                ..
+            })
+        ));
+    }
+    assert_eq!(peer.get_recorded_requests().len(), 3);
+    assert_eq!(state_of(&client).await?, BreakerState::Closed);
+    Ok(())
+}
+
 /// The retry inside the stack re-sends to a real peer, `max_attempts` times, before the failure reaches the breaker.
 ///
 /// @covers: StdGrpcResilientFactory::build â€” retry inside the breaker, against a real peer
@@ -928,14 +953,19 @@ async fn test_call_raw_unavailable_peer_is_retried_max_attempts_times_through_th
         retry_after_secs: None,
     })
     .await?;
-    let config = ResilienceConfig {
-        max_attempts: 3,
-        initial_backoff_ms: 1,
-        backoff_multiplier: 1.0,
-        max_backoff_ms: 1,
-        failure_threshold: 100,
-        ..valid_resilience()
-    };
+    let config = ResilienceConfig::from_policies(
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: 3,
+            initial_backoff_ms: 1,
+            backoff_multiplier: 1.0,
+            jitter_factor: 0.0,
+            max_backoff_ms: 1,
+            rate_limit_max_attempts: 2,
+            rate_limit_initial_backoff_ms: 10,
+            rate_limit_max_backoff_ms: 100,
+        })?,
+        GrpcBreakerConfig::try_new(true, 100, 10, 1)?,
+    );
     let client = resilient_over(&peer.get_endpoint(), config)?;
 
     let result = client

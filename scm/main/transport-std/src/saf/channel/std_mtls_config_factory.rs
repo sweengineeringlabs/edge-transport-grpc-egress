@@ -7,11 +7,10 @@ use grpc_egress_transport::{BuildMtlsConfigRequest, MtlsConfig, MtlsConfigFactor
 pub struct StdMtlsConfigFactory;
 
 impl MtlsConfigFactory for StdMtlsConfigFactory {
-    fn build(&self, req: BuildMtlsConfigRequest) -> MtlsConfig {
-        MtlsConfig {
-            cert_pem_path: req.cert_pem_path,
-            key_pem_path: req.key_pem_path,
-            ca_pem_path: req.ca_pem_path,
-        }
+    fn build(
+        &self,
+        req: BuildMtlsConfigRequest,
+    ) -> Result<MtlsConfig, grpc_egress_transport::GrpcChannelConfigError> {
+        MtlsConfig::try_new(req.cert_pem_path, req.key_pem_path, req.ca_pem_path)
     }
 }

@@ -42,7 +42,7 @@ struct DenyBefore;
 impl GrpcEgressInterceptor for DenyBefore {
     fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Err(CallError::Status {
-            path: call.get_path().into(),
+            path: call.path().into(),
             code: StatusCode::PermissionDenied,
             message: "denied by interceptor".to_string(),
             details: Vec::new(),
@@ -65,7 +65,7 @@ impl GrpcEgressInterceptor for FailAfter {
 
     fn after_call(&self, reply: &InboundReply<'_>) -> Result<(), CallError> {
         Err(CallError::Status {
-            path: reply.path.into(),
+            path: reply.path().into(),
             code: StatusCode::DataLoss,
             message: "refused by interceptor".to_string(),
             details: Vec::new(),
@@ -135,11 +135,7 @@ fn call() -> OutboundCallFixture {
 }
 
 fn reply() -> InboundReply<'static> {
-    InboundReply {
-        path: "/svc/M",
-        headers: Metadata::default(),
-        trailers: Metadata::default(),
-    }
+    InboundReply::new("/svc/M", Metadata::default(), Metadata::default())
 }
 
 fn recorder(marker: &'static str, log: &Arc<Mutex<Vec<String>>>) -> Arc<Recorder> {
@@ -255,7 +251,7 @@ fn test_run_before_later_interceptor_sees_the_header_an_earlier_one_added() -> R
 
     chain.run_before(&mut call)?;
 
-    assert_eq!(call.get_header_values("x-second"), ["seen-first"]);
+    assert_eq!(call.header_values("x-second"), ["seen-first"]);
     Ok(())
 }
 

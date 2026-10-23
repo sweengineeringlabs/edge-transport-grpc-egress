@@ -26,8 +26,8 @@
   {
     "name": "I05 after_call gets the trailers as headers",
     "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
-    "find": "            headers: StdMetadataExtender\n                .copy(headers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,\n            trailers: StdMetadataExtender\n                .copy(trailers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,",
-    "replace": "            headers: StdMetadataExtender\n                .copy(trailers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,\n            trailers: StdMetadataExtender\n                .copy(headers)\n                .map_err(|error| CallError::Transport {\n                    path: path.into(),\n                    code: StatusCode::Internal,\n                    reason: error.to_string(),\n                })?,"
+    "find": "InboundReply::new(path, headers, trailers)",
+    "replace": "InboundReply::new(path, trailers, headers)"
   },
   {
     "name": "C01 after_call runs in reverse order",
@@ -74,8 +74,8 @@
   {
     "name": "M02 binary entries are lost when metadata is extended",
     "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
-    "find": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries()\n        {",
-    "replace": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries().filter(|_| false)\n        {"
+    "find": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries()\n        {\n            let entry = entry?;\n            builder.append_binary(entry.get_key(), entry.get_value())?;\n        }\n        Ok(builder)",
+    "replace": "        for entry in source\n            .get_binary_entries(GetBinaryEntriesRequest::new())?\n            .into_entries().filter(|_| false)\n        {\n            let entry = entry?;\n            builder.append_binary(entry.get_key(), entry.get_value())?;\n        }\n        Ok(builder)"
   },
   {
     "name": "E01 the pool is never told a backend failed",
@@ -140,8 +140,8 @@
   {
     "name": "Y04 the further headers of the identity are not sent",
     "file": "scm/main/transport-std/src/std/context/context_headers.rs",
-    "find": "        headers.extend(\n            identity\n                .list_headers()\n                .into_iter()\n                .map(|(k, v)| (k.to_string(), v.to_string())),\n        );",
-    "replace": "        let _ = identity.list_headers();"
+    "find": "        headers.extend(\n            identity\n                .headers()\n                .into_iter()\n                .map(|(k, v)| (k.to_string(), v.to_string())),\n        );",
+    "replace": "        let _ = identity.headers();"
   },
   {
     "name": "L01 the root CA file is ignored",
@@ -164,7 +164,7 @@
   {
     "name": "B01 a file configuration sets the request limit to the engine's own",
     "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
-    "find": "            max_encoding_message_size: Some(config.max_message_bytes),",
+    "find": "            max_encoding_message_size: Some(config.max_message_bytes()),",
     "replace": "            max_encoding_message_size: self.max_encoding_message_size,"
   },
   {
@@ -176,8 +176,8 @@
   {
     "name": "B04 keep-alive while idle is inverted",
     "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
-    "find": ".with_keep_alive_while_idle(keep_alive.permit_without_calls);",
-    "replace": ".with_keep_alive_while_idle(!keep_alive.permit_without_calls);"
+    "find": ".with_keep_alive_while_idle(keep_alive.permit_without_calls());",
+    "replace": ".with_keep_alive_while_idle(!keep_alive.permit_without_calls());"
   },
   {
     "name": "B05 a plaintext endpoint is accepted without the opt-in",
@@ -229,9 +229,9 @@
   },
   {
     "name": "B13 the CA of the file configuration is not trusted",
-    "file": "scm/main/transport-std/src/spi/client/protosvc/grpc_egress_builder.rs",
-    "find": "root_ca: mtls.ca_pem_path.as_deref(),",
-    "replace": "root_ca: None,"
+    "file": "scm/main/transport-std/src/std/channel/std_tls_settings_resolver.rs",
+    "find": "let root_ca = req.root_ca();",
+    "replace": "let root_ca = None::<&str>;"
   },
   {
     "name": "N01 the health request names the service in another field",
@@ -386,14 +386,14 @@
   {
     "name": "D04 the builder drops the compression",
     "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
-    "find": "compression: self.compression.unwrap_or(CompressionMode::None),",
-    "replace": "compression: CompressionMode::None,"
+    "find": "self.compression.unwrap_or(CompressionMode::None),",
+    "replace": "CompressionMode::None,"
   },
   {
     "name": "D05 the builder drops the keep-alive",
     "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
-    "find": "keep_alive: self.keep_alive,",
-    "replace": "keep_alive: None,"
+    "find": "            self.keep_alive,",
+    "replace": "            None,"
   },
   {
     "name": "D06 the builder default message cap is zero",
@@ -404,26 +404,26 @@
   {
     "name": "D07 the builder builds without an endpoint",
     "file": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
-    "find": "self.endpoint.ok_or(\"endpoint required\")?",
-    "replace": "self.endpoint.unwrap_or_default()"
+    "find": "let endpoint = self.endpoint.ok_or(\"endpoint required\")?;",
+    "replace": "if self.endpoint.is_none() { return Ok(GrpcChannelConfig::default()); }\n        let endpoint = self.endpoint.unwrap_or_default();"
   },
   {
     "name": "D08 the mutual-TLS factory drops the CA",
     "file": "scm/main/transport-std/src/saf/channel/std_mtls_config_factory.rs",
-    "find": "ca_pem_path: req.ca_pem_path,",
-    "replace": "ca_pem_path: None,"
+    "find": "req.ca_pem_path",
+    "replace": "None"
   },
   {
     "name": "D09 the mutual-TLS factory swaps the certificate and the key",
     "file": "scm/main/transport-std/src/saf/channel/std_mtls_config_factory.rs",
-    "find": "cert_pem_path: req.cert_pem_path,\n            key_pem_path: req.key_pem_path,",
-    "replace": "cert_pem_path: req.key_pem_path,\n            key_pem_path: req.cert_pem_path,"
+    "find": "MtlsConfig::try_new(req.cert_pem_path, req.key_pem_path, req.ca_pem_path)",
+    "replace": "MtlsConfig::try_new(req.key_pem_path, req.cert_pem_path, req.ca_pem_path)"
   },
   {
-    "name": "D10 the load balancer settings provider returns no backends",
+    "name": "D10 the load balancer settings provider rejects valid backends",
     "file": "scm/main/transport-std/src/spi/loadbalancer/settings/loadbalancer_settings_provider.rs",
     "find": "Ok(document.loadbalancer)",
-    "replace": "Ok(LoadbalancerSettings { backends: Vec::new(), ..document.loadbalancer })"
+    "replace": "Err(GrpcChannelConfigError::InvalidOptionValue { option: \"loadbalancer\", reason: \"backends missing\".into() })"
   },
   {
     "name": "D11 the chain drops a pushed interceptor",
@@ -446,8 +446,8 @@
   {
     "name": "D14 copying metadata loses the text entries",
     "file": "scm/main/transport-std/src/std/client/std_metadata_extender.rs",
-    "find": "        for entry in source.get_entries(GetEntriesRequest::new())?.into_entries() {",
-    "replace": "        for entry in source.get_entries(GetEntriesRequest::new())?.into_entries().take(0) {"
+    "find": "    fn copy<M: MetadataView>(&self, source: &M) -> Result<Metadata, MetadataError> {\n        let mut builder = MetadataBuilder::create();\n        for entry in source.get_entries(GetEntriesRequest::new())?.into_entries() {",
+    "replace": "    fn copy<M: MetadataView>(&self, source: &M) -> Result<Metadata, MetadataError> {\n        let mut builder = MetadataBuilder::create();\n        for entry in source.get_entries(GetEntriesRequest::new())?.into_entries().take(0) {"
   },
   {
     "name": "D15 a pending call forgets the timeout of the options",
@@ -530,31 +530,37 @@
   {
     "name": "RT14 the retry policy accepts zero attempts",
     "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_provider.rs",
-    "find": "if config.max_attempts == 0 {",
-    "replace": "if false {"
+    "find": "if config.max_attempts() == 0 {",
+    "replace": "if false {",
+    "expected": "survives",
+    "reason": "GrpcRetryConfig fields are private and try_new plus custom deserialization reject zero attempts before provider validation; the value-object construction tests enforce the invariant."
   },
   {
     "name": "RT15 the initial backoff is read in seconds",
     "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_provider.rs",
-    "find": "Duration::from_millis(config.initial_backoff_ms)",
-    "replace": "Duration::from_secs(config.initial_backoff_ms)"
+    "find": "Duration::from_millis(config.initial_backoff_ms())",
+    "replace": "Duration::from_secs(config.initial_backoff_ms())"
   },
   {
     "name": "RT16 a parsed retry policy is not validated",
     "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_provider.rs",
     "find": "self.validate(&cfg)?;",
-    "replace": ""
+    "replace": "",
+    "expected": "survives",
+    "reason": "TOML deserialization itself invokes the validated GrpcRetryConfig construction path, so removing the provider's duplicate post-parse validation cannot admit an invalid value."
   },
   {
     "name": "RT17 the retry policy builder does not validate",
     "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_builder.rs",
-    "find": "StdGrpcRetryConfigProvider.validate(&self.config)?;",
-    "replace": ""
+    "find": "StdGrpcRetryConfigProvider.validate(&config)?;",
+    "replace": "",
+    "expected": "survives",
+    "reason": "The builder constructs GrpcRetryConfig through try_new, which validates before returning; the provider check is redundant and cannot be bypassed by a public struct literal."
   },
   {
     "name": "RT18 the retry policy builder ignores max_attempts",
     "file": "scm/main/retry-std/src/spi/config/std_grpc_retry_config_builder.rs",
-    "find": "self.config.max_attempts = v;",
+    "find": "self.max_attempts = v;",
     "replace": "let _ = v;"
   },
   {
@@ -566,14 +572,16 @@
   {
     "name": "BR07 the breaker policy accepts a zero threshold",
     "file": "scm/main/breaker-std/src/spi/config/std_grpc_breaker_config_provider.rs",
-    "find": "if config.failure_threshold == 0 {",
-    "replace": "if false {"
+    "find": "if config.failure_threshold() == 0 {",
+    "replace": "if false {",
+    "expected": "survives",
+    "reason": "GrpcBreakerConfig fields are private and try_new plus deserialization reject a zero threshold before the provider can receive it; the VO construction tests enforce the invariant."
   },
   {
     "name": "BR08 the breaker cool-down is read in milliseconds",
     "file": "scm/main/breaker-std/src/spi/config/std_grpc_breaker_config_provider.rs",
-    "find": "Duration::from_secs(config.cool_down_seconds)",
-    "replace": "Duration::from_millis(config.cool_down_seconds)"
+    "find": "Duration::from_secs(config.cool_down_seconds())",
+    "replace": "Duration::from_millis(config.cool_down_seconds())"
   },
   {
     "name": "BR09 a new breaker starts half-open",
@@ -591,37 +599,41 @@
     "name": "BR11 the breaker factory does not validate the policy",
     "file": "scm/main/breaker-std/src/saf/std_grpc_breaker_factory.rs",
     "find": "StdGrpcBreakerConfigProvider.validate(&self.config)?;",
-    "replace": ""
+    "replace": "",
+    "expected": "survives",
+    "reason": "GrpcBreakerConfig fields are private and both try_new and deserialization validate the policy, so an invalid value cannot reach the factory; the VO constructor and compile-fail tests enforce the invariant before this redundant check."
   },
   {
     "name": "RS01 the resilience policy accepts zero attempts",
     "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
-    "find": "if config.max_attempts == 0 {",
-    "replace": "if false {"
+    "find": "if config.max_attempts() == 0 {",
+    "replace": "if false {",
+    "expected": "survives",
+    "reason": "ResilienceConfig fields are private, and try_new plus custom deserialization validate the embedded retry policy before provider validation; construction tests enforce the no-zero-attempt invariant."
   },
   {
     "name": "RS02 the retry projection swaps the rate-limit backoffs",
     "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
-    "find": "rate_limit_initial_backoff_ms: config.rate_limit_initial_backoff_ms,\n            rate_limit_max_backoff_ms: config.rate_limit_max_backoff_ms,",
-    "replace": "rate_limit_initial_backoff_ms: config.rate_limit_max_backoff_ms,\n            rate_limit_max_backoff_ms: config.rate_limit_initial_backoff_ms,"
+    "find": "rate_limit_initial_backoff_ms: config.rate_limit_initial_backoff_ms(),\n            rate_limit_max_backoff_ms: config.rate_limit_max_backoff_ms(),",
+    "replace": "rate_limit_initial_backoff_ms: config.rate_limit_max_backoff_ms(),\n            rate_limit_max_backoff_ms: config.rate_limit_initial_backoff_ms(),"
   },
   {
     "name": "RS03 the breaker projection takes the threshold from the probe count",
     "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
-    "find": "failure_threshold: config.failure_threshold,",
-    "replace": "failure_threshold: config.half_open_probe_count,"
+    "find": "config.failure_threshold(),",
+    "replace": "config.half_open_probe_count(),"
   },
   {
-    "name": "RS04 a parsed resilience policy is not validated",
+    "name": "RS04 the resilience parser ignores supplied policy values",
     "file": "scm/main/resilient-std/src/spi/config/std_resilience_config_provider.rs",
-    "find": "self.validate(&cfg)?;",
-    "replace": ""
+    "find": "Ok(cfg)",
+    "replace": "Ok(ResilienceConfig::default())"
   },
   {
-    "name": "RS05 the resilient factory does not validate the policy",
+    "name": "RS05 the resilient factory drops the supplied retry policy",
     "file": "scm/main/resilient-std/src/saf/std_grpc_resilient_factory.rs",
-    "find": "provider.validate(&self.config)?;",
-    "replace": ""
+    "find": "provider.to_retry_config(&self.config)?",
+    "replace": "grpc_egress_retry::GrpcRetryConfig::default()"
   },
   {
     "name": "BA05 secrets of different algorithms compare equal",
@@ -632,8 +644,8 @@
   {
     "name": "BA06 the outbound config builder drops the subject",
     "file": "scm/main/auth-bearer-std/src/std/std_bearer_egress_config_builder.rs",
-    "find": "subject: self.subject.ok_or(\"subject is required\")?,",
-    "replace": "subject: String::new(),"
+    "find": "self.subject.ok_or(\"subject is required\")?",
+    "replace": "String::new()"
   },
   {
     "name": "BA07 the claims builder takes the issuer from the audience",

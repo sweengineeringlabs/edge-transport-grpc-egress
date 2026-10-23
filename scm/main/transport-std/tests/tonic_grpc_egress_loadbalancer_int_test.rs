@@ -38,24 +38,26 @@ impl GrpcEgressInterceptor for TagInterceptor {
     }
 }
 
-fn settings(strategy: BalancingStrategy, urls: &[String]) -> LoadbalancerSettings {
-    LoadbalancerSettings {
-        strategy,
-        backends: urls
-            .iter()
-            .map(|url| BackendTarget {
-                url: url.clone(),
-                weight: 1,
-            })
-            .collect(),
-    }
+fn settings(
+    strategy: BalancingStrategy,
+    urls: &[String],
+) -> Result<LoadbalancerSettings, Box<dyn Error>> {
+    let backends = urls
+        .iter()
+        .map(|url| {
+            BackendTarget::try_new(url.clone(), 1)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(LoadbalancerSettings::try_new(strategy, backends)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?)
 }
 
-fn builder_over(urls: &[String]) -> impl GrpcEgressBuilder {
-    TonicGrpcEgressBuilderSpiFactory::new("")
+fn builder_over(urls: &[String]) -> Result<impl GrpcEgressBuilder, Box<dyn Error>> {
+    Ok(TonicGrpcEgressBuilderSpiFactory::new("")
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
-        .with_loadbalancer(settings(BalancingStrategy::RoundRobin, urls))
+        .with_loadbalancer(settings(BalancingStrategy::RoundRobin, urls)?))
 }
 
 fn request() -> CallRequest<Vec<u8>> {
@@ -86,7 +88,7 @@ async fn test_call_balanced_round_robin_alternates_between_the_backends_in_order
         PeerBehaviour::Reply(b"two".to_vec()),
     )
     .await?;
-    let client = builder_over(&urls).build()?;
+    let client = builder_over(&urls)?.build()?;
 
     let mut replies = Vec::new();
     for _ in 0..4 {
@@ -129,7 +131,7 @@ async fn test_call_balanced_over_the_decoding_limit_returns_out_of_range_from_ev
         PeerBehaviour::Reply(vec![0u8; 1025]),
     )
     .await?;
-    let client = builder_over(&urls)
+    let client = builder_over(&urls)?
         .with_max_decoding_message_size(1024)
         .build()?;
 
@@ -191,7 +193,7 @@ async fn test_call_balanced_with_send_compression_reaches_every_backend_compress
         PeerBehaviour::Reply(b"ok".to_vec()),
     )
     .await?;
-    let client = builder_over(&urls)
+    let client = builder_over(&urls)?
         .with_send_compression(Compression::Gzip)
         .build()?;
 
@@ -232,7 +234,7 @@ async fn test_call_balanced_with_interceptor_runs_it_before_each_call_to_every_b
         PeerBehaviour::Reply(b"ok".to_vec()),
     )
     .await?;
-    let client = builder_over(&urls)
+    let client = builder_over(&urls)?
         .with_interceptor(Arc::new(TagInterceptor))
         .build()?;
 
@@ -269,7 +271,7 @@ async fn test_call_balanced_with_trace_context_sends_the_traceparent_to_every_ba
         PeerBehaviour::Reply(b"ok".to_vec()),
     )
     .await?;
-    let client = builder_over(&urls)
+    let client = builder_over(&urls)?
         .with_trace_context(TraceContextSource::Static {
             traceparent: TRACEPARENT.to_string(),
             tracestate: None,
@@ -307,7 +309,7 @@ async fn test_call_balanced_with_request_timeout_ends_a_slow_call_at_it_on_every
         PeerBehaviour::Delay(Duration::from_secs(3)),
     )
     .await?;
-    let client = builder_over(&urls)
+    let client = builder_over(&urls)?
         .with_request_timeout(Duration::from_millis(150))
         .build()?;
     let started = Instant::now();
@@ -383,7 +385,7 @@ async fn test_call_balanced_with_tls_identity_presents_the_client_certificate_to
         .with_loadbalancer(settings(
             BalancingStrategy::RoundRobin,
             &[one.get_https_endpoint(), two.get_https_endpoint()],
-        ))
+        )?)
         .build()?;
 
     for _ in 0..4 {
@@ -411,7 +413,7 @@ async fn test_call_balanced_one_backend_down_uses_the_other() -> Result<(), Box<
     Fixture::ensure_tls_provider();
     let live = PeerServer::start(PeerBehaviour::Reply(b"live".to_vec())).await?;
     let dead = ClosedPort::reserve()?;
-    let client = builder_over(&[dead.get_endpoint(), live.get_endpoint()]).build()?;
+    let client = builder_over(&[dead.get_endpoint(), live.get_endpoint()])?.build()?;
 
     let mut failures = 0;
     let mut answered = 0;
@@ -456,7 +458,7 @@ async fn test_call_balanced_all_backends_down_returns_unavailable_each_time(
     Fixture::ensure_tls_provider();
     let one = ClosedPort::reserve()?;
     let two = ClosedPort::reserve()?;
-    let client = builder_over(&[one.get_endpoint(), two.get_endpoint()]).build()?;
+    let client = builder_over(&[one.get_endpoint(), two.get_endpoint()])?.build()?;
 
     let mut outcomes = Vec::new();
     for _ in 0..3 {
@@ -499,7 +501,7 @@ async fn test_call_balanced_raw_server_stream_reaches_a_backend() -> Result<(), 
         PeerBehaviour::Reply(b"s2".to_vec()),
     )
     .await?;
-    let client = builder_over(&urls).build()?;
+    let client = builder_over(&urls)?.build()?;
 
     let mut stream = client
         .call_raw_server_stream({
@@ -538,19 +540,13 @@ async fn test_call_balanced_weighted_strategy_follows_the_weights_exactly(
     let client = TonicGrpcEgressBuilderSpiFactory::new("")
         .build(BuildGrpcEgressBuilderRequest)
         .with_plaintext_allowed()
-        .with_loadbalancer(LoadbalancerSettings {
-            strategy: BalancingStrategy::Weighted,
-            backends: vec![
-                BackendTarget {
-                    url: urls[0].clone(),
-                    weight: 9,
-                },
-                BackendTarget {
-                    url: urls[1].clone(),
-                    weight: 1,
-                },
+        .with_loadbalancer(LoadbalancerSettings::try_new(
+            BalancingStrategy::Weighted,
+            vec![
+                BackendTarget::try_new(urls[0].clone(), 9)?,
+                BackendTarget::try_new(urls[1].clone(), 1)?,
             ],
-        })
+        )?)
         .build()?;
 
     for _ in 0..20 {
@@ -591,7 +587,7 @@ async fn test_call_balanced_least_connections_takes_the_first_backend_even_while
         TonicGrpcEgressBuilderSpiFactory::new("")
             .build(BuildGrpcEgressBuilderRequest)
             .with_plaintext_allowed()
-            .with_loadbalancer(settings(BalancingStrategy::LeastConnections, &urls))
+            .with_loadbalancer(settings(BalancingStrategy::LeastConnections, &urls)?)
             .build()?,
     );
     let busy = {

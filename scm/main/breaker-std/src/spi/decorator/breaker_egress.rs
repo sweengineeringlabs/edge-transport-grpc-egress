@@ -103,6 +103,9 @@ impl<T> GrpcBreakerClient<T> {
         path: &str,
         call: impl FnOnce() -> Fut + Send,
     ) -> Result<R, CallError> {
+        if !self.config.enabled() {
+            return call().await;
+        }
         self.admit(path).await?;
         let result = call().await;
         let outcome = StdFailureClassifier.classify_result(&result);
@@ -173,7 +176,9 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
     ) -> Result<CallRawResponse<<Self as RawTransport>::Metadata>, CallError> {
         let (path, message, options) = request.into_parts();
 
-        self.admit(path.get_path()).await?;
+        if self.config.enabled() {
+            self.admit(path.get_path()).await?;
+        }
         let result = self
             .inner
             .call_raw(
@@ -184,8 +189,10 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
                     .build(),
             )
             .await;
-        self.record(StdFailureClassifier.classify_result(&result))
-            .await;
+        if self.config.enabled() {
+            self.record(StdFailureClassifier.classify_result(&result))
+                .await;
+        }
         result
     }
 
@@ -200,7 +207,9 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
     > {
         let (path, message, options) = request.into_parts();
 
-        self.admit(path.get_path()).await?;
+        if self.config.enabled() {
+            self.admit(path.get_path()).await?;
+        }
         let result = self
             .inner
             .call_raw_server_stream(
@@ -211,8 +220,10 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
                     .build(),
             )
             .await;
-        self.record(StdFailureClassifier.classify_result(&result))
-            .await;
+        if self.config.enabled() {
+            self.record(StdFailureClassifier.classify_result(&result))
+                .await;
+        }
         result
     }
 
@@ -222,7 +233,9 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
     ) -> Result<CallRawClientStreamResponse<<Self as RawTransport>::Metadata>, CallError> {
         let (path, requests, options) = request.into_parts();
 
-        self.admit(path.get_path()).await?;
+        if self.config.enabled() {
+            self.admit(path.get_path()).await?;
+        }
         let result = self
             .inner
             .call_raw_client_stream(
@@ -233,8 +246,10 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
                     .build(),
             )
             .await;
-        self.record(StdFailureClassifier.classify_result(&result))
-            .await;
+        if self.config.enabled() {
+            self.record(StdFailureClassifier.classify_result(&result))
+                .await;
+        }
         result
     }
 
@@ -249,7 +264,9 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
     > {
         let (path, requests, options) = request.into_parts();
 
-        self.admit(path.get_path()).await?;
+        if self.config.enabled() {
+            self.admit(path.get_path()).await?;
+        }
         let result = self
             .inner
             .call_raw_bidi_stream(
@@ -260,8 +277,10 @@ impl<T: Transport + RawTransport> RawTransport for GrpcBreakerClient<T> {
                     .build(),
             )
             .await;
-        self.record(StdFailureClassifier.classify_result(&result))
-            .await;
+        if self.config.enabled() {
+            self.record(StdFailureClassifier.classify_result(&result))
+                .await;
+        }
         result
     }
 }

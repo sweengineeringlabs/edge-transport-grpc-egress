@@ -1,46 +1,39 @@
 //! Integration tests for the Validator trait and BearerEgressConfig validation.
 
-use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret};
+use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret, Validator};
 
 // Import Validator via gateway re-export path.
 // Validator is declared in api/traits/validator.rs and re-exported through gateway.
-fn make_valid_config() -> BearerEgressConfig {
-    BearerEgressConfig {
-        secret: BearerSecret::Hs256 {
-            secret: b"test-secret-key".to_vec(),
-        },
-        issuer: "test-issuer".into(),
-        audience: "test-audience".into(),
-        subject: "test-subject".into(),
-        lifetime_seconds: 300,
-    }
+fn make_valid_config() -> Result<BearerEgressConfig, grpc_egress_auth_bearer::BearerAuthError> {
+    BearerEgressConfig::try_new(
+        BearerSecret::hs256(b"test-secret-key".to_vec())?,
+        "test-issuer",
+        "test-audience",
+        "test-subject",
+        300,
+    )
 }
 
 /// @covers: Validator::validate
 #[test]
-fn test_validate_valid_config_returns_ok() {
-    use grpc_egress_auth_bearer::Validator;
-    let config = make_valid_config();
-    let mut invalid = make_valid_config();
-    invalid.audience = String::new();
-
+fn test_validate_valid_config_returns_ok() -> Result<(), Box<dyn std::error::Error>> {
+    let config = make_valid_config()?;
     assert!(
         config.validate().is_ok(),
         "valid config must pass validation"
     );
     assert!(
-        invalid.validate().is_err(),
-        "the same config with an empty audience must not"
+        BearerEgressConfig::try_new(BearerSecret::hs256(b"k".to_vec())?, "iss", "", "sub", 1)
+            .is_err()
     );
+    Ok(())
 }
 
 /// @covers: Validator::validate
 #[test]
 fn test_validate_empty_issuer_returns_err() -> Result<(), Box<dyn std::error::Error>> {
-    use grpc_egress_auth_bearer::Validator;
-    let mut config = make_valid_config();
-    config.issuer = String::new();
-    let result = config.validate();
+    let result =
+        BearerEgressConfig::try_new(BearerSecret::hs256(b"k".to_vec())?, "", "aud", "sub", 1);
     assert!(result.is_err(), "empty issuer must fail validation");
     assert!(
         result
@@ -56,10 +49,8 @@ fn test_validate_empty_issuer_returns_err() -> Result<(), Box<dyn std::error::Er
 /// @covers: Validator::validate
 #[test]
 fn test_validate_empty_audience_returns_err() -> Result<(), Box<dyn std::error::Error>> {
-    use grpc_egress_auth_bearer::Validator;
-    let mut config = make_valid_config();
-    config.audience = String::new();
-    let result = config.validate();
+    let result =
+        BearerEgressConfig::try_new(BearerSecret::hs256(b"k".to_vec())?, "iss", "", "sub", 1);
     assert!(result.is_err(), "empty audience must fail validation");
     assert!(
         result
@@ -75,10 +66,8 @@ fn test_validate_empty_audience_returns_err() -> Result<(), Box<dyn std::error::
 /// @covers: Validator::validate
 #[test]
 fn test_validate_empty_subject_returns_err() -> Result<(), Box<dyn std::error::Error>> {
-    use grpc_egress_auth_bearer::Validator;
-    let mut config = make_valid_config();
-    config.subject = String::new();
-    let result = config.validate();
+    let result =
+        BearerEgressConfig::try_new(BearerSecret::hs256(b"k".to_vec())?, "iss", "aud", "", 1);
     assert!(result.is_err(), "empty subject must fail validation");
     assert!(
         result
@@ -88,5 +77,26 @@ fn test_validate_empty_subject_returns_err() -> Result<(), Box<dyn std::error::E
             .contains("subject"),
         "error must mention subject"
     );
+    Ok(())
+}
+
+#[test]
+fn test_bearer_config_rejects_zero_lifetime_and_invalid_deserialization(
+) -> Result<(), Box<dyn std::error::Error>> {
+    assert!(BearerEgressConfig::try_new(
+        BearerSecret::hs256(b"key".to_vec())?,
+        "iss",
+        "aud",
+        "sub",
+        0
+    )
+    .is_err());
+    let text = r#"secret = { kind = "hs256", secret = [107] }
+issuer = "iss"
+audience = "aud"
+subject = "sub"
+lifetime_seconds = 0
+"#;
+    assert!(toml::from_str::<BearerEgressConfig>(text).is_err());
     Ok(())
 }

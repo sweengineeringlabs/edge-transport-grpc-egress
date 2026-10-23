@@ -25,6 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 jsonwebtoken = "9"
+toml = "0.8"
 
 [lints.rust]
 unsafe_code  = "deny"

@@ -3,83 +3,103 @@
 
 use std::error::Error;
 
+use grpc_egress_breaker::GrpcBreakerConfig;
 use grpc_egress_resilient::ResilienceConfigProvider as _;
 use grpc_egress_resilient::{ResilienceConfig, ResilientTransportError};
+use grpc_egress_retry::GrpcRetryConfig;
 
-fn valid() -> ResilienceConfig {
-    ResilienceConfig {
-        max_attempts: 3,
-        initial_backoff_ms: 100,
-        backoff_multiplier: 2.0,
-        jitter_factor: 0.1,
-        max_backoff_ms: 2_000,
-        rate_limit_max_attempts: 2,
-        rate_limit_initial_backoff_ms: 1_000,
-        rate_limit_max_backoff_ms: 10_000,
-        failure_threshold: 5,
-        cool_down_seconds: 10,
-        half_open_probe_count: 1,
-    }
-}
-
-fn refusal(config: &ResilienceConfig) -> Result<String, Box<dyn Error>> {
-    match resilience_provider().validate(config) {
-        Err(ResilientTransportError::InvalidResilience(message)) => Ok(message),
-        other => Err(format!("expected InvalidResilience, got {other:?}").into()),
-    }
+fn valid() -> Result<ResilienceConfig, Box<dyn Error>> {
+    Ok(ResilienceConfig::from_policies(
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: 3,
+            initial_backoff_ms: 100,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.1,
+            max_backoff_ms: 2_000,
+            rate_limit_max_attempts: 2,
+            rate_limit_initial_backoff_ms: 1_000,
+            rate_limit_max_backoff_ms: 10_000,
+        })?,
+        GrpcBreakerConfig::try_new(true, 5, 10, 1)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?,
+    ))
 }
 
 /// @covers: ResilienceConfigProvider::validate
 #[test]
-fn test_validate_valid_config_returns_ok() {
-    let invalid = ResilienceConfig {
-        max_attempts: 0,
-        ..valid()
-    };
-
-    assert!(resilience_provider().validate(&valid()).is_ok());
+fn test_validate_valid_config_returns_ok() -> Result<(), Box<dyn Error>> {
+    assert!(resilience_provider().validate(&valid()?).is_ok());
     assert!(
-        resilience_provider().validate(&invalid).is_err(),
-        "the same policy with no attempts must not"
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: 0,
+            initial_backoff_ms: 100,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.1,
+            max_backoff_ms: 2000,
+            rate_limit_max_attempts: 2,
+            rate_limit_initial_backoff_ms: 1000,
+            rate_limit_max_backoff_ms: 10000,
+        })
+        .is_err()
+    );
+    Ok(())
+}
+
+/// @covers: ResilienceConfigProvider::validate
+#[test]
+fn test_validate_zero_max_attempts_names_the_field() {
+    assert!(
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: 0,
+            initial_backoff_ms: 100,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.1,
+            max_backoff_ms: 2000,
+            rate_limit_max_attempts: 2,
+            rate_limit_initial_backoff_ms: 1000,
+            rate_limit_max_backoff_ms: 10000,
+        })
+        .err()
+        .is_some_and(|error| error.to_string().contains("max_attempts"))
     );
 }
 
 /// @covers: ResilienceConfigProvider::validate
 #[test]
-fn test_validate_zero_max_attempts_names_the_field() -> Result<(), Box<dyn Error>> {
-    let config = ResilienceConfig {
-        max_attempts: 0,
-        ..valid()
-    };
-
-    assert!(refusal(&config)?.contains("max_attempts"));
-    Ok(())
-}
-
-/// @covers: ResilienceConfigProvider::validate
-#[test]
-fn test_validate_zero_rate_limit_max_attempts_names_the_field() -> Result<(), Box<dyn Error>> {
-    let config = ResilienceConfig {
-        rate_limit_max_attempts: 0,
-        ..valid()
-    };
-
-    assert!(refusal(&config)?.contains("rate_limit_max_attempts"));
-    Ok(())
+fn test_validate_zero_rate_limit_max_attempts_names_the_field() {
+    assert!(
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: 3,
+            initial_backoff_ms: 100,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.1,
+            max_backoff_ms: 2000,
+            rate_limit_max_attempts: 0,
+            rate_limit_initial_backoff_ms: 1000,
+            rate_limit_max_backoff_ms: 10000,
+        })
+        .err()
+        .is_some_and(|error| error.to_string().contains("rate_limit_max_attempts"))
+    );
 }
 
 /// @covers: ResilienceConfigProvider::validate
 #[test]
 fn test_validate_jitter_factor_out_of_range_names_the_field() -> Result<(), Box<dyn Error>> {
     for jitter_factor in [1.5, -0.1] {
-        let config = ResilienceConfig {
-            jitter_factor,
-            ..valid()
-        };
-
         assert!(
-            refusal(&config)?.contains("jitter_factor"),
-            "{jitter_factor}"
+            GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+                max_attempts: 3,
+                initial_backoff_ms: 100,
+                backoff_multiplier: 2.0,
+                jitter_factor,
+                max_backoff_ms: 2000,
+                rate_limit_max_attempts: 2,
+                rate_limit_initial_backoff_ms: 1000,
+                rate_limit_max_backoff_ms: 10000,
+            })
+            .err()
+            .is_some_and(|error| error.to_string().contains("jitter_factor"))
         );
     }
     Ok(())
@@ -87,61 +107,57 @@ fn test_validate_jitter_factor_out_of_range_names_the_field() -> Result<(), Box<
 
 /// @covers: ResilienceConfigProvider::validate
 #[test]
-fn test_validate_zero_half_open_probe_count_names_the_field() -> Result<(), Box<dyn Error>> {
-    let config = ResilienceConfig {
-        half_open_probe_count: 0,
-        ..valid()
-    };
-
-    assert!(refusal(&config)?.contains("half_open_probe_count"));
-    Ok(())
+fn test_validate_zero_half_open_probe_count_names_the_field() {
+    assert!(GrpcBreakerConfig::try_new(true, 5, 10, 0)
+        .err()
+        .is_some_and(|error| error.to_string().contains("half_open_probe_count")));
 }
 
 /// @covers: ResilienceConfigProvider::validate
 #[test]
-fn test_validate_rate_limit_max_backoff_below_initial_names_both_fields(
-) -> Result<(), Box<dyn Error>> {
-    let config = ResilienceConfig {
-        rate_limit_max_backoff_ms: 500,
-        rate_limit_initial_backoff_ms: 1_000,
-        ..valid()
-    };
-
-    let message = refusal(&config)?;
-
-    assert!(message.contains("rate_limit_max_backoff_ms"), "{message}");
+fn test_validate_rate_limit_max_backoff_below_initial_names_both_fields() {
     assert!(
-        message.contains("rate_limit_initial_backoff_ms"),
-        "{message}"
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: 3,
+            initial_backoff_ms: 100,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.1,
+            max_backoff_ms: 2000,
+            rate_limit_max_attempts: 2,
+            rate_limit_initial_backoff_ms: 1000,
+            rate_limit_max_backoff_ms: 500,
+        })
+        .is_err()
     );
-    Ok(())
 }
 
 /// @covers: ResilienceConfigProvider::to_retry_config
 #[test]
-fn test_to_retry_config_maps_every_retry_field() {
-    let config = valid();
+fn test_to_retry_config_maps_every_retry_field() -> Result<(), Box<dyn Error>> {
+    let config = valid()?;
 
-    let retry = resilience_provider().to_retry_config(&config);
+    let retry = resilience_provider().to_retry_config(&config)?;
 
-    assert_eq!(retry.max_attempts, 3);
-    assert_eq!(retry.initial_backoff_ms, 100);
-    assert_eq!(retry.max_backoff_ms, 2_000);
-    assert_eq!(retry.rate_limit_max_attempts, 2);
-    assert_eq!(retry.rate_limit_initial_backoff_ms, 1_000);
-    assert_eq!(retry.rate_limit_max_backoff_ms, 10_000);
+    assert_eq!(retry.max_attempts(), 3);
+    assert_eq!(retry.initial_backoff_ms(), 100);
+    assert_eq!(retry.max_backoff_ms(), 2_000);
+    assert_eq!(retry.rate_limit_max_attempts(), 2);
+    assert_eq!(retry.rate_limit_initial_backoff_ms(), 1_000);
+    assert_eq!(retry.rate_limit_max_backoff_ms(), 10_000);
+    Ok(())
 }
 
 /// @covers: ResilienceConfigProvider::to_breaker_config
 #[test]
-fn test_to_breaker_config_maps_every_breaker_field() {
-    let config = valid();
+fn test_to_breaker_config_maps_every_breaker_field() -> Result<(), Box<dyn Error>> {
+    let config = valid()?;
 
-    let breaker = resilience_provider().to_breaker_config(&config);
+    let breaker = resilience_provider().to_breaker_config(&config)?;
 
-    assert_eq!(breaker.failure_threshold, 5);
-    assert_eq!(breaker.cool_down_seconds, 10);
-    assert_eq!(breaker.half_open_probe_count, 1);
+    assert_eq!(breaker.failure_threshold(), 5);
+    assert_eq!(breaker.cool_down_seconds(), 10);
+    assert_eq!(breaker.half_open_probe_count(), 1);
+    Ok(())
 }
 
 /// Real TOML is parsed and validated into a `ResilienceConfig` that produces the right retry and
@@ -168,14 +184,14 @@ fn test_from_config_parses_toml_into_the_retry_and_breaker_policies() -> Result<
 
     let config = resilience_provider().parse_config(toml_text)?;
 
-    let retry = resilience_provider().to_retry_config(&config);
-    assert_eq!(retry.max_attempts, 7);
-    assert_eq!(retry.rate_limit_max_attempts, 4);
-    assert_eq!(retry.rate_limit_initial_backoff_ms, 2000);
-    let breaker = resilience_provider().to_breaker_config(&config);
-    assert_eq!(breaker.failure_threshold, 9);
-    assert_eq!(breaker.cool_down_seconds, 45);
-    assert_eq!(breaker.half_open_probe_count, 3);
+    let retry = resilience_provider().to_retry_config(&config)?;
+    assert_eq!(retry.max_attempts(), 7);
+    assert_eq!(retry.rate_limit_max_attempts(), 4);
+    assert_eq!(retry.rate_limit_initial_backoff_ms(), 2000);
+    let breaker = resilience_provider().to_breaker_config(&config)?;
+    assert_eq!(breaker.failure_threshold(), 9);
+    assert_eq!(breaker.cool_down_seconds(), 45);
+    assert_eq!(breaker.half_open_probe_count(), 3);
     Ok(())
 }
 

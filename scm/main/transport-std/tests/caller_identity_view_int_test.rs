@@ -187,6 +187,7 @@ async fn test_call_authenticated_context_without_a_token_sends_no_authorization(
 }
 
 #[tokio::test]
+/// @covers: MetadataExtender::extend
 async fn test_call_context_metadata_entries_reach_the_peer() -> Result<(), Box<dyn Error>> {
     let peer = RunningPeer::start().await;
     let client = Fixture::client(&peer)?;
@@ -496,19 +497,19 @@ async fn test_call_two_views_of_one_client_each_carry_their_own_context(
 struct FixedIdentity;
 
 impl grpc_egress_transport::CallerIdentity for FixedIdentity {
-    fn get_trace_id(&self) -> Option<&str> {
+    fn trace_id(&self) -> Option<&str> {
         Some("custom-trace")
     }
 
-    fn get_tenant_id(&self) -> Option<&str> {
+    fn tenant_id(&self) -> Option<&str> {
         None
     }
 
-    fn get_bearer_token(&self) -> Option<&str> {
+    fn bearer_token(&self) -> Option<&str> {
         Some("custom-token")
     }
 
-    fn list_headers(&self) -> Vec<(&str, &str)> {
+    fn headers(&self) -> Vec<(&str, &str)> {
         vec![("x-custom", "yes")]
     }
 }

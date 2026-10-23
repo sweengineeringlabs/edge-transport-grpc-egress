@@ -16,7 +16,7 @@ fn retry_struct_grpc_retry_config_builder_is_accessible_int_test() {
 fn retry_struct_grpc_retry_config_builder_new_builds_valid_config_int_test(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let cfg = retry_config_builder().build()?;
-    assert!(cfg.max_attempts >= 1);
+    assert!(cfg.max_attempts() >= 1);
     Ok(())
 }
 
@@ -25,7 +25,7 @@ fn retry_struct_grpc_retry_config_builder_new_builds_valid_config_int_test(
 fn retry_struct_grpc_retry_config_builder_max_attempts_override_int_test(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let cfg = retry_config_builder().max_attempts(3).build()?;
-    assert_eq!(cfg.max_attempts, 3);
+    assert_eq!(cfg.max_attempts(), 3);
     Ok(())
 }
 

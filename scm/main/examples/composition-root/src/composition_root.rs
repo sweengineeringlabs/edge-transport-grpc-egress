@@ -38,7 +38,7 @@ impl CompositionRoot {
     /// The error of loading the configuration.
     pub fn assemble(&self) -> Result<impl GrpcEgressBuilder, Box<dyn Error>> {
         let config = self.load_config()?;
-        let builder = TonicGrpcEgressBuilderSpiFactory::new(config.endpoint.clone())
+        let builder = TonicGrpcEgressBuilderSpiFactory::new(config.endpoint().to_owned())
             .build(BuildGrpcEgressBuilderRequest)
             .with_channel_config(&config);
         Ok(builder)

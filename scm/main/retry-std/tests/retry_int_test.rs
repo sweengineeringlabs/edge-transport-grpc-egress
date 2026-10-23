@@ -378,7 +378,7 @@ const FIVE_SECONDS: Option<Duration> = Some(Duration::from_secs(5));
 #[test]
 fn test_grpc_retry_config_default_has_positive_max_attempts() {
     let cfg = GrpcRetryConfig::default();
-    assert!(cfg.max_attempts >= 1);
+    assert!(cfg.max_attempts() >= 1);
 }
 
 /// @covers: GrpcRetryClient â€” first-call success short-circuits.

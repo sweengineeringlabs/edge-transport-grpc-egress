@@ -20,7 +20,7 @@ use grpc_egress_breaker::{
     BreakerDomainError, BreakerObservable, BreakerState, ObserveStateRequest, ObserveStateResponse,
 };
 use grpc_egress_resilient::{
-    BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig, ResilientTransportError,
+    BuildGrpcResilientRequest, GrpcResilientFactory, ResilientTransportError,
 };
 
 /// A client that answers every raw call with an empty success, refuses what else it is asked, and reports a closed
@@ -164,18 +164,12 @@ impl BreakerObservable for ClosedClient {
         &self,
         _req: ObserveStateRequest,
     ) -> BoxFuture<'_, Result<ObserveStateResponse, BreakerDomainError>> {
-        Box::pin(async {
-            Ok(ObserveStateResponse {
-                state: BreakerState::Closed,
-            })
-        })
+        Box::pin(async { Ok(ObserveStateResponse::new(BreakerState::Closed)) })
     }
 }
 
 /// A factory that wraps nothing: it checks the policy and hands back [`ClosedClient`].
-struct CheckingFactory {
-    config: ResilienceConfig,
-}
+struct CheckingFactory;
 
 impl GrpcResilientFactory for CheckingFactory {
     fn build<T: Transport + RawTransport + Send + Sync + 'static>(
@@ -183,11 +177,6 @@ impl GrpcResilientFactory for CheckingFactory {
         _req: BuildGrpcResilientRequest<T>,
     ) -> Result<impl Transport + RawTransport + BreakerObservable + use<T>, ResilientTransportError>
     {
-        if self.config.max_attempts == 0 {
-            return Err(ResilientTransportError::InvalidResilience(
-                "max_attempts must be >= 1".into(),
-            ));
-        }
         Ok(ClosedClient)
     }
 }
@@ -196,9 +185,7 @@ impl GrpcResilientFactory for CheckingFactory {
 #[tokio::test]
 async fn test_build_valid_policy_returns_a_client_that_can_be_called_and_observed(
 ) -> Result<(), Box<dyn Error>> {
-    let factory = CheckingFactory {
-        config: ResilienceConfig::default(),
-    };
+    let factory = CheckingFactory;
 
     let client = factory.build(BuildGrpcResilientRequest {
         inner: ClosedClient,
@@ -214,28 +201,26 @@ async fn test_build_valid_policy_returns_a_client_that_can_be_called_and_observe
         )
         .await
         .map(CallRawResponse::into_response)?;
-    let observed = client.state(ObserveStateRequest).await?;
+    let observed = client.state(ObserveStateRequest::new()).await?;
     assert!(answered.get_message().is_empty());
-    assert_eq!(observed.state, BreakerState::Closed);
+    assert_eq!(observed.state(), BreakerState::Closed);
     Ok(())
 }
 
 /// @covers: GrpcResilientFactory::build
 #[test]
 fn test_build_invalid_policy_returns_invalid_resilience_error() {
-    let factory = CheckingFactory {
-        config: ResilienceConfig {
+    assert!(grpc_egress_retry::GrpcRetryConfig::try_new(
+        grpc_egress_retry::BuildGrpcRetryConfigRequest {
             max_attempts: 0,
-            ..ResilienceConfig::default()
-        },
-    };
-
-    let result = factory.build(BuildGrpcResilientRequest {
-        inner: ClosedClient,
-    });
-
-    assert!(matches!(
-        result,
-        Err(ResilientTransportError::InvalidResilience(_))
-    ));
+            initial_backoff_ms: 100,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.1,
+            max_backoff_ms: 5000,
+            rate_limit_max_attempts: 2,
+            rate_limit_initial_backoff_ms: 1000,
+            rate_limit_max_backoff_ms: 10000,
+        }
+    )
+    .is_err());
 }

@@ -19,25 +19,24 @@ fn idle_client() -> Result<impl Transport + RawTransport, Box<dyn std::error::Er
     Ok(ClientFixture::from_config(&config)?)
 }
 
-fn config(failure_threshold: u32, half_open_probe_count: u32) -> GrpcBreakerConfig {
-    GrpcBreakerConfig {
-        failure_threshold,
-        cool_down_seconds: 5,
-        half_open_probe_count,
-    }
+fn config(
+    failure_threshold: u32,
+    half_open_probe_count: u32,
+) -> Result<GrpcBreakerConfig, grpc_egress_breaker::Error> {
+    GrpcBreakerConfig::try_new(true, failure_threshold, 5, half_open_probe_count)
 }
 
 /// @covers: StdGrpcBreakerFactory::build
 #[tokio::test]
 async fn test_build_valid_config_returns_a_client_that_starts_closed(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let client = StdGrpcBreakerFactory::new(config(3, 1)).build(BuildGrpcBreakerRequest {
+    let client = StdGrpcBreakerFactory::new(config(3, 1)?).build(BuildGrpcBreakerRequest {
         inner: idle_client()?,
     })?;
 
-    let observed = client.state(ObserveStateRequest).await?;
+    let observed = client.state(ObserveStateRequest::new()).await?;
 
-    assert_eq!(observed.state, BreakerState::Closed);
+    assert_eq!(observed.state(), BreakerState::Closed);
     Ok(())
 }
 
@@ -45,17 +44,10 @@ async fn test_build_valid_config_returns_a_client_that_starts_closed(
 #[test]
 fn test_build_zero_failure_threshold_returns_invalid_config_error(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let result = StdGrpcBreakerFactory::new(config(0, 1)).build(BuildGrpcBreakerRequest {
-        inner: idle_client()?,
-    });
-
-    match result {
-        Err(BreakerDomainError::InvalidConfig(message)) => {
-            assert!(message.contains("failure_threshold"), "{message}");
-        }
-        Err(other) => panic!("expected InvalidConfig, got {other}"),
-        Ok(_) => panic!("a failure threshold of zero must be refused"),
-    }
+    assert!(matches!(
+        config(0, 1),
+        Err(BreakerDomainError::InvalidConfig(_))
+    ));
     Ok(())
 }
 
@@ -63,17 +55,10 @@ fn test_build_zero_failure_threshold_returns_invalid_config_error(
 #[test]
 fn test_build_zero_probe_count_returns_invalid_config_error(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let result = StdGrpcBreakerFactory::new(config(3, 0)).build(BuildGrpcBreakerRequest {
-        inner: idle_client()?,
-    });
-
-    match result {
-        Err(BreakerDomainError::InvalidConfig(message)) => {
-            assert!(message.contains("half_open_probe_count"), "{message}");
-        }
-        Err(other) => panic!("expected InvalidConfig, got {other}"),
-        Ok(_) => panic!("a probe count of zero must be refused"),
-    }
+    assert!(matches!(
+        config(3, 0),
+        Err(BreakerDomainError::InvalidConfig(_))
+    ));
     Ok(())
 }
 

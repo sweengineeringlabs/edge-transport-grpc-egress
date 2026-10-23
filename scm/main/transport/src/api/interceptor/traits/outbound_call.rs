@@ -9,10 +9,10 @@ use proto_pattern::CallError;
 /// implementation's.
 pub trait OutboundCall {
     /// The path of the method, `/package.Service/Method`.
-    fn get_path(&self) -> &str;
+    fn path(&self) -> &str;
 
     /// The timeout the call carries, when it has one.
-    fn get_timeout(&self) -> Option<Duration>;
+    fn timeout(&self) -> Option<Duration>;
 
     /// Give the call `timeout`, or none.
     fn set_timeout(&mut self, timeout: Option<Duration>);
@@ -21,7 +21,7 @@ pub trait OutboundCall {
     fn has_header(&self, key: &str) -> bool;
 
     /// The values of the headers named `key`, in the order they were added.
-    fn get_header_values(&self, key: &str) -> Vec<&str>;
+    fn header_values(&self, key: &str) -> Vec<&str>;
 
     /// Add the header `key: value` after the ones the call carries.
     ///

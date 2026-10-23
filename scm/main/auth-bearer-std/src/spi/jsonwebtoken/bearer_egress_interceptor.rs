@@ -7,9 +7,7 @@ use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use proto_pattern::{CallError, StatusCode};
 
-use grpc_egress_auth_bearer::{
-    BearerAuthError, BearerEgressConfig, BearerSecret, AUTHORIZATION_HEADER,
-};
+use grpc_egress_auth_bearer::{BearerAuthError, BearerEgressConfig, AUTHORIZATION_HEADER};
 use swe_edge_security::JwtClaims;
 
 /// `GrpcEgressInterceptor` that signs and attaches a JWT bearer token.
@@ -31,19 +29,24 @@ impl BearerEgressInterceptor {
             .map_err(|_| BearerAuthError::InvalidSystemTime)?
             .as_secs();
         let claims = JwtClaims {
-            iss: self.config.issuer.clone(),
-            aud: self.config.audience.clone(),
-            sub: self.config.subject.clone(),
+            iss: self.config.issuer().to_owned(),
+            aud: self.config.audience().to_owned(),
+            sub: self.config.subject().to_owned(),
             iat: now,
-            exp: now.saturating_add(self.config.lifetime_seconds),
+            exp: now.saturating_add(self.config.lifetime_seconds()),
         };
-        let (alg, key) = match &self.config.secret {
-            BearerSecret::Hs256 { secret } => (Algorithm::HS256, EncodingKey::from_secret(secret)),
-            BearerSecret::Rs256 { private_pem } => (
+        let (alg, key) = if let Some(secret) = self.config.secret().hs256_secret() {
+            (Algorithm::HS256, EncodingKey::from_secret(secret))
+        } else if let Some(private_pem) = self.config.secret().rs256_private_pem() {
+            (
                 Algorithm::RS256,
                 EncodingKey::from_rsa_pem(private_pem)
                     .map_err(|e| BearerAuthError::SignFailed(Box::new(e)))?,
-            ),
+            )
+        } else {
+            return Err(BearerAuthError::SignFailed(Box::new(
+                std::io::Error::other("no supported signing key"),
+            )));
         };
         jsonwebtoken::encode(&Header::new(alg), &claims, &key)
             .map_err(|e| BearerAuthError::SignFailed(Box::new(e)))
@@ -60,7 +63,7 @@ impl GrpcEgressInterceptor for BearerEgressInterceptor {
         let token = self.sign_token().map_err(|e| {
             tracing::warn!(error = %e, "failed to mint bearer token");
             CallError::Transport {
-                path: call.get_path().into(),
+                path: call.path().into(),
                 code: StatusCode::Internal,
                 reason: "failed to mint bearer token".to_string(),
             }

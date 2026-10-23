@@ -161,24 +161,24 @@ impl GrpcEgressBuilder for GrpcEgressBuilderImpl {
 
     fn with_channel_config(self, config: &GrpcChannelConfig) -> Self {
         let request_timeout = config
-            .request_timeout_secs
+            .request_timeout_secs()
             .map_or(self.request_timeout, Duration::from_secs);
         let (send_compression, accept_compression) =
-            match Self::read_compression(config.compression) {
+            match Self::read_compression(config.compression()) {
                 Some(compression) => (Some(compression), vec![compression]),
                 None => (self.send_compression, self.accept_compression.clone()),
             };
         Self {
-            endpoint: config.endpoint.clone(),
-            endpoint_explicit: self.endpoint_explicit || !config.endpoint.is_empty(),
-            plaintext_allowed: !config.tls_required,
+            endpoint: config.endpoint().to_owned(),
+            endpoint_explicit: self.endpoint_explicit || !config.endpoint().is_empty(),
+            plaintext_allowed: !config.tls_required(),
             request_timeout,
-            max_decoding_message_size: Some(config.max_message_bytes),
-            max_encoding_message_size: Some(config.max_message_bytes),
+            max_decoding_message_size: Some(config.max_message_bytes()),
+            max_encoding_message_size: Some(config.max_message_bytes()),
             send_compression,
             accept_compression,
-            tls: config.mtls.clone().map(TlsSource::Files).or(self.tls),
-            keep_alive: config.keep_alive.or(self.keep_alive),
+            tls: config.mtls().cloned().map(TlsSource::Files).or(self.tls),
+            keep_alive: config.keep_alive().or(self.keep_alive),
             ..self
         }
     }
@@ -270,21 +270,21 @@ impl GrpcEgressBuilderImpl {
         let Some(settings) = &self.loadbalancer else {
             return Ok(vec![self.endpoint.clone()]);
         };
-        if settings.backends.is_empty() {
+        if settings.backends().is_empty() {
             return Err(GrpcChannelConfigError::InvalidOptionValue {
                 option: "loadbalancer",
                 reason: "no backends; give at least one".into(),
             });
         }
-        let mut urls = Vec::with_capacity(settings.backends.len());
-        for backend in &settings.backends {
-            if backend.url.parse::<http::Uri>().is_err() {
+        let mut urls = Vec::with_capacity(settings.backends().len());
+        for backend in settings.backends() {
+            if backend.url().parse::<http::Uri>().is_err() {
                 return Err(GrpcChannelConfigError::InvalidOptionValue {
                     option: "loadbalancer",
-                    reason: format!("backend '{}' is not a valid URL", backend.url),
+                    reason: format!("backend '{}' is not a valid URL", backend.url()),
                 });
             }
-            urls.push(backend.url.clone());
+            urls.push(backend.url().to_owned());
         }
         Ok(urls)
     }
@@ -302,12 +302,9 @@ impl GrpcEgressBuilderImpl {
     fn resolve_tls(&self) -> Result<TlsSettings, GrpcChannelConfigError> {
         match &self.tls {
             Some(TlsSource::Settings(settings)) => Ok(settings.clone()),
-            Some(TlsSource::Files(mtls)) => {
-                StdTlsSettingsResolver.resolve(ResolveTlsSettingsRequest {
-                    identity: Some(mtls),
-                    root_ca: mtls.ca_pem_path.as_deref(),
-                })
-            }
+            Some(TlsSource::Files(mtls)) => StdTlsSettingsResolver.resolve(
+                ResolveTlsSettingsRequest::new(Some(mtls), mtls.ca_pem_path()),
+            ),
             None => Ok(TlsSettings::create(None, Vec::new(), None)),
         }
     }
@@ -344,9 +341,9 @@ impl GrpcEgressBuilderImpl {
         }
         if let Some(keep_alive) = self.keep_alive {
             factory = factory
-                .with_http2_keep_alive_interval(keep_alive.interval)
-                .with_keep_alive_timeout(keep_alive.timeout)
-                .with_keep_alive_while_idle(keep_alive.permit_without_calls);
+                .with_http2_keep_alive_interval(keep_alive.interval())
+                .with_keep_alive_timeout(keep_alive.timeout())
+                .with_keep_alive_while_idle(keep_alive.permit_without_calls());
         }
         factory
             .build()

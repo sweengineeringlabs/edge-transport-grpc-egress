@@ -51,8 +51,8 @@ fn test_build_static_source_injects_traceparent_and_tracestate(
 
     interceptor.before_call(&mut call)?;
 
-    assert_eq!(call.get_header_values("traceparent"), [TRACEPARENT]);
-    assert_eq!(call.get_header_values("tracestate"), ["vendor=1"]);
+    assert_eq!(call.header_values("traceparent"), [TRACEPARENT]);
+    assert_eq!(call.header_values("tracestate"), ["vendor=1"]);
     Ok(())
 }
 
@@ -70,7 +70,7 @@ fn test_build_static_source_keeps_upstream_traceparent() -> Result<(), Box<dyn s
     interceptor.before_call(&mut call)?;
 
     assert_eq!(
-        call.get_header_values("traceparent"),
+        call.header_values("traceparent"),
         ["existing-value"],
         "an upstream traceparent must not be overwritten, nor repeated"
     );

@@ -19,22 +19,22 @@ pub(crate) struct GrpcRetryClient<T> {
 impl<T> std::fmt::Debug for GrpcRetryClient<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GrpcRetryClient")
-            .field("max_attempts", &self.config.max_attempts)
-            .field("initial_backoff_ms", &self.config.initial_backoff_ms)
-            .field("backoff_multiplier", &self.config.backoff_multiplier)
-            .field("jitter_factor", &self.config.jitter_factor)
-            .field("max_backoff_ms", &self.config.max_backoff_ms)
+            .field("max_attempts", &self.config.max_attempts())
+            .field("initial_backoff_ms", &self.config.initial_backoff_ms())
+            .field("backoff_multiplier", &self.config.backoff_multiplier())
+            .field("jitter_factor", &self.config.jitter_factor())
+            .field("max_backoff_ms", &self.config.max_backoff_ms())
             .field(
                 "rate_limit_max_attempts",
-                &self.config.rate_limit_max_attempts,
+                &self.config.rate_limit_max_attempts(),
             )
             .field(
                 "rate_limit_initial_backoff_ms",
-                &self.config.rate_limit_initial_backoff_ms,
+                &self.config.rate_limit_initial_backoff_ms(),
             )
             .field(
                 "rate_limit_max_backoff_ms",
-                &self.config.rate_limit_max_backoff_ms,
+                &self.config.rate_limit_max_backoff_ms(),
             )
             .finish()
     }

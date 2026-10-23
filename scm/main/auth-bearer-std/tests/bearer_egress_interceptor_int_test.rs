@@ -25,25 +25,28 @@ struct Claims {
     iat: u64,
 }
 
-fn hs256_config(secret: &[u8]) -> BearerEgressConfig {
-    BearerEgressConfig {
-        secret: BearerSecret::Hs256 {
-            secret: secret.to_vec(),
-        },
-        issuer: "test-iss".into(),
-        audience: "test-aud".into(),
-        subject: "test-sub".into(),
-        lifetime_seconds: 60,
-    }
+fn hs256_config(
+    secret: &[u8],
+) -> Result<BearerEgressConfig, grpc_egress_auth_bearer::BearerAuthError> {
+    BearerEgressConfig::try_new(
+        BearerSecret::hs256(secret.to_vec())?,
+        "test-iss",
+        "test-aud",
+        "test-sub",
+        60,
+    )
 }
 
-fn rs256_config(private_pem: &[u8]) -> BearerEgressConfig {
-    BearerEgressConfig {
-        secret: BearerSecret::Rs256 {
-            private_pem: private_pem.to_vec(),
-        },
-        ..hs256_config(b"unused")
-    }
+fn rs256_config(
+    private_pem: &[u8],
+) -> Result<BearerEgressConfig, grpc_egress_auth_bearer::BearerAuthError> {
+    BearerEgressConfig::try_new(
+        BearerSecret::rs256(private_pem.to_vec())?,
+        "test-iss",
+        "test-aud",
+        "test-sub",
+        60,
+    )
 }
 
 fn interceptor(config: BearerEgressConfig) -> impl GrpcEgressInterceptor {
@@ -57,7 +60,7 @@ fn call_with(metadata: Metadata) -> OutboundCallFixture {
 }
 
 fn token_of(call: &OutboundCallFixture) -> Result<String, Box<dyn std::error::Error>> {
-    let values = call.get_header_values(AUTHORIZATION_HEADER);
+    let values = call.header_values(AUTHORIZATION_HEADER);
     let [value] = values.as_slice() else {
         return Err(format!("expected exactly one authorization header, got {values:?}").into());
     };
@@ -84,7 +87,7 @@ fn test_before_call_without_an_authorization_header_adds_one_bearer_jwt(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut call = call_with(Metadata::default());
 
-    interceptor(hs256_config(b"sec")).before_call(&mut call)?;
+    interceptor(hs256_config(b"sec")?).before_call(&mut call)?;
 
     let token = token_of(&call)?;
     assert_eq!(
@@ -100,7 +103,7 @@ fn test_before_call_without_an_authorization_header_adds_one_bearer_jwt(
 fn test_before_call_hs256_token_verifies_with_the_secret_and_carries_the_configured_claims(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut call = call_with(Metadata::default());
-    interceptor(hs256_config(b"sec")).before_call(&mut call)?;
+    interceptor(hs256_config(b"sec")?).before_call(&mut call)?;
 
     let claims = verify(
         &token_of(&call)?,
@@ -124,7 +127,7 @@ fn test_before_call_hs256_token_verifies_with_the_secret_and_carries_the_configu
 fn test_before_call_hs256_token_does_not_verify_with_another_secret(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut call = call_with(Metadata::default());
-    interceptor(hs256_config(b"sec")).before_call(&mut call)?;
+    interceptor(hs256_config(b"sec")?).before_call(&mut call)?;
 
     let verified = verify(
         &token_of(&call)?,
@@ -144,7 +147,7 @@ fn test_before_call_hs256_token_does_not_verify_with_another_secret(
 fn test_before_call_rs256_token_verifies_with_the_public_key(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut call = call_with(Metadata::default());
-    interceptor(rs256_config(RS256_PRIVATE_PEM)).before_call(&mut call)?;
+    interceptor(rs256_config(RS256_PRIVATE_PEM)?).before_call(&mut call)?;
 
     let claims = verify(
         &token_of(&call)?,
@@ -166,10 +169,10 @@ fn test_before_call_with_an_authorization_header_keeps_it_and_adds_no_second(
     )?]);
     let mut call = call_with(mine);
 
-    interceptor(hs256_config(b"sec")).before_call(&mut call)?;
+    interceptor(hs256_config(b"sec")?).before_call(&mut call)?;
 
     assert_eq!(
-        call.get_header_values(AUTHORIZATION_HEADER),
+        call.header_values(AUTHORIZATION_HEADER),
         ["Bearer caller-supplied"]
     );
     Ok(())
@@ -183,20 +186,20 @@ fn test_before_call_keeps_the_other_headers_of_the_call() -> Result<(), Box<dyn 
         "x-trace", "t-1",
     )?]));
 
-    interceptor(hs256_config(b"sec")).before_call(&mut call)?;
+    interceptor(hs256_config(b"sec")?).before_call(&mut call)?;
 
-    assert_eq!(call.get_header_values("x-trace"), ["t-1"]);
-    assert_eq!(call.get_header_values(AUTHORIZATION_HEADER).len(), 1);
+    assert_eq!(call.header_values("x-trace"), ["t-1"]);
+    assert_eq!(call.header_values(AUTHORIZATION_HEADER).len(), 1);
     Ok(())
 }
 
 /// @covers: StdBearerInterceptorFactory::build — a key that cannot sign fails the call before anything is sent
 #[test]
-fn test_before_call_with_an_rs256_key_that_is_not_a_key_returns_transport_internal_naming_the_path()
-{
+fn test_before_call_with_an_rs256_key_that_is_not_a_key_returns_transport_internal_naming_the_path(
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut call = call_with(Metadata::default());
 
-    let failure = interceptor(rs256_config(b"this is not a pem key")).before_call(&mut call);
+    let failure = interceptor(rs256_config(b"this is not a pem key")?).before_call(&mut call);
 
     match failure {
         Err(CallError::Transport { path, code, reason }) => {
@@ -211,19 +214,19 @@ fn test_before_call_with_an_rs256_key_that_is_not_a_key_returns_transport_intern
         other => panic!("expected a transport failure, got {other:?}"),
     }
     assert!(
-        call.get_header_values(AUTHORIZATION_HEADER).is_empty(),
+        call.header_values(AUTHORIZATION_HEADER).is_empty(),
         "no header is added when no token could be minted"
     );
+    Ok(())
 }
 
 /// @covers: StdBearerInterceptorFactory::build — after_call
 #[test]
-fn test_after_call_returns_ok_and_changes_nothing() {
-    let reply = InboundReply {
-        path: "/svc/M",
-        headers: Metadata::default(),
-        trailers: Metadata::default(),
-    };
+fn test_after_call_returns_ok_and_changes_nothing() -> Result<(), Box<dyn std::error::Error>> {
+    let reply = InboundReply::new("/svc/M", Metadata::default(), Metadata::default());
 
-    assert!(interceptor(hs256_config(b"sec")).after_call(&reply).is_ok());
+    assert!(interceptor(hs256_config(b"sec")?)
+        .after_call(&reply)
+        .is_ok());
+    Ok(())
 }

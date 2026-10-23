@@ -20,7 +20,7 @@ impl ClientFixture {
     pub fn from_config(
         config: &GrpcChannelConfig,
     ) -> Result<impl Transport + RawTransport + use<>, GrpcChannelConfigError> {
-        TonicGrpcEgressBuilderSpiFactory::new(config.endpoint.clone())
+        TonicGrpcEgressBuilderSpiFactory::new(config.endpoint().to_owned())
             .build(BuildGrpcEgressBuilderRequest)
             .with_channel_config(config)
             .build()

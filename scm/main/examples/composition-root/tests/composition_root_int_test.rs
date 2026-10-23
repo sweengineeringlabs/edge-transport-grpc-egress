@@ -2,6 +2,21 @@
 //! scenarios observed -- not their output text.
 
 use std::error::Error;
+use std::time::Duration;
+
+use grpc_egress_breaker::{
+    BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
+    GrpcBreakerFactory, ObserveStateRequest,
+};
+use grpc_egress_breaker_std::StdGrpcBreakerFactory;
+use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
+use grpc_egress_retry_std::StdGrpcRetryFactory;
+use grpc_egress_test_support::{CallFixture, PeerBehaviour};
+use grpc_egress_transport::{
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use proto_pattern::{CallRawRequestBuilder, RawTransport};
 
 use grpc_egress_example_composition_root::{
     AllOptionsScenario, CancellationScenario, DecoratorScenario, GenericClientScenario,
@@ -66,6 +81,69 @@ async fn test_run_decorator_scenario_retries_then_opens_the_breaker() -> Result<
 {
     assert_complete(&DecoratorScenario.run().await?, 3);
     Ok(())
+}
+
+/// @covers: public transport, retry, breaker, and retry-plus-breaker composition paths
+#[tokio::test]
+async fn test_static_compositions_run_through_public_contracts() -> Result<(), Box<dyn Error>> {
+    // Transport alone.
+    let peer = grpc_egress_example_composition_root::EchoServer::start_with(PeerBehaviour::Reply(
+        b"ok".to_vec(),
+    ))
+    .await?;
+    let transport = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
+        .build(BuildGrpcEgressBuilderRequest)
+        .with_plaintext_allowed()
+        .build()?;
+    assert_eq!(ping(&transport).await?, b"ok");
+
+    // Retry around transport.
+    let peer = grpc_egress_example_composition_root::EchoServer::start_with(PeerBehaviour::Reply(
+        b"ok".to_vec(),
+    ))
+    .await?;
+    let transport = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
+        .build(BuildGrpcEgressBuilderRequest)
+        .with_plaintext_allowed()
+        .build()?;
+    let retrying = StdGrpcRetryFactory::new(GrpcRetryConfig::default())
+        .build(BuildGrpcRetryRequest { inner: transport });
+    assert_eq!(ping(&retrying).await?, b"ok");
+
+    // Breaker around transport.
+    let peer = grpc_egress_example_composition_root::EchoServer::start_with(PeerBehaviour::Reply(
+        b"ok".to_vec(),
+    ))
+    .await?;
+    let transport = TonicGrpcEgressBuilderSpiFactory::new(peer.get_endpoint())
+        .build(BuildGrpcEgressBuilderRequest)
+        .with_plaintext_allowed()
+        .build()?;
+    let guarded = StdGrpcBreakerFactory::new(GrpcBreakerConfig::default())
+        .build(BuildGrpcBreakerRequest { inner: transport })?;
+    assert_eq!(ping(&guarded).await?, b"ok");
+    assert_eq!(
+        guarded.state(ObserveStateRequest::new()).await?.state(),
+        BreakerState::Closed
+    );
+
+    // Retry inside breaker, the documented order; the existing scenario verifies retry and open-state behavior.
+    assert_complete(&DecoratorScenario.run().await?, 3);
+    Ok(())
+}
+
+async fn ping<T: RawTransport>(client: &T) -> Result<Vec<u8>, Box<dyn Error>> {
+    let (message, options) = CallFixture::request(b"ping", Duration::from_secs(5)).into_parts();
+    let request = CallRawRequestBuilder::new()
+        .with_path(CallFixture::path("pkg.Service/Method"))
+        .with_message(message)
+        .with_options(options)
+        .build();
+    Ok(client
+        .call_raw(request)
+        .await?
+        .into_response()
+        .into_message())
 }
 
 #[tokio::test]

@@ -50,8 +50,8 @@ fn test_add_header_adds_after_the_headers_the_call_carries(
 
     call.add_header("x-added", "1")?;
 
-    assert_eq!(call.get_header_values("x-caller"), ["original"]);
-    assert_eq!(call.get_header_values("x-added"), ["1"]);
+    assert_eq!(call.header_values("x-caller"), ["original"]);
+    assert_eq!(call.header_values("x-added"), ["1"]);
     assert_eq!(
         call.get_metadata()
             .get_count(GetCountRequest::new())?
@@ -69,7 +69,7 @@ fn test_add_header_same_key_twice_keeps_both_values_in_order() -> Result<(), Cal
     call.add_header("x-multi", "first")?;
     call.add_header("x-multi", "second")?;
 
-    assert_eq!(call.get_header_values("x-multi"), ["first", "second"]);
+    assert_eq!(call.header_values("x-multi"), ["first", "second"]);
     Ok(())
 }
 

@@ -13,18 +13,18 @@ pub(crate) struct ContextHeaders {
 impl From<&dyn CallerIdentity> for ContextHeaders {
     fn from(identity: &dyn CallerIdentity) -> Self {
         let mut headers = Vec::new();
-        if let Some(trace_id) = identity.get_trace_id() {
+        if let Some(trace_id) = identity.trace_id() {
             headers.push(("x-trace-id".to_string(), trace_id.to_string()));
         }
-        if let Some(tenant_id) = identity.get_tenant_id() {
+        if let Some(tenant_id) = identity.tenant_id() {
             headers.push(("x-tenant-id".to_string(), tenant_id.to_string()));
         }
-        if let Some(token) = identity.get_bearer_token() {
+        if let Some(token) = identity.bearer_token() {
             headers.push(("authorization".to_string(), format!("Bearer {token}")));
         }
         headers.extend(
             identity
-                .list_headers()
+                .headers()
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), v.to_string())),
         );

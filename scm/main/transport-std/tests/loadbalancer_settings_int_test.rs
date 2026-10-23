@@ -25,18 +25,14 @@ fn test_from_config_full_table_returns_the_strategy_and_every_backend() -> Resul
 {
     let settings = read_settings(FULL)?;
 
-    assert_eq!(settings.strategy, BalancingStrategy::Weighted);
+    assert_eq!(settings.strategy(), BalancingStrategy::Weighted);
     assert_eq!(
-        settings.backends,
+        settings.backends(),
         vec![
-            BackendTarget {
-                url: "https://grpc-1.internal:50051".to_string(),
-                weight: 1
-            },
-            BackendTarget {
-                url: "https://grpc-2.internal:50051".to_string(),
-                weight: 2
-            },
+            BackendTarget::try_new("https://grpc-1.internal:50051", 1)
+                .map_err(std::io::Error::other)?,
+            BackendTarget::try_new("https://grpc-2.internal:50051", 2)
+                .map_err(std::io::Error::other)?,
         ]
     );
     Ok(())
@@ -50,9 +46,9 @@ fn test_from_config_every_strategy_name_is_understood() -> Result<(), Box<dyn Er
         ("weighted", BalancingStrategy::Weighted),
         ("least-connections", BalancingStrategy::LeastConnections),
     ] {
-        let text = format!("[loadbalancer]\nstrategy = \"{name}\"\nbackends = []\n");
+        let text = format!("[loadbalancer]\nstrategy = \"{name}\"\n\n[[loadbalancer.backends]]\nurl = \"https://svc.internal\"\nweight = 1\n");
 
-        assert_eq!(read_settings(&text)?.strategy, expected, "{name}");
+        assert_eq!(read_settings(&text)?.strategy(), expected, "{name}");
     }
     Ok(())
 }

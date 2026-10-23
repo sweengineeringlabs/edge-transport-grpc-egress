@@ -17,8 +17,8 @@ fn test_add_header_keeps_the_existing_headers_and_appends_the_new_one(
     call.add_header("x-a", "2")?;
     call.add_header("x-b", "3")?;
 
-    assert_eq!(call.get_header_values("x-a"), ["1", "2"]);
-    assert_eq!(call.get_header_values("x-b"), ["3"]);
+    assert_eq!(call.header_values("x-a"), ["1", "2"]);
+    assert_eq!(call.header_values("x-b"), ["3"]);
     Ok(())
 }
 
@@ -49,6 +49,6 @@ fn test_set_timeout_replaces_the_timeout_of_the_call() {
 
     call.set_timeout(Some(Duration::from_secs(9)));
 
-    assert_eq!(call.get_timeout(), Some(Duration::from_secs(9)));
-    assert_eq!(call.get_path(), "/svc/M");
+    assert_eq!(call.timeout(), Some(Duration::from_secs(9)));
+    assert_eq!(call.path(), "/svc/M");
 }

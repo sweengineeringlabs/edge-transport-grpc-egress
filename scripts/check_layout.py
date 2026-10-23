@@ -121,10 +121,28 @@ class LayoutChecker:
         self.check_workspace_members(crates)
         for crate_dir, package in crates.items():
             self.check_no_attributes(crate_dir)
+            self.check_value_object_fields(crate_dir, package)
             self.check_program_over_the_interface(crate_dir)
             self.check_std_names_no_third_party(crate_dir, package)
             self.check_every_function_a_method(crate_dir)
         return self.failures
+
+    def check_value_object_fields(self, crate_dir, package):
+        """Every named field of a domain VO is private; construction goes through its API."""
+        if package is None or package.endswith("-std"):
+            return
+        api = os.path.join(crate_dir, "src", "api")
+        if not os.path.isdir(api):
+            return
+        for path in self.list_rust_files(api):
+            rel = os.path.relpath(path, api).replace("\\", "/")
+            if "/vo/" not in "/" + rel:
+                continue
+            text = self.read_text(path)
+            for match in re.finditer(r"pub(?:\s*\([^)]*\))?\s+struct\s+([A-Za-z0-9_]+)[^{]*\{([^}]*)\}", text, re.S):
+                name, body = match.group(1), match.group(2)
+                for field in re.finditer(r"^\s*pub(?:\s*\([^)]*\))?\s+([A-Za-z_][A-Za-z0-9_]*)\s*:", body, re.M):
+                    self.fail(path, "private_vo_fields", "line %d exposes field `%s` on value object `%s`; keep VO state private" % (self.line_of(text, match.start(2) + field.start()), field.group(1), name))
 
     def check_crate_location(self, crate_dir, main):
         rel = os.path.relpath(crate_dir, main).replace("\\", "/")
@@ -492,10 +510,16 @@ class LayoutCommand:
         parser.add_argument("--root", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
         args = parser.parse_args(argv)
         failures = LayoutChecker(args.root).check_all()
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from check_api_coverage import check as check_api_coverage
+
+        api_failures = check_api_coverage(args.root)
         for failure in failures:
             print(failure.format_line())
-        print("%d layout failure(s)" % len(failures))
-        return 1 if failures else 0
+        for failure in api_failures:
+            print(failure)
+        print("%d layout failure(s), %d API coverage failure(s)" % (len(failures), len(api_failures)))
+        return 1 if failures or api_failures else 0
 
 
 if __name__ == "__main__":

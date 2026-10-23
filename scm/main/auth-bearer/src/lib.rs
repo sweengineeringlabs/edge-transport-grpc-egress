@@ -2,6 +2,10 @@
 //! the errors and the validation contract. The implementation (the interceptor that signs a JWT and
 //! adds `authorization: Bearer <jwt>`) is in `grpc-egress-auth-bearer-std`.
 //!
+//! ```compile_fail
+//! use grpc_egress_auth_bearer::api::vo::BearerEgressConfig;
+//! ```
+//!
 //! For the inbound (server-side) bearer validation counterpart see
 //! `edge-transport-grpc-ingress-auth-bearer`.
 

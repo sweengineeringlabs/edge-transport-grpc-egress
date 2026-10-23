@@ -2,35 +2,87 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Symmetric / asymmetric secret material for JWT signing.
+use crate::BearerAuthError;
+
+/// Caller-owned symmetric or asymmetric material for JWT signing.
 ///
-/// `Hs256` carries a raw byte secret; comparisons MUST go through
-/// `BearerSecretGuard::ct_eq_hs256` (created by `StdBearerSecretGuardFactory` of `grpc-egress-auth-bearer-std`), which uses
-/// `subtle::ConstantTimeEq`.
-/// Asymmetric variants carry PEM-encoded key bytes.
-///
-/// # Examples
+/// Values have private state and can only be created with non-empty key material. The `Serialize` representation
+/// retains the existing tagged `kind` shape used by configuration files.
 ///
 /// ```rust
 /// use grpc_egress_auth_bearer::BearerSecret;
-///
-/// let secret = BearerSecret::Hs256 { secret: b"my-secret".to_vec() };
-/// assert!(matches!(secret, BearerSecret::Hs256 { .. }));
-///
-/// // The constant-time comparison, `BearerSecretGuard::ct_eq_hs256`, is implemented in `grpc-egress-auth-bearer-std`.
+/// let secret = BearerSecret::hs256(b"my-secret".to_vec()).unwrap();
+/// assert_eq!(secret.hs256_secret(), Some(&b"my-secret"[..]));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// ```compile_fail,E0423
+/// use grpc_egress_auth_bearer::BearerSecret;
+/// let _ = BearerSecret(vec![1]);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "SecretMaterial")]
+pub struct BearerSecret(SecretMaterial);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum BearerSecret {
-    /// HS256 — shared symmetric secret.
+enum SecretMaterial {
     Hs256 {
-        /// Raw secret bytes (UTF-8 in TOML; arbitrary bytes via API).
         secret: Vec<u8>,
     },
-    /// RS256 — private PEM bytes for signing.
     Rs256 {
-        /// PEM-encoded private key.
         #[serde(default)]
         private_pem: Vec<u8>,
     },
+}
+
+impl TryFrom<SecretMaterial> for BearerSecret {
+    type Error = BearerAuthError;
+    fn try_from(material: SecretMaterial) -> Result<Self, Self::Error> {
+        match &material {
+            SecretMaterial::Hs256 { secret } if secret.is_empty() => {
+                return Err(BearerAuthError::ValidationFailed(
+                    "HS256 secret must not be empty".into(),
+                ))
+            }
+            SecretMaterial::Rs256 { private_pem } if private_pem.is_empty() => {
+                return Err(BearerAuthError::ValidationFailed(
+                    "RS256 private PEM must not be empty".into(),
+                ))
+            }
+            _ => {}
+        }
+        Ok(Self(material))
+    }
+}
+
+impl BearerSecret {
+    /// Create an HS256 secret from its raw key bytes.
+    pub fn hs256(secret: impl Into<Vec<u8>>) -> Result<Self, BearerAuthError> {
+        Self::try_from(SecretMaterial::Hs256 {
+            secret: secret.into(),
+        })
+    }
+
+    /// Create an RS256 secret from PEM-encoded private-key bytes.
+    pub fn rs256(private_pem: impl Into<Vec<u8>>) -> Result<Self, BearerAuthError> {
+        Self::try_from(SecretMaterial::Rs256 {
+            private_pem: private_pem.into(),
+        })
+    }
+
+    /// Return HS256 key bytes when this value uses HS256.
+    pub fn hs256_secret(&self) -> Option<&[u8]> {
+        match &self.0 {
+            SecretMaterial::Hs256 { secret } => Some(secret),
+            _ => None,
+        }
+    }
+
+    /// Return RS256 private-key PEM bytes when this value uses RS256.
+    pub fn rs256_private_pem(&self) -> Option<&[u8]> {
+        match &self.0 {
+            SecretMaterial::Rs256 { private_pem } => Some(private_pem),
+            _ => None,
+        }
+    }
 }

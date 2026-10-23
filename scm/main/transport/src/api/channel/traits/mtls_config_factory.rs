@@ -7,5 +7,8 @@ use crate::{BuildMtlsConfigRequest, MtlsConfig};
 pub trait MtlsConfigFactory {
     /// An mTLS configuration for `req`: when `req.ca_pem_path` is `None` the bundled web PKI roots verify the server,
     /// otherwise that CA bundle does.
-    fn build(&self, req: BuildMtlsConfigRequest) -> MtlsConfig;
+    fn build(
+        &self,
+        req: BuildMtlsConfigRequest,
+    ) -> Result<MtlsConfig, crate::GrpcChannelConfigError>;
 }

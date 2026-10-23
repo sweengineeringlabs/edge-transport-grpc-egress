@@ -586,6 +586,7 @@ dependencies = [
  "jsonwebtoken",
  "serde",
  "thiserror 2.0.19",
+ "toml",
 ]
 
 [[package]]
@@ -602,6 +603,7 @@ dependencies = [
  "serde",
  "subtle",
  "tokio",
+ "toml",
  "tracing",
 ]
 
