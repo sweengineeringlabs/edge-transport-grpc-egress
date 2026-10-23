@@ -5,7 +5,7 @@ This measures the release-mode composition-root integration test executable befo
 | Condition | Source | Clean build | Warm build median (5 runs) | Executable |
 |---|---|---:|---:|---:|
 | Before | baseline commit `0e409dbd7a47b89b0d6f321708c68ed7f71217f7` | 375.060 s | 1.008 s | 8,914,944 bytes |
-| After | issue #62 implementation tree (record final commit here) | 290.966 s | 1.031 s | 8,974,336 bytes |
+| After | issue #62 implementation commit `27ecf5a` | 290.966 s | 1.031 s | 8,974,336 bytes |
 
 The clean build was 84.094 seconds (22.4%) faster in this run. The executable grew by 59,392 bytes (0.67%). Warm compilation was effectively unchanged: the measured medians differ by 0.023 seconds, which is below the scale needed to support a performance conclusion. These results do not justify a dispatch or architecture change.
 
