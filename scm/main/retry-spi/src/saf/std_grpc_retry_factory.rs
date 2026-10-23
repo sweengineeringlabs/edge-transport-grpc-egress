@@ -1,6 +1,6 @@
 //! `StdGrpcRetryFactory` -- wraps a client with retry.
 
-use grpc_egress_retry::{
+use grpc_egress_retry_api::{
     BuildGrpcRetryRequest, BuildRetryClassifierRequest, GrpcRetryConfig, GrpcRetryFactory,
     RetryClassifierFactory,
 };

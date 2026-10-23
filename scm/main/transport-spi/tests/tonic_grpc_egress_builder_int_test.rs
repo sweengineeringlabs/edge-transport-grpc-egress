@@ -1,7 +1,7 @@
 //! Tests of the builder of the client over the `proto-svc` engine, through its public factory, against a real
 //! in-process peer: every option must reach the call it describes, and none may be ignored.
 
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     CallError, CallRawRequestBuilder, CallRawResponse, CallRequest, CallResponse, Compression,
     Metadata, MetadataEntry, MethodPath, RawTransport, StatusCode,
 };
@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfigBuilder as _,
     GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor,
     InboundReply, OutboundCall, TraceContextSource,
@@ -736,9 +736,9 @@ async fn test_options_set_in_a_different_order_behave_the_same_edge() -> Result<
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
         .with_endpoint(endpoint)
 }

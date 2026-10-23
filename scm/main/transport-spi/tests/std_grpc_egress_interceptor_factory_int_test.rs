@@ -1,7 +1,7 @@
 //! Integration tests for `StdGrpcEgressInterceptorFactory`.
 
 use grpc_egress_test_support::OutboundCallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
     OutboundCall, TraceContextSource,
 };

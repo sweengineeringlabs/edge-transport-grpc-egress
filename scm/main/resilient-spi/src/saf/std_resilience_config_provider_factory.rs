@@ -1,6 +1,6 @@
 //! `StdResilienceConfigProviderFactory` -- creates the reader of resilience policies.
 
-use grpc_egress_resilient::{
+use grpc_egress_resilient_api::{
     BuildResilienceConfigProviderRequest, ResilienceConfigProvider, ResilienceConfigProviderFactory,
 };
 

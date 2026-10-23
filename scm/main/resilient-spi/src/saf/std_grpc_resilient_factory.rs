@@ -1,15 +1,15 @@
 //! `StdGrpcResilientFactory` -- wraps a client with retry and a circuit breaker.
 
-use grpc_egress_breaker::{BreakerObservable, BuildGrpcBreakerRequest, GrpcBreakerFactory};
+use grpc_egress_breaker_api::{BreakerObservable, BuildGrpcBreakerRequest, GrpcBreakerFactory};
 use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
-use grpc_egress_resilient::{
+use grpc_egress_resilient_api::{
     BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig, ResilientTransportError,
 };
-use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
+use grpc_egress_retry_api::{BuildGrpcRetryRequest, GrpcRetryFactory};
 use grpc_egress_retry_spi::StdGrpcRetryFactory;
 use proto_pattern::{RawTransport, Transport};
 
-use grpc_egress_resilient::ResilienceConfigProvider;
+use grpc_egress_resilient_api::ResilienceConfigProvider;
 
 use crate::spi::config::StdResilienceConfigProvider;
 

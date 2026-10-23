@@ -1,13 +1,13 @@
 //! `StdGrpcBreakerFactory` -- wraps a client with a circuit breaker.
 
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BreakerDomainError, BreakerObservable, BuildGrpcBreakerRequest, GrpcBreakerConfig,
     GrpcBreakerFactory,
 };
 use proto_pattern::{RawTransport, Transport};
 use tracing::debug;
 
-use grpc_egress_breaker::GrpcBreakerConfigProvider;
+use grpc_egress_breaker_api::GrpcBreakerConfigProvider;
 
 use crate::spi::config::StdGrpcBreakerConfigProvider;
 use crate::spi::decorator::GrpcBreakerClient;

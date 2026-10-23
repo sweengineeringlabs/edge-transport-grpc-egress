@@ -1,6 +1,6 @@
 //! Breaker policy construction and deserialization reject unusable values.
 
-use grpc_egress_breaker::GrpcBreakerConfig;
+use grpc_egress_breaker_api::GrpcBreakerConfig;
 
 #[test]
 fn test_try_new_rejects_zero_failure_threshold() {

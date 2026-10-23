@@ -7,7 +7,7 @@ use proto_pattern::{
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use grpc_egress_transport::CancellationSignal;
+use grpc_egress_transport_api::CancellationSignal;
 
 /// A response stream of messages `R` that fails with `Cancelled` when `signal` fires while a message or the trailers
 /// are being read.

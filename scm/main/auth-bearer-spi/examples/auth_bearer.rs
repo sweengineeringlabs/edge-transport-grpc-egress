@@ -4,18 +4,18 @@
 //! [`GrpcEgressInterceptorChain`], and the chain is run over the call exactly as the client runs it before the wire
 //! call. No server is needed.
 //!
-//! [`BearerEgressConfig`]: grpc_egress_auth_bearer::BearerEgressConfig
+//! [`BearerEgressConfig`]: grpc_egress_auth_bearer_api::BearerEgressConfig
 //! [`GrpcEgressInterceptorChain`]: grpc_egress_transport_std::GrpcEgressInterceptorChain
 
-use grpc_egress_auth_bearer::BearerEgressConfigBuilder as _;
-use grpc_egress_transport::GrpcEgressInterceptorChain as _;
+use grpc_egress_auth_bearer_api::BearerEgressConfigBuilder as _;
+use grpc_egress_transport_api::GrpcEgressInterceptorChain as _;
 use std::sync::Arc;
 use std::time::Duration;
 
-use grpc_egress_auth_bearer::{BearerSecret, AUTHORIZATION_HEADER};
+use grpc_egress_auth_bearer_api::{BearerSecret, AUTHORIZATION_HEADER};
 use grpc_egress_auth_bearer_spi::StdBearerInterceptorFactory;
 use grpc_egress_test_support::OutboundCallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptorFactory, OutboundCall,
 };
 use proto_pattern::Metadata;
@@ -58,14 +58,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn new_chain() -> impl grpc_egress_transport::GrpcEgressInterceptorChain {
-    use grpc_egress_transport::GrpcEgressInterceptorChainFactory;
+fn new_chain() -> impl grpc_egress_transport_api::GrpcEgressInterceptorChain {
+    use grpc_egress_transport_api::GrpcEgressInterceptorChainFactory;
     grpc_egress_transport_std::StdGrpcEgressInterceptorChainFactory
-        .build(grpc_egress_transport::BuildGrpcEgressInterceptorChainRequest)
+        .build(grpc_egress_transport_api::BuildGrpcEgressInterceptorChainRequest)
 }
 
-fn egress_config_builder() -> impl grpc_egress_auth_bearer::BearerEgressConfigBuilder {
-    use grpc_egress_auth_bearer::BearerEgressConfigBuilderFactory;
+fn egress_config_builder() -> impl grpc_egress_auth_bearer_api::BearerEgressConfigBuilder {
+    use grpc_egress_auth_bearer_api::BearerEgressConfigBuilderFactory;
     grpc_egress_auth_bearer_std::StdBearerEgressConfigBuilderFactory
-        .build(grpc_egress_auth_bearer::BuildBearerEgressConfigBuilderRequest)
+        .build(grpc_egress_auth_bearer_api::BuildBearerEgressConfigBuilderRequest)
 }

@@ -2,7 +2,7 @@
 //! what the engine reports for a refused connection and for the statuses a peer answers is what the breaker
 //! classifies, and an open circuit keeps calls away from the peer.
 
-use grpc_egress_breaker::proto_pattern::{
+use grpc_egress_breaker_api::proto_pattern::{
     CallError, CallOptions, CallRawRequestBuilder, CallRawResponse,
     CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
     DecodeError, EncodeError, MessageStream, Metadata, Method, Payload, RawTransport,
@@ -11,7 +11,7 @@ use grpc_egress_breaker::proto_pattern::{
 use std::error::Error;
 use std::time::Duration;
 
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
     GrpcBreakerConfigProvider, GrpcBreakerFactory, ObserveStateRequest,
 };
@@ -19,20 +19,20 @@ use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{
     CallFixture, ClientFixture, ClosedPort, Fixture, PeerBehaviour, PeerServer, RunningPeer,
 };
-use grpc_egress_transport::GrpcChannelConfigBuilder;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder;
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
     new_config_builder().with_endpoint(endpoint)
 }
 
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+fn new_config_builder() -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
 }
 
 /// A message that is its own bytes.
@@ -76,10 +76,10 @@ fn fast_config() -> Result<GrpcBreakerConfig, Box<dyn Error>> {
     )?)
 }
 
-fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
-    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+fn breaker_provider() -> impl grpc_egress_breaker_api::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker_api::GrpcBreakerConfigProviderFactory;
     grpc_egress_breaker_spi::StdGrpcBreakerConfigProviderFactory
-        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
+        .build(grpc_egress_breaker_api::BuildGrpcBreakerConfigProviderRequest)
 }
 
 /// A breaker around a real client for `endpoint`.

@@ -1,7 +1,7 @@
 //! `TlsSettingsResolver` -- the PEM files named by the TLS options, read into the contract's `TlsSettings`.
 
-use grpc_egress_transport::proto_pattern::{TlsIdentity, TlsSettings};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::proto_pattern::{TlsIdentity, TlsSettings};
+use grpc_egress_transport_api::{
     GrpcChannelConfigError, ResolveTlsSettingsRequest, TlsSettingsResolver,
 };
 

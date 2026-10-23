@@ -3,14 +3,14 @@
 //! Each test pins what one option of `GrpcChannelConfig` does, so that a change cannot slip in silently, and
 //! each fails when its option is ignored or changed.
 
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode,
 };
 use std::error::Error;
 use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{CompressionMode, GrpcChannelConfigBuilder as _};
+use grpc_egress_transport_api::{CompressionMode, GrpcChannelConfigBuilder as _};
 
 const SHORT: Duration = Duration::from_secs(5);
 
@@ -364,9 +364,9 @@ async fn test_call_to_a_closed_endpoint_returns_transport_unavailable() -> Resul
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
         .with_endpoint(endpoint)
 }

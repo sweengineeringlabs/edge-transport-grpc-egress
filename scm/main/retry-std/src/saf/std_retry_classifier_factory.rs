@@ -1,6 +1,6 @@
 //! `StdRetryClassifierFactory` -- creates the classifier of attempts.
 
-use grpc_egress_retry::{BuildRetryClassifierRequest, RetryClassifier, RetryClassifierFactory};
+use grpc_egress_retry_api::{BuildRetryClassifierRequest, RetryClassifier, RetryClassifierFactory};
 
 use crate::std::StdRetryClassifier;
 

@@ -14,7 +14,7 @@ use proto_tonic_spi::{
     TonicTransportOptions, TonicTransportSpiFactory, TonicTransportSpiFactoryOptions,
 };
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressInterceptorChainRequest, BuildGrpcEgressInterceptorRequest,
     BuildTlsSettingsResolverRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError,
     GrpcEgressBuilder, GrpcEgressInterceptor, GrpcEgressInterceptorChain,

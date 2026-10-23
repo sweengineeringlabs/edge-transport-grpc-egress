@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     CompressionMode, GrpcChannelConfig, GrpcChannelConfigBuilder, KeepAliveConfig, MtlsConfig,
     DEFAULT_MAX_MESSAGE_BYTES,
 };

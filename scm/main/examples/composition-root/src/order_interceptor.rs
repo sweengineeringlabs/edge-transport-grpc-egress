@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
+use grpc_egress_transport_api::{GrpcEgressInterceptor, InboundReply, OutboundCall};
 use proto_pattern::{CallError, CallEvent, Metadata};
 
 /// An interceptor that appends `before:<label>` and `after:<label>` to a shared log when it runs.

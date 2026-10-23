@@ -3,12 +3,12 @@
 //! Verifies the **fail-closed TLS-by-default invariant** at the
 //! public-facade boundary via the `create_transport_from_config` factory.
 
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-use grpc_egress_transport::GrpcEgressInterceptorChain as _;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport_api::GrpcEgressInterceptorChain as _;
 use std::sync::Arc;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, CompressionMode, GrpcChannelConfig, GrpcChannelConfigError,
     GrpcEgressBuilder, GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
 };
@@ -115,7 +115,7 @@ fn transport_struct_channel_config_from_config_accepts_https_int_test(
 #[test]
 fn transport_struct_channel_config_with_interceptors_accepts_chain_int_test() {
     let chain = new_chain().push(Arc::new(trace_interceptor(
-        grpc_egress_transport::TraceContextSource::PassThrough,
+        grpc_egress_transport_api::TraceContextSource::PassThrough,
     )));
     assert_eq!(chain.len(), 1);
 }
@@ -191,26 +191,26 @@ fn transport_struct_channel_config_with_compression_overrides_mode_int_test(
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
     new_config_builder().with_endpoint(endpoint)
 }
 
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+fn new_config_builder() -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
 }
 
-fn new_chain() -> impl grpc_egress_transport::GrpcEgressInterceptorChain {
-    use grpc_egress_transport::GrpcEgressInterceptorChainFactory;
+fn new_chain() -> impl grpc_egress_transport_api::GrpcEgressInterceptorChain {
+    use grpc_egress_transport_api::GrpcEgressInterceptorChainFactory;
     grpc_egress_transport_std::StdGrpcEgressInterceptorChainFactory
-        .build(grpc_egress_transport::BuildGrpcEgressInterceptorChainRequest)
+        .build(grpc_egress_transport_api::BuildGrpcEgressInterceptorChainRequest)
 }
 
 fn trace_interceptor(
-    source: grpc_egress_transport::TraceContextSource,
-) -> impl grpc_egress_transport::GrpcEgressInterceptor {
-    use grpc_egress_transport::GrpcEgressInterceptorFactory;
+    source: grpc_egress_transport_api::TraceContextSource,
+) -> impl grpc_egress_transport_api::GrpcEgressInterceptor {
+    use grpc_egress_transport_api::GrpcEgressInterceptorFactory;
     grpc_egress_transport_std::StdGrpcEgressInterceptorFactory::new(source)
-        .build(grpc_egress_transport::BuildGrpcEgressInterceptorRequest)
+        .build(grpc_egress_transport_api::BuildGrpcEgressInterceptorRequest)
 }

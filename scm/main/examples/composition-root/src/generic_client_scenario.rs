@@ -2,11 +2,11 @@
 
 use std::error::Error;
 
-use grpc_egress_breaker::{BuildGrpcBreakerRequest, GrpcBreakerConfig, GrpcBreakerFactory};
+use grpc_egress_breaker_api::{BuildGrpcBreakerRequest, GrpcBreakerConfig, GrpcBreakerFactory};
 use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
-use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
+use grpc_egress_retry_api::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_spi::StdGrpcRetryFactory;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;

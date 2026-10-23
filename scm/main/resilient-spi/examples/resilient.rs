@@ -23,8 +23,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use grpc_egress_resilient::ResilienceConfig;
-use grpc_egress_resilient::{BuildGrpcResilientRequest, GrpcResilientFactory};
+use grpc_egress_resilient_api::ResilienceConfig;
+use grpc_egress_resilient_api::{BuildGrpcResilientRequest, GrpcResilientFactory};
 use grpc_egress_resilient_spi::StdGrpcResilientFactory;
 
 /// An upstream that fails its first `fail_until` calls with `Unavailable`, then succeeds. A real peer answers one
@@ -187,8 +187,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let config = ResilienceConfig::from_policies(
-        grpc_egress_retry::GrpcRetryConfig::try_new(
-            grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        grpc_egress_retry_api::GrpcRetryConfig::try_new(
+            grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
                 max_attempts: 3,
                 initial_backoff_ms: 20,
                 backoff_multiplier: 2.0,
@@ -199,7 +199,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 rate_limit_max_backoff_ms: 100,
             },
         )?,
-        grpc_egress_breaker::GrpcBreakerConfig::try_new(true, 5, 1, 1)?,
+        grpc_egress_breaker_api::GrpcBreakerConfig::try_new(true, 5, 1, 1)?,
     );
     let client = StdGrpcResilientFactory::new(config)
         .build(BuildGrpcResilientRequest { inner: upstream })?;

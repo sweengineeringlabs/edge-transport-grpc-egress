@@ -3,14 +3,14 @@
 //! client can notice is by a PING that is not answered, and the proxy sees the client close.
 
 use grpc_egress_test_support::{CallFixture, ClientFixture};
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::{
     Fixture, FreezableProxy, PeerBehaviour, PeerServer, RunningPeer, RunningProxy,
 };
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig,
 };
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
@@ -226,12 +226,12 @@ async fn test_from_config_keep_alive_is_applied_to_the_client_the_caller_gets_ha
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
     new_config_builder().with_endpoint(endpoint)
 }
 
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+fn new_config_builder() -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
 }

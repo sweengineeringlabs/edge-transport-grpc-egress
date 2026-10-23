@@ -24,7 +24,7 @@
 use proto_pattern::{CallError, StatusCode};
 use tracing::trace;
 
-use grpc_egress_breaker::{FailureClassifier, Outcome, FAILURE_CLASSIFIER_LOG_TARGET};
+use grpc_egress_breaker_api::{FailureClassifier, Outcome, FAILURE_CLASSIFIER_LOG_TARGET};
 
 /// Classifies the result of an outbound call into the breaker's outcome, from the [`CallError`] taxonomy of
 /// the contract.

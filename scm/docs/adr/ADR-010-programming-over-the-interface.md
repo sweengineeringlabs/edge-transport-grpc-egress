@@ -24,14 +24,14 @@ crate; `spi/` is the only layer that does.
 
 | Layer | What it is | May depend on | May define |
 |---|---|---|---|
-| `api/` (the domain crate) | the interface: traits, dto, vo, error, by theme | only what its interface types need; never an engine library (`tonic`, `hyper`, `hyper-util`, `hyper-rustls`, `rustls`, `tower`, `h2`, `prost`, the load balancer, a `tokio` runtime) | everything another module calls |
+| `*-api` (the contract package) | the interface: traits, dto, vo, error, by theme, directly under `src/` | only what its interface types need; never an engine library (`tonic`, `hyper`, `hyper-util`, `hyper-rustls`, `rustls`, `tower`, `h2`, `prost`, the load balancer, a `tokio` runtime) | everything another module calls |
 | `std/` | the standard implementation: defaults only | the domain crate, `core`, `std`, `alloc`; no third-party crate | nothing new: implementations of domain traits on `pub(crate)` types, and private helper methods (no free function) |
 | `spi/` | the service provider implementation: the only layer with third-party dependencies | any library | nothing new: implementations of domain traits on `pub(crate)` types, and private helper methods (no free function) |
 | `saf/` | the factories | the domain crate and the two layers above | one public type per factory, implementing a domain factory trait; no logic, no re-exports |
 
 ### Package boundary (clarified by issue #63)
 
-The `std/` and `spi/` source layers are separate Cargo packages named `<theme>-std` and `<theme>-spi`. Each package owns its own `saf/` factories and depends on the domain package. A package exists only when that layer has implementation code: SPI-only themes use `<theme>-spi` and do not get an empty `<theme>-std`. When one implementation needs another package's behavior, it composes through public domain factory contracts instead of exposing crate-private implementation types.
+The `std/` and `spi/` source layers are separate Cargo packages named `<theme>-std` and `<theme>-spi`; the contract package is separately named `<theme>-api`. Each implementation package owns its own `saf/` factories and depends on the API package. A package exists only when that layer has implementation code: SPI-only themes use `<theme>-spi` and do not get an empty `<theme>-std`. When one implementation needs another package's behavior, it composes through public API factory contracts instead of exposing crate-private implementation types.
 
 ### What is allowed in `std/` and `spi/`
 
@@ -43,7 +43,7 @@ The `std/` and `spi/` source layers are separate Cargo packages named `<theme>-s
 
 ### The two enforcing rules
 
-`scripts/check_layout.py` has rule 19, `program_over_the_interface` (a trait declared outside `api/`; a `pub` or
+`scripts/check_layout.py` has rule 19, `program_over_the_interface` (a trait declared outside `traits/` in a `*-api` package; a `pub` or
 `pub(crate)` function or inherent impl in `std/` or `spi/` that is not a trait impl), and rule 20, `std_names_no_third_party`
 (a file under `std/` that names a crate other than the domain crate, `core`, `std`, `alloc` and the crate itself).
 Rule 21, `every_function_a_method` (no free function in `src/` of any crate: every function is a method on a type; `fn main` of a binary excepted) completes them. The ingress and the engine copy the three with identical wording.
@@ -59,7 +59,7 @@ Rule 21, `every_function_a_method` (no free function in `src/` of any crate: eve
 - **The contract through the domain crate.** An implementation of a domain trait names the contract types that the
   trait's signature names (`CallError`, `Metadata`, `Transport`, ...). The domain crates therefore re-export the
   contract crate they are written over (`pub use proto_pattern;`), and `std/` reaches it as
-  `grpc_egress_transport::proto_pattern::...`: `std/` depends on the domain crate and nothing else. The alternative,
+  `grpc_egress_transport_api::proto_pattern::...`: `std/` depends on the domain crate and nothing else. The alternative,
   letting rule 20 allow `proto_pattern`, would change the rule's wording, which the other repositories copy.
 - **A builder that validates lives with the validator.** `StdGrpcRetryConfigBuilder.build` validates through the
   retry policy provider, whose `parse_config` reads TOML with `toml` and so lives in `spi/`; the builder is in `spi/`
@@ -71,7 +71,7 @@ Rule 21, `every_function_a_method` (no free function in `src/` of any crate: eve
   factory is the input, so the `saf/` factory body is `Type::from(req)`.
 - **Public types of the implementation crates.** Rule 19 checks public behavior and declarations, but a public type
   still belongs in the domain API when callers need to name it. Issue #60's follow-up moves the health method and its
-  wire DTOs into `grpc-egress-transport`; cancellation-token and security-context adapters are caller-owned types
+  wire DTOs into `grpc-egress-transport-api`; cancellation-token and security-context adapters are caller-owned types
   implementing `CancellationSignal` and `CallerIdentity`.
 - **`saf/` factories** keep their `new(..)` constructor that binds the factory's construction value (the endpoint of
   `TonicGrpcEgressBuilderSpiFactory`, the policy of `StdGrpcRetryFactory`), as ADR-006 and issue #16 record. It is
@@ -268,7 +268,7 @@ factories. Their disposition is:
 
 | Old public path | Disposition | New use |
 |---|---|---|
-| `grpc_egress_transport_std::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` | moved | `grpc_egress_transport::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` in the domain client API |
+| `grpc_egress_transport_std::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` | moved | `grpc_egress_transport_api::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` in the domain client API |
 | `grpc_egress_transport_std::TokenCancellation` | removed | implement `CancellationSignal` for a caller-owned wrapper around the caller's token |
 | `grpc_egress_transport_std::SecurityContextIdentity` | removed | implement `CallerIdentity` for a caller-owned wrapper around the security context |
 | `grpc_egress_transport_std::SecurityContext` | removed re-export | depend on and import `edge_security_runtime::SecurityContext` directly |

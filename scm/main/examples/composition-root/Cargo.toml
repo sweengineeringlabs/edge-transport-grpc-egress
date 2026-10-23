@@ -14,12 +14,12 @@ application_type = "binary"
 service_type = "processor"
 
 [dependencies]
-grpc-egress-transport = { path = "../../transport" }
+grpc-egress-transport-api = { path = "../../transport-api" }
 grpc-egress-transport-std = { path = "../../transport-std" }
 grpc-egress-transport-spi = { path = "../../transport-spi" }
-grpc-egress-retry = { path = "../../retry" }
+grpc-egress-retry-api = { path = "../../retry-api" }
 grpc-egress-retry-spi = { path = "../../retry-spi" }
-grpc-egress-breaker = { path = "../../breaker" }
+grpc-egress-breaker-api = { path = "../../breaker-api" }
 grpc-egress-breaker-spi = { path = "../../breaker-spi" }
 # The in-process peer the scenarios talk to (an example of a composition root has no server of its own).
 grpc-egress-test-support = { path = "../../test-support" }

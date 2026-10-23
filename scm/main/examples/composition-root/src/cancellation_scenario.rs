@@ -7,7 +7,7 @@ use proto_pattern::{
 use std::error::Error;
 use std::time::{Duration, Instant};
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, CancellationSignal,
     GrpcCancellationFactory, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };

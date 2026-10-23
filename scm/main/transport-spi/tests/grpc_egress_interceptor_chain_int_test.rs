@@ -1,12 +1,12 @@
 //! Integration tests for `GrpcEgressInterceptorChain`: the order interceptors run in, what happens when one fails,
 //! and that one interceptor sees what the one before it did to the call.
 
-use grpc_egress_transport::GrpcEgressInterceptorChain as _;
+use grpc_egress_transport_api::GrpcEgressInterceptorChain as _;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use grpc_egress_test_support::OutboundCallFixture;
-use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
+use grpc_egress_transport_api::{GrpcEgressInterceptor, InboundReply, OutboundCall};
 use proto_pattern::{CallError, Metadata, StatusCode};
 
 /// Records `before:<marker>` and `after:<marker>` in a shared log, in the order the chain calls it.
@@ -275,8 +275,8 @@ fn test_run_before_interceptor_that_runs_first_does_not_see_a_later_ones_header(
     Ok(())
 }
 
-fn new_chain() -> impl grpc_egress_transport::GrpcEgressInterceptorChain {
-    use grpc_egress_transport::GrpcEgressInterceptorChainFactory;
+fn new_chain() -> impl grpc_egress_transport_api::GrpcEgressInterceptorChain {
+    use grpc_egress_transport_api::GrpcEgressInterceptorChainFactory;
     grpc_egress_transport_std::StdGrpcEgressInterceptorChainFactory
-        .build(grpc_egress_transport::BuildGrpcEgressInterceptorChainRequest)
+        .build(grpc_egress_transport_api::BuildGrpcEgressInterceptorChainRequest)
 }

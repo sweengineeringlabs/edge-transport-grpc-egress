@@ -14,7 +14,7 @@ use std::error::Error;
 use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::CallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, CancellationSignal,
     GrpcCancellationFactory, GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
@@ -469,7 +469,7 @@ impl FlagSignal {
     }
 }
 
-impl grpc_egress_transport::CancellationSignal for FlagSignal {
+impl grpc_egress_transport_api::CancellationSignal for FlagSignal {
     async fn wait_cancelled(&self) {
         loop {
             let notified = self.0.notify.notified();

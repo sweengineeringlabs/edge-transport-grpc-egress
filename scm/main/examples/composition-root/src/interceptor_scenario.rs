@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use grpc_egress_test_support::CallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, TraceContextSource,
 };
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;

@@ -1,12 +1,12 @@
 //! Integration tests for [`BearerSecret`].
 
-use grpc_egress_auth_bearer::BearerSecret;
-use grpc_egress_auth_bearer::BearerSecretGuard as _;
+use grpc_egress_auth_bearer_api::BearerSecret;
+use grpc_egress_auth_bearer_api::BearerSecretGuard as _;
 
 /// @covers: BearerSecret::ct_eq_hs256
 #[test]
 fn test_ct_eq_hs256_returns_true_for_identical_secrets(
-) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<(), grpc_egress_auth_bearer_api::BearerAuthError> {
     let a = BearerSecret::hs256(b"verysecret".to_vec())?;
     let b = BearerSecret::hs256(b"verysecret".to_vec())?;
     assert!(secret_guard().ct_eq_hs256(&a, &b));
@@ -16,7 +16,7 @@ fn test_ct_eq_hs256_returns_true_for_identical_secrets(
 /// @covers: BearerSecret::ct_eq_hs256
 #[test]
 fn test_ct_eq_hs256_returns_false_for_different_secrets(
-) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<(), grpc_egress_auth_bearer_api::BearerAuthError> {
     let a = BearerSecret::hs256(b"alpha".to_vec())?;
     let b = BearerSecret::hs256(b"beta".to_vec())?;
     assert!(!secret_guard().ct_eq_hs256(&a, &b));
@@ -26,7 +26,7 @@ fn test_ct_eq_hs256_returns_false_for_different_secrets(
 /// @covers: BearerSecret::ct_eq_hs256
 #[test]
 fn test_ct_eq_hs256_returns_false_for_variant_mismatch(
-) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<(), grpc_egress_auth_bearer_api::BearerAuthError> {
     let a = BearerSecret::hs256(b"x".to_vec())?;
     let b = BearerSecret::rs256(vec![1])?;
     assert!(!secret_guard().ct_eq_hs256(&a, &b));
@@ -52,8 +52,8 @@ fn test_secret_serde_round_trip_keeps_the_tagged_configuration_shape(
     Ok(())
 }
 
-fn secret_guard() -> impl grpc_egress_auth_bearer::BearerSecretGuard {
-    use grpc_egress_auth_bearer::BearerSecretGuardFactory;
+fn secret_guard() -> impl grpc_egress_auth_bearer_api::BearerSecretGuard {
+    use grpc_egress_auth_bearer_api::BearerSecretGuardFactory;
     grpc_egress_auth_bearer_spi::StdBearerSecretGuardFactory
-        .build(grpc_egress_auth_bearer::BuildBearerSecretGuardRequest)
+        .build(grpc_egress_auth_bearer_api::BuildBearerSecretGuardRequest)
 }

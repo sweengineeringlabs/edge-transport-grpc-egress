@@ -7,7 +7,7 @@ use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::CallFixture;
-use grpc_egress_transport::GrpcEgressBuilder;
+use grpc_egress_transport_api::GrpcEgressBuilder;
 
 use crate::{CompositionRoot, EchoServer, ScenarioReport};
 

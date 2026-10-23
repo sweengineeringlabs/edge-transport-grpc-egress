@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use edge_security_runtime::SecurityContext;
 use grpc_egress_test_support::CallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, CallerIdentity,
     GrpcCallerIdentityFactory, GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
@@ -525,7 +525,7 @@ async fn test_call_two_views_of_one_client_each_carry_their_own_context(
 /// An identity that is not a `SecurityContext`: fixed values, one extra header.
 struct FixedIdentity;
 
-impl grpc_egress_transport::CallerIdentity for FixedIdentity {
+impl grpc_egress_transport_api::CallerIdentity for FixedIdentity {
     fn trace_id(&self) -> Option<&str> {
         Some("custom-trace")
     }

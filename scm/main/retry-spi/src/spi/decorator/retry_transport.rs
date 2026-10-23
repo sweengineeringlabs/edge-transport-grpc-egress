@@ -17,7 +17,7 @@ use tracing::{debug, trace, warn};
 
 use edge_transport_retry::{BackoffScheduler, DefaultJitterRng};
 
-use grpc_egress_retry::{RetryClassifier, RetryDecision};
+use grpc_egress_retry_api::{RetryClassifier, RetryDecision};
 
 use super::grpc_retry_client::GrpcRetryClient;
 

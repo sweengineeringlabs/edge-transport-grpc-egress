@@ -1,6 +1,6 @@
 //! [`ClientFixture`] -- a client built from a channel configuration, through the public builder.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressBuilderFactory,
 };

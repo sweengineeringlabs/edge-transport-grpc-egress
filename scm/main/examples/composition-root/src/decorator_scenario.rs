@@ -6,18 +6,18 @@ use proto_pattern::{
 use std::error::Error;
 use std::time::Duration;
 
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
     GrpcBreakerFactory, ObserveStateRequest,
 };
 use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
-use grpc_egress_retry::{
+use grpc_egress_retry_api::{
     BuildGrpcRetryConfigBuilderRequest, BuildGrpcRetryRequest, GrpcRetryConfigBuilder,
     GrpcRetryConfigBuilderFactory, GrpcRetryFactory,
 };
 use grpc_egress_retry_spi::{StdGrpcRetryConfigBuilderFactory, StdGrpcRetryFactory};
 use grpc_egress_test_support::{CallFixture, PeerBehaviour};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;

@@ -4,8 +4,8 @@
 //! gRPC status messages into Capacity / RateLimit / HardQuota contexts.
 
 /// @covers: ResourceExhaustedContext::classify — quota message classifies as HardQuota
-use grpc_egress_retry::ResourceExhaustedContext;
-use grpc_egress_retry::RetryClassifier as _;
+use grpc_egress_retry_api::ResourceExhaustedContext;
+use grpc_egress_retry_api::RetryClassifier as _;
 #[test]
 fn retry_struct_resource_exhausted_context_quota_message_classifies_as_hard_quota_int_test() {
     assert_eq!(
@@ -52,8 +52,8 @@ fn retry_struct_resource_exhausted_context_is_accessible_int_test() {
     );
 }
 
-fn classifier() -> impl grpc_egress_retry::RetryClassifier {
-    use grpc_egress_retry::RetryClassifierFactory;
+fn classifier() -> impl grpc_egress_retry_api::RetryClassifier {
+    use grpc_egress_retry_api::RetryClassifierFactory;
     grpc_egress_retry_std::StdRetryClassifierFactory
-        .build(grpc_egress_retry::BuildRetryClassifierRequest)
+        .build(grpc_egress_retry_api::BuildRetryClassifierRequest)
 }

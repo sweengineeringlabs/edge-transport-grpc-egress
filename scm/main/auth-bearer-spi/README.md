@@ -12,5 +12,5 @@ JWT signing supports HS256 with raw secret bytes and RS256 with a PEM private ke
 receiving side belongs to the ingress service.
 
 `StdBearerSecretGuardFactory` implements constant-time HS256 secret comparison through `subtle::ConstantTimeEq`.
-See the [domain contract](../auth-bearer/README.md), [threat model](docs/threat_model.md), and
+See the [domain contract](../auth-bearer-api/README.md), [threat model](docs/threat_model.md), and
 [workspace overview](../../docs/README.md).

@@ -9,10 +9,10 @@ use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 
-use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret, AUTHORIZATION_HEADER};
+use grpc_egress_auth_bearer_api::{BearerEgressConfig, BearerSecret, AUTHORIZATION_HEADER};
 use grpc_egress_auth_bearer_spi::StdBearerInterceptorFactory;
 use grpc_egress_test_support::{CallFixture, Fixture, PeerBehaviour, PeerServer, RunningPeer};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, BuildGrpcEgressInterceptorRequest, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, GrpcEgressInterceptorFactory,
 };
@@ -32,7 +32,7 @@ struct Claims {
 
 fn config(
     secret: BearerSecret,
-) -> Result<BearerEgressConfig, grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<BearerEgressConfig, grpc_egress_auth_bearer_api::BearerAuthError> {
     BearerEgressConfig::try_new(secret, "wire-iss", "wire-aud", "wire-sub", 60)
 }
 

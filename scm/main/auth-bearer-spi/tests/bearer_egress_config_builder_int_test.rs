@@ -1,7 +1,7 @@
 //! Coverage stub for `api/bearer/bearer_egress_config_builder.rs`.
 
-use grpc_egress_auth_bearer::BearerEgressConfigBuilder as _;
-use grpc_egress_auth_bearer::BearerSecret;
+use grpc_egress_auth_bearer_api::BearerEgressConfigBuilder as _;
+use grpc_egress_auth_bearer_api::BearerSecret;
 
 /// @covers: BearerEgressConfigBuilder — fluent builder produces valid config
 #[test]
@@ -37,8 +37,8 @@ fn bearer_struct_bearer_egress_config_builder_build_without_a_subject_names_it_i
     Ok(())
 }
 
-fn egress_config_builder() -> impl grpc_egress_auth_bearer::BearerEgressConfigBuilder {
-    use grpc_egress_auth_bearer::BearerEgressConfigBuilderFactory;
+fn egress_config_builder() -> impl grpc_egress_auth_bearer_api::BearerEgressConfigBuilder {
+    use grpc_egress_auth_bearer_api::BearerEgressConfigBuilderFactory;
     grpc_egress_auth_bearer_std::StdBearerEgressConfigBuilderFactory
-        .build(grpc_egress_auth_bearer::BuildBearerEgressConfigBuilderRequest)
+        .build(grpc_egress_auth_bearer_api::BuildBearerEgressConfigBuilderRequest)
 }

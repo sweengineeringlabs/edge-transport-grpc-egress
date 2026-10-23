@@ -1,7 +1,7 @@
-//! Coverage stub for `src/api/types/grpc/grpc_retry_config.rs`.
+//! Coverage stub for `src/vo/grpc_retry_config.rs`.
 
-use grpc_egress_retry::GrpcRetryConfig;
-use grpc_egress_retry::GrpcRetryConfigProvider as _;
+use grpc_egress_retry_api::GrpcRetryConfig;
+use grpc_egress_retry_api::GrpcRetryConfigProvider as _;
 
 /// @covers: GrpcRetryConfig — type is accessible and holds real fields (not zero-sized)
 #[test]
@@ -47,7 +47,7 @@ fn retry_struct_grpc_retry_config_validate_zero_attempts_is_refused_and_the_defa
 ) {
     let provider = retry_provider();
     let defaults = GrpcRetryConfig::default();
-    let zero = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+    let zero = GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
         max_attempts: 0,
         initial_backoff_ms: defaults.initial_backoff_ms(),
         backoff_multiplier: defaults.backoff_multiplier(),
@@ -60,7 +60,7 @@ fn retry_struct_grpc_retry_config_validate_zero_attempts_is_refused_and_the_defa
 
     assert!(provider.validate(&GrpcRetryConfig::default()).is_ok());
     assert!(
-        matches!(zero, Err(grpc_egress_retry::Error::InvalidConfig(ref m)) if m.contains("max_attempts"))
+        matches!(zero, Err(grpc_egress_retry_api::Error::InvalidConfig(ref m)) if m.contains("max_attempts"))
     );
 }
 
@@ -83,9 +83,9 @@ fn retry_struct_grpc_retry_config_parse_config_zero_attempts_is_refused_int_test
 /// @covers: GrpcRetryConfigProvider::initial_backoff — milliseconds
 #[test]
 fn retry_struct_grpc_retry_config_initial_backoff_is_read_in_milliseconds_int_test(
-) -> Result<(), grpc_egress_retry::Error> {
+) -> Result<(), grpc_egress_retry_api::Error> {
     let provider = retry_provider();
-    let config = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+    let config = GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
         max_attempts: 5,
         initial_backoff_ms: 250,
         backoff_multiplier: 2.0,
@@ -114,8 +114,8 @@ fn retry_struct_grpc_retry_config_initial_backoff_is_read_in_milliseconds_int_te
     Ok(())
 }
 
-fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
-    use grpc_egress_retry::GrpcRetryConfigProviderFactory;
+fn retry_provider() -> impl grpc_egress_retry_api::GrpcRetryConfigProvider {
+    use grpc_egress_retry_api::GrpcRetryConfigProviderFactory;
     grpc_egress_retry_spi::StdGrpcRetryConfigProviderFactory
-        .build(grpc_egress_retry::BuildGrpcRetryConfigProviderRequest)
+        .build(grpc_egress_retry_api::BuildGrpcRetryConfigProviderRequest)
 }

@@ -13,12 +13,12 @@ def manifest(name, extra=""):
 
 
 GOOD = {
-    "scm/main/foo/Cargo.toml": manifest("grpc-egress-foo"),
-    "scm/main/foo/src/lib.rs": "mod client;\npub use client::FooRequest;\n",
-    "scm/main/foo/src/api/client/mod.rs": "pub mod dto;\npub use dto::FooRequest;\n",
-    "scm/main/foo/src/api/client/dto/mod.rs": "pub mod foo_request;\npub use foo_request::FooRequest;\n",
-    "scm/main/foo/src/api/client/dto/foo_request.rs": "pub struct FooRequest;\n",
-    "scm/main/foo-std/Cargo.toml": manifest("grpc-egress-foo-std", 'grpc-egress-foo = { path = "../foo" }\n'),
+    "scm/main/foo-api/Cargo.toml": manifest("grpc-egress-foo-api"),
+    "scm/main/foo-api/src/lib.rs": "mod client;\npub use client::FooRequest;\n",
+    "scm/main/foo-api/src/client/mod.rs": "pub mod dto;\npub use dto::FooRequest;\n",
+    "scm/main/foo-api/src/client/dto/mod.rs": "pub mod foo_request;\npub use foo_request::FooRequest;\n",
+    "scm/main/foo-api/src/client/dto/foo_request.rs": "pub struct FooRequest;\n",
+    "scm/main/foo-std/Cargo.toml": manifest("grpc-egress-foo-std", 'grpc-egress-foo-api = { path = "../foo-api" }\n'),
     "scm/main/foo-std/src/lib.rs": "mod std;\nmod saf;\n",
     "scm/main/foo-std/src/std/mod.rs": "pub(crate) mod client;\n",
     "scm/main/foo-std/src/std/client/mod.rs": "",
@@ -67,7 +67,7 @@ class LayoutCheckerTest(unittest.TestCase):
     def test_check_all_a_domain_and_spi_only_implementation_passes(self):
         files = {k: v for k, v in GOOD.items() if not k.startswith("scm/main/foo-std/")}
         files.update({
-            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo = { path = "../foo" }\n'),
+            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo-api = { path = "../foo-api" }\n'),
             "scm/main/foo-spi/src/lib.rs": "mod spi;\nmod saf;\n",
             "scm/main/foo-spi/src/spi/mod.rs": "",
             "scm/main/foo-spi/src/saf/mod.rs": "",
@@ -78,10 +78,10 @@ class LayoutCheckerTest(unittest.TestCase):
 
     def test_check_all_spi_package_rejects_std_layer(self):
         files = {
-            "scm/main/foo/Cargo.toml": manifest("grpc-egress-foo"),
-            "scm/main/foo/src/lib.rs": "mod api;\n",
-            "scm/main/foo/src/api/mod.rs": "",
-            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo = { path = "../foo" }\n'),
+            "scm/main/foo-api/Cargo.toml": manifest("grpc-egress-foo-api"),
+            "scm/main/foo-api/src/lib.rs": "mod api;\n",
+            "scm/main/foo-api/src/mod.rs": "",
+            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo-api = { path = "../foo-api" }\n'),
             "scm/main/foo-spi/src/lib.rs": "mod spi;\nmod std;\n",
             "scm/main/foo-spi/src/spi/mod.rs": "",
             "scm/main/foo-spi/src/std/mod.rs": "",
@@ -99,10 +99,10 @@ class LayoutCheckerTest(unittest.TestCase):
 
     def test_check_all_spi_package_requires_actual_spi_implementation(self):
         files = {
-            "scm/main/foo/Cargo.toml": manifest("grpc-egress-foo"),
-            "scm/main/foo/src/lib.rs": "mod api;\n",
-            "scm/main/foo/src/api/mod.rs": "",
-            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo = { path = "../foo" }\n'),
+            "scm/main/foo-api/Cargo.toml": manifest("grpc-egress-foo-api"),
+            "scm/main/foo-api/src/lib.rs": "mod api;\n",
+            "scm/main/foo-api/src/mod.rs": "",
+            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo-api = { path = "../foo-api" }\n'),
             "scm/main/foo-spi/src/lib.rs": "mod saf;\n",
             "scm/main/foo-spi/src/saf/mod.rs": "",
         }
@@ -110,7 +110,7 @@ class LayoutCheckerTest(unittest.TestCase):
 
     def test_check_all_package_starting_with_edge_transport_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/Cargo.toml"] = manifest("edge-transport-grpc-egress-foo")
+        files["scm/main/foo-api/Cargo.toml"] = manifest("edge-transport-grpc-egress-foo")
         self.assertIn("package_name", self.rules(files))
 
     def test_check_all_crate_outside_scm_main_fails(self):
@@ -120,16 +120,16 @@ class LayoutCheckerTest(unittest.TestCase):
 
     def test_check_all_crate_holding_its_own_main_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/main/src/lib.rs"] = ""
+        files["scm/main/foo-api/main/src/lib.rs"] = ""
         self.assertIn("no_nested_main", self.rules(files))
 
     def test_check_all_domain_crate_with_a_std_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/std/mod.rs"] = ""
+        files["scm/main/foo-api/src/std/mod.rs"] = ""
         self.assertIn("domain_has_no_implementation", self.rules(files))
 
     def test_check_all_implementation_crate_without_a_domain_crate_fails(self):
-        files = {k: v for k, v in GOOD.items() if not k.startswith("scm/main/foo/")}
+        files = {k: v for k, v in GOOD.items() if not k.startswith("scm/main/foo-api/")}
         self.assertIn("pair", self.rules(files))
 
     def test_check_all_implementation_crate_not_depending_on_its_domain_crate_fails(self):
@@ -148,42 +148,42 @@ class LayoutCheckerTest(unittest.TestCase):
 
     def test_check_all_types_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/types/mod.rs"] = ""
+        files["scm/main/foo-api/src/client/types/mod.rs"] = ""
         self.assertIn("no_types_folder", self.rules(files))
 
     def test_check_all_request_declared_outside_a_dto_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/vo/bar_request.rs"] = "pub struct BarRequest;\n"
+        files["scm/main/foo-api/src/client/vo/bar_request.rs"] = "pub struct BarRequest;\n"
         self.assertIn("dto_placement", self.rules(files))
 
     def test_check_all_response_with_generics_outside_a_dto_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/vo/bar_response.rs"] = "pub struct BarResponse<T>(T);\n"
+        files["scm/main/foo-api/src/client/vo/bar_response.rs"] = "pub struct BarResponse<T>(T);\n"
         self.assertIn("dto_placement", self.rules(files))
 
     def test_check_all_error_declared_outside_an_error_folder_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/vo/bar_error.rs"] = "pub enum BarError {}\n"
+        files["scm/main/foo-api/src/client/vo/bar_error.rs"] = "pub enum BarError {}\n"
         self.assertIn("error_placement", self.rules(files))
 
     def test_check_all_error_in_an_error_folder_passes(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/error/bar_error.rs"] = "pub enum BarError {}\n"
+        files["scm/main/foo-api/src/client/error/bar_error.rs"] = "pub enum BarError {}\n"
         self.assertEqual(self.rules(files), set())
 
     def test_check_all_public_value_object_field_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/vo/policy.rs"] = "pub struct Policy { pub attempts: u32, value: bool, }\n"
+        files["scm/main/foo-api/src/client/vo/policy.rs"] = "pub struct Policy { pub attempts: u32, value: bool, }\n"
         self.assertIn("private_vo_fields", self.rules(files))
 
     def test_check_all_private_value_object_fields_pass(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/vo/policy.rs"] = "pub struct Policy { attempts: u32, value: bool, }\n"
+        files["scm/main/foo-api/src/client/vo/policy.rs"] = "pub struct Policy { attempts: u32, value: bool, }\n"
         self.assertEqual(self.rules(files), set())
 
     def test_check_all_lib_rs_with_a_function_fails(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/lib.rs"] = "mod client;\nfn helper() {}\n"
+        files["scm/main/foo-api/src/lib.rs"] = "mod client;\nfn helper() {}\n"
         self.assertIn("declarations_only", self.rules(files))
 
     def test_check_all_mod_rs_with_an_impl_fails(self):
@@ -218,8 +218,8 @@ class LayoutCheckerTest(unittest.TestCase):
 
     def test_check_all_single_theme_crate_with_a_themed_saf_fails(self):
         files = {k: v for k, v in GOOD.items() if "/client/" not in k}
-        files["scm/main/foo/src/lib.rs"] = "mod dto;\n"
-        files["scm/main/foo/src/api/dto/mod.rs"] = ""
+        files["scm/main/foo-api/src/lib.rs"] = "mod dto;\n"
+        files["scm/main/foo-api/src/dto/mod.rs"] = ""
         files["scm/main/foo-std/src/saf/sub/mod.rs"] = ""
         self.assertIn("theme_mirroring", self.rules(files))
 
@@ -256,39 +256,39 @@ class LayoutCheckerTest(unittest.TestCase):
     def test_check_all_inherited_dependency_fails(self):
         files = dict(GOOD)
         files["scm/main/foo-std/Cargo.toml"] = manifest(
-            "grpc-egress-foo-std", 'grpc-egress-foo = { path = "../foo" }\nserde = { workspace = true }\n'
+            "grpc-egress-foo-std", 'grpc-egress-foo-api = { path = "../foo-api" }\nserde = { workspace = true }\n'
         )
         self.assertIn("no_workspace_dependencies", self.rules(files))
 
     def test_check_all_inherited_package_key_passes(self):
         files = dict(GOOD)
         files["scm/main/foo-std/Cargo.toml"] = manifest(
-            "grpc-egress-foo-std", 'version.workspace = true\ngrpc-egress-foo = { path = "../foo" }\n'
+            "grpc-egress-foo-std", 'version.workspace = true\ngrpc-egress-foo-api = { path = "../foo-api" }\n'
         )
         self.assertEqual(self.rules(files), set())
 
     def test_check_all_crate_missing_from_the_workspace_members_fails(self):
         files = dict(GOOD)
-        files["scm/Cargo.toml"] = '[workspace]\nmembers = ["main/foo"]\n'
+        files["scm/Cargo.toml"] = '[workspace]\nmembers = ["main/foo-api"]\n'
         self.assertIn("workspace_members", self.rules(files))
 
     def test_check_all_crate_listed_in_the_workspace_members_passes(self):
         files = dict(GOOD)
-        files["scm/Cargo.toml"] = '[workspace]\nmembers = [\n  "main/foo",\n  "main/foo-std",\n]\n'
+        files["scm/Cargo.toml"] = '[workspace]\nmembers = [\n  "main/foo-api",\n  "main/foo-std",\n]\n'
         self.assertEqual(self.rules(files), set())
 
-    def test_check_all_domain_crate_without_an_api_folder_fails(self):
-        files = {k: v for k, v in GOOD.items() if "/foo/src/api/" not in k}
-        self.assertIn("domain_has_api", self.rules(files))
+    def test_check_all_api_crate_without_src_fails(self):
+        files = {k: v for k, v in GOOD.items() if "/foo-api/src/" not in k}
+        self.assertIn("api_package_no_src", self.rules(files))
 
-    def test_check_all_domain_crate_with_a_folder_beside_api_fails(self):
+    def test_check_all_api_crate_rejects_nested_api_folder(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/client/mod.rs"] = ""
-        self.assertIn("domain_has_api", self.rules(files))
+        files["scm/main/foo-api/src/api/mod.rs"] = ""
+        self.assertIn("api_package_no_api_folder", self.rules(files))
 
     def test_check_all_every_failure_line_names_the_path_and_the_rule(self):
         files = dict(GOOD)
-        files["scm/main/foo/src/api/client/types/mod.rs"] = ""
+        files["scm/main/foo-api/src/client/types/mod.rs"] = ""
         tree = Tree(files)
         self.addCleanup(tree.close)
 
@@ -303,7 +303,7 @@ SAF = "scm/main/foo-std/src/saf/client/service.rs"
 
 
 class ProgramOverTheInterfaceTest(unittest.TestCase):
-    """Rule 19: nothing new is defined in std/ or spi/, and a trait is declared only under api/."""
+    """Rule 19: nothing new is defined in std/ or spi/, and a trait is declared under traits/ in a -api crate."""
 
     def failures(self, **files):
         tree = Tree({**GOOD, **files})
@@ -315,11 +315,11 @@ class ProgramOverTheInterfaceTest(unittest.TestCase):
         self.addCleanup(tree.close)
         return {f.rule for f in tree.check()}
 
-    # ---- a trait outside api/
+    # ---- a trait outside a traits/ folder in a -api crate
     def test_check_all_trait_declared_in_std_fails(self):
         found = self.failures(**{STD: "pub trait Service {}\n"})
         self.assertEqual(len(found), 1)
-        self.assertIn("declares trait Service outside api/", found[0].detail)
+        self.assertIn("declares trait Service outside a traits/ folder in a -api crate", found[0].detail)
 
     def test_check_all_pub_crate_trait_declared_in_std_fails(self):
         self.assertEqual(len(self.failures(**{STD: "pub(crate) trait Service: Sized {}\n"})), 1)
@@ -347,7 +347,7 @@ class ProgramOverTheInterfaceTest(unittest.TestCase):
         self.assertEqual(len(self.failures(**files)), 1)
 
     def test_check_all_trait_declared_under_api_passes(self):
-        files = {"scm/main/foo/src/api/client/traits/service.rs": "pub trait Service: Send {\n    fn run(&self);\n}\n"}
+        files = {"scm/main/foo-api/src/client/traits/service.rs": "pub trait Service: Send {\n    fn run(&self);\n}\n"}
         self.assertEqual(self.failures(**files), [])
 
     def test_check_all_the_word_trait_in_a_comment_or_a_string_passes(self):
@@ -426,7 +426,7 @@ class ProgramOverTheInterfaceTest(unittest.TestCase):
         self.assertEqual(self.failures(**{SAF: text}), [])
 
     def test_check_all_pub_fn_outside_std_and_spi_is_not_checked_by_this_rule(self):
-        files = {"scm/main/foo/src/api/client/dto/foo_request.rs": "pub struct FooRequest;\nimpl Default for FooRequest {\n    fn default() -> Self {\n        Self\n    }\n}\n"}
+        files = {"scm/main/foo-api/src/client/dto/foo_request.rs": "pub struct FooRequest;\nimpl Default for FooRequest {\n    fn default() -> Self {\n        Self\n    }\n}\n"}
         self.assertEqual(self.failures(**files), [])
 
     def test_check_all_failure_line_names_the_path_and_the_rule(self):
@@ -469,7 +469,7 @@ class StdNamesNoThirdPartyTest(unittest.TestCase):
         self.assertEqual(len(self.failures(**{STD: text})), 2)
 
     def test_check_all_std_file_naming_the_domain_crate_passes(self):
-        self.assertEqual(self.failures(**{STD: "use grpc_egress_foo::FooRequest;\nfn f() -> grpc_egress_foo::FooRequest {\n    todo()\n}\n"}), [])
+        self.assertEqual(self.failures(**{STD: "use grpc_egress_foo_api::FooRequest;\nfn f() -> grpc_egress_foo_api::FooRequest {\n    todo()\n}\n"}), [])
 
     def test_check_all_std_file_naming_core_std_alloc_and_the_crate_passes(self):
         text = "use std::time::Duration;\nuse core::fmt;\nuse alloc::vec::Vec;\nuse crate::std::client::Other;\nuse super::Sibling;\nuse self::inner::Leaf;\nuse grpc_egress_foo_std::Own;\n"
@@ -524,7 +524,7 @@ class EveryFunctionAMethodTest(unittest.TestCase):
         self.assertIn("no free function in src: every function is a method on a type", found[0].detail)
 
     def test_check_all_free_function_in_the_domain_api_fails(self):
-        self.assertEqual(len(self.failures(**{"scm/main/foo/src/api/client/dto/foo_request.rs": "pub fn make() {}\n"})), 1)
+        self.assertEqual(len(self.failures(**{"scm/main/foo-api/src/client/dto/foo_request.rs": "pub fn make() {}\n"})), 1)
 
     def test_check_all_free_function_in_saf_fails(self):
         self.assertEqual(len(self.failures(**{SAF: "pub(crate) fn make() {}\n"})), 1)
@@ -578,7 +578,7 @@ class EveryFunctionAMethodTest(unittest.TestCase):
 
     def test_check_all_trait_declarations_with_and_without_a_body_pass(self):
         text = "trait T {\n    fn a(&self);\n    fn b(&self) {}\n}\n"
-        self.assertEqual(self.failures(**{"scm/main/foo/src/api/client/traits/t.rs": text}), [])
+        self.assertEqual(self.failures(**{"scm/main/foo-api/src/client/traits/t.rs": text}), [])
 
     def test_check_all_function_nested_in_a_method_passes(self):
         text = "struct B;\nimpl B {\n    fn a(&self) {\n        fn inner() {}\n        inner();\n    }\n}\n"
@@ -598,8 +598,8 @@ class EveryFunctionAMethodTest(unittest.TestCase):
 
     def test_check_all_free_function_in_tests_or_examples_folders_is_not_read(self):
         files = {
-            "scm/main/foo/tests/foo_test.rs": "fn helper() {}\n",
-            "scm/main/foo/examples/demo.rs": "fn main() {}\nfn helper() {}\n",
+            "scm/main/foo-api/tests/foo_test.rs": "fn helper() {}\n",
+            "scm/main/foo-api/examples/demo.rs": "fn main() {}\nfn helper() {}\n",
         }
         self.assertEqual(self.failures(**files), [])
 

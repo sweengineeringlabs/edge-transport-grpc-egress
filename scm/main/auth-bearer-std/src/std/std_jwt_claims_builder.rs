@@ -1,6 +1,6 @@
 //! `StdJwtClaimsBuilder` -- the standard [`JwtClaimsBuilder`].
 
-use grpc_egress_auth_bearer::{JwtClaims, JwtClaimsBuilder};
+use grpc_egress_auth_bearer_api::{JwtClaims, JwtClaimsBuilder};
 
 /// Fluent builder for [`JwtClaims`]. Every claim is required.
 #[derive(Debug, Default)]

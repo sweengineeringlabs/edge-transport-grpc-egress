@@ -1,9 +1,9 @@
 //! Tests for [`GrpcBreakerConfig`].
 
-use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
+use grpc_egress_breaker_api::GrpcBreakerConfigProvider as _;
 use std::time::Duration;
 
-use grpc_egress_breaker::GrpcBreakerConfig;
+use grpc_egress_breaker_api::GrpcBreakerConfig;
 use swe_edge_configbuilder::ConfigSection as _;
 
 /// @covers: from_config
@@ -97,8 +97,8 @@ fn test_validate_accepts_the_default_policy() {
         .is_ok());
 }
 
-fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
-    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+fn breaker_provider() -> impl grpc_egress_breaker_api::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker_api::GrpcBreakerConfigProviderFactory;
     grpc_egress_breaker_spi::StdGrpcBreakerConfigProviderFactory
-        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
+        .build(grpc_egress_breaker_api::BuildGrpcBreakerConfigProviderRequest)
 }

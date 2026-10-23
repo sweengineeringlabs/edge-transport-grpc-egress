@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use grpc_egress_test_support::OutboundCallFixture;
-use grpc_egress_transport::OutboundCall;
+use grpc_egress_transport_api::OutboundCall;
 use proto_pattern::{CallError, Metadata, MetadataEntry, StatusCode};
 
 /// @covers: OutboundCallFixture::add_header

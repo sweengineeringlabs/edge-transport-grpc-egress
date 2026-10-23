@@ -19,7 +19,7 @@ application_type = "lib"
 service_type = "processor"
 
 [dependencies]
-grpc-egress-transport = { path = "../transport" }
+grpc-egress-transport-api = { path = "../transport-api" }
 
 [lints.rust]
 unsafe_code = "deny"

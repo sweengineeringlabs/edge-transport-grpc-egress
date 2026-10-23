@@ -1,6 +1,6 @@
 //! `StdBearerSecretGuardFactory` -- creates the guard of secret comparisons.
 
-use grpc_egress_auth_bearer::{
+use grpc_egress_auth_bearer_api::{
     BearerSecretGuard, BearerSecretGuardFactory, BuildBearerSecretGuardRequest,
 };
 

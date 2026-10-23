@@ -1,6 +1,6 @@
 //! `StdJwtClaimsBuilderFactory` -- creates the builder of token claims.
 
-use grpc_egress_auth_bearer::{
+use grpc_egress_auth_bearer_api::{
     BuildJwtClaimsBuilderRequest, JwtClaimsBuilder, JwtClaimsBuilderFactory,
 };
 

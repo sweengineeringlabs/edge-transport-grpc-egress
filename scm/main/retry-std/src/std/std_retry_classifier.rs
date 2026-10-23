@@ -21,8 +21,8 @@
 
 use std::time::Duration;
 
-use grpc_egress_retry::proto_pattern::{CallError, MetadataView, StatusCode};
-use grpc_egress_retry::{ResourceExhaustedContext, RetryClassifier, RetryDecision};
+use grpc_egress_retry_api::proto_pattern::{CallError, MetadataView, StatusCode};
+use grpc_egress_retry_api::{ResourceExhaustedContext, RetryClassifier, RetryDecision};
 
 /// Trailer names that carry the time the peer asks the caller to wait, in whole seconds.
 const RETRY_AFTER_KEYS: [&str; 2] = ["retry-after", "x-ratelimit-reset-requests"];
@@ -78,9 +78,11 @@ impl RetryClassifier for StdRetryClassifier {
         };
         let from_trailers = RETRY_AFTER_KEYS.iter().find_map(|key| {
             trailers
-                .get_values(grpc_egress_retry::proto_pattern::GetValuesRequest::new(key))
+                .get_values(grpc_egress_retry_api::proto_pattern::GetValuesRequest::new(
+                    key,
+                ))
                 .ok()
-                .map(grpc_egress_retry::proto_pattern::GetValuesResponse::into_values)
+                .map(grpc_egress_retry_api::proto_pattern::GetValuesResponse::into_values)
                 .unwrap_or_default()
                 .first()
                 .and_then(|value| value.trim().parse::<u64>().ok())

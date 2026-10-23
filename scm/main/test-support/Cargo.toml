@@ -16,7 +16,7 @@ application_type = "lib"
 service_type     = "tester"
 
 [dependencies]
-grpc-egress-transport = { path = "../transport" }
+grpc-egress-transport-api = { path = "../transport-api" }
 grpc-egress-transport-spi = { path = "../transport-spi" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
 bytes          = "1"

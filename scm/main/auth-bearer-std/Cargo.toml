@@ -19,7 +19,7 @@ application_type = "lib"
 service_type = "processor"
 
 [dependencies]
-grpc-egress-auth-bearer = { path = "../auth-bearer" }
+grpc-egress-auth-bearer-api = { path = "../auth-bearer-api" }
 
 [lints.rust]
 unsafe_code = "deny"

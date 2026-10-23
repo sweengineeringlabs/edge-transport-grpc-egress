@@ -1,6 +1,6 @@
 //! `StdGrpcEgressInterceptorChainFactory` -- creates an empty chain of interceptors.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressInterceptorChainRequest, GrpcEgressInterceptorChain,
     GrpcEgressInterceptorChainFactory,
 };

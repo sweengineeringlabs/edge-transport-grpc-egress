@@ -1,10 +1,10 @@
 //! `StdMetadataExtender` -- the standard [`MetadataExtender`].
 
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     GetBinaryEntriesRequest, GetEntriesRequest, GetValuesRequest, Metadata, MetadataBuilder,
     MetadataError, MetadataView,
 };
-use grpc_egress_transport::MetadataExtender;
+use grpc_egress_transport_api::MetadataExtender;
 
 /// Builds a new [`Metadata`] from an existing one, preserving text and binary entries.
 #[derive(Debug, Clone, Copy, Default)]

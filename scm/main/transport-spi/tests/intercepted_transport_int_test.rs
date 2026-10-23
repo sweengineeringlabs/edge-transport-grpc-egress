@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::CallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, OutboundCall,
     TraceContextSource,

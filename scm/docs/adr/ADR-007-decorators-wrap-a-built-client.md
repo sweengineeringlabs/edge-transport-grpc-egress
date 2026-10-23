@@ -62,7 +62,7 @@ implementation's `*ConfigProvider` extension trait and is run by the factory's `
   `GrpcBreakerFacade::wrap_breaker`, `GrpcResilientFacade::apply_resilience`) and the public client types
   are gone. A consumer builds through the factories, as `scm/main/examples/composition-root` shows.
 - A consumer that wants the state of the breaker gets it from the product, without naming a type.
-- The domain crates `retry`, `breaker` and `resilient` now depend on `grpc-egress-transport` for
+- The domain crates `retry`, `breaker` and `resilient` now depend on `grpc-egress-transport-api` for
   `GrpcEgress`; the implementation crates depend on their domain crate.
 
 ## Rejected

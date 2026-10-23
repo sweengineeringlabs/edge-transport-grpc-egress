@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use grpc_egress_breaker::{Error, GrpcBreakerConfig, GrpcBreakerConfigProvider};
+use grpc_egress_breaker_api::{Error, GrpcBreakerConfig, GrpcBreakerConfigProvider};
 
 /// Parsing, the derived cool-down and validation of a [`GrpcBreakerConfig`].
 #[derive(Debug, Clone, Copy, Default)]

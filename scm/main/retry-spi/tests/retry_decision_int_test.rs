@@ -1,7 +1,7 @@
 //! Integration tests for [`RetryDecision`] and [`ResourceExhaustedContext`].
 
-use grpc_egress_retry::RetryClassifier as _;
-use grpc_egress_retry::{ResourceExhaustedContext, RetryDecision};
+use grpc_egress_retry_api::RetryClassifier as _;
+use grpc_egress_retry_api::{ResourceExhaustedContext, RetryDecision};
 use std::time::Duration;
 
 use proto_pattern::{CallError, DecodeError, EncodeError, Metadata, MetadataEntry, StatusCode};
@@ -395,8 +395,8 @@ fn test_classify_non_retry_status_codes_all_terminal() {
     }
 }
 
-fn classifier() -> impl grpc_egress_retry::RetryClassifier {
-    use grpc_egress_retry::RetryClassifierFactory;
+fn classifier() -> impl grpc_egress_retry_api::RetryClassifier {
+    use grpc_egress_retry_api::RetryClassifierFactory;
     grpc_egress_retry_std::StdRetryClassifierFactory
-        .build(grpc_egress_retry::BuildRetryClassifierRequest)
+        .build(grpc_egress_retry_api::BuildRetryClassifierRequest)
 }

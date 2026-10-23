@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use grpc_egress_retry::{Error, GrpcRetryConfig, GrpcRetryConfigProvider};
+use grpc_egress_retry_api::{Error, GrpcRetryConfig, GrpcRetryConfigProvider};
 
 /// Parsing, derived durations and validation of a [`GrpcRetryConfig`].
 #[derive(Debug, Clone, Copy, Default)]

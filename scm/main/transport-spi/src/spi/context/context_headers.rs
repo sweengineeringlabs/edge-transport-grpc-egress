@@ -1,6 +1,6 @@
 //! `ContextHeaders` -- the headers an identity asks a call to carry.
 
-use grpc_egress_transport::CallerIdentity;
+use grpc_egress_transport_api::CallerIdentity;
 
 /// The headers derived from a [`CallerIdentity`]: `x-trace-id` and `x-tenant-id` when the identity has them,
 /// `authorization: Bearer <token>` when it holds a token to send, then the further headers it lists, in the order it

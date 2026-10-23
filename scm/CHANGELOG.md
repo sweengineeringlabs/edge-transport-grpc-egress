@@ -9,6 +9,12 @@ word.
 
 ## [Unreleased]
 
+### Issue 64: give contract packages explicit API boundaries
+
+- Rename each contract crate to its `grpc-egress-<theme>-api` package and `_api` Rust crate name, separate from its `-std` and `-spi` implementation packages.
+- Move contract modules directly under `src/`, update consumers and workspace metadata, and enforce the package and source layout with the migration and layout-check scripts.
+- Consumers import root-re-exported contract types from `grpc_egress_<theme>_api`; there is no `api::` source module path. The type names and root-level exports are retained.
+
 ## [0.12.0] - 2026-10-23
 
 ### Issue 63: separate standard and SPI implementation packages
@@ -22,7 +28,7 @@ word.
 
 ### Issue 60 follow-up: implementation types belong behind domain interfaces
 
-- **Breaking API boundary:** `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, and `HealthStatus` are now exported from `grpc_egress_transport`; their old `grpc_egress_transport_std` paths are removed. They retain the standard `grpc.health.v1` wire format.
+- **Breaking API boundary:** `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, and `HealthStatus` are now exported from `grpc_egress_transport_api`; their old `grpc_egress_transport_std` paths are removed. They retain the standard `grpc.health.v1` wire format.
 - **Breaking API boundary:** `grpc_egress_transport_std` no longer re-exports `TokenCancellation`, `SecurityContextIdentity`, or `edge_security_runtime::SecurityContext`. Implement `CancellationSignal` and `CallerIdentity` for a caller-owned type, and import `SecurityContext` from `edge_security_runtime` directly. The composition-root example shows both adapters.
 - The implementation crate root now exports its SAF factories only. `JustRag #53` consumes the builder factory and traits, which remain unchanged; no external build was available in this workspace.
 
@@ -72,23 +78,23 @@ type of the same crate that implements the domain factory trait of the same name
 
 | Old path | New way |
 |---|---|
-| `grpc_egress_transport_std::GrpcChannelConfigFactory` (`GrpcChannelConfig::new`, `allow_plaintext`, `with_mtls`, `with_keep_alive`, `with_max_message_bytes`, `with_compression`, `with_request_timeout`) | domain trait `grpc_egress_transport::GrpcChannelConfigBuilder`, created by `StdGrpcChannelConfigBuilderFactory`: `.with_endpoint(e).allow_plaintext()....build()?` (`build` is fallible: the endpoint is required). `GrpcChannelConfig` stays plain data with public fields |
+| `grpc_egress_transport_std::GrpcChannelConfigFactory` (`GrpcChannelConfig::new`, `allow_plaintext`, `with_mtls`, `with_keep_alive`, `with_max_message_bytes`, `with_compression`, `with_request_timeout`) | domain trait `grpc_egress_transport_api::GrpcChannelConfigBuilder`, created by `StdGrpcChannelConfigBuilderFactory`: `.with_endpoint(e).allow_plaintext()....build()?` (`build` is fallible: the endpoint is required). `GrpcChannelConfig` stays plain data with public fields |
 | `grpc_egress_transport_std::GrpcChannelConfigBuilder` (type, `new`) | the same domain trait, `GrpcChannelConfigBuilder`; `new()` is `StdGrpcChannelConfigBuilderFactory.build(BuildGrpcChannelConfigBuilderRequest)`; the builder also has `with_request_timeout` now |
-| `grpc_egress_transport_std::MtlsConfigFactory` (`MtlsConfig::new`, `MtlsConfig::with_root_ca`) | `grpc_egress_transport::MtlsConfigFactory`, implemented by `StdMtlsConfigFactory`: `build(BuildMtlsConfigRequest { cert_pem_path, key_pem_path, ca_pem_path })`, `ca_pem_path: None` for `new` |
-| `grpc_egress_transport_std::TlsSettingsResolver::resolve(identity, root_ca)` | `grpc_egress_transport::TlsSettingsResolver::resolve(ResolveTlsSettingsRequest { identity, root_ca })`, created by `StdTlsSettingsResolverFactory` |
-| `grpc_egress_transport_std::LoadbalancerSettingsProvider` (`LoadbalancerSettings::from_config`) | `grpc_egress_transport::LoadbalancerSettingsProvider::parse_config(text)`, created by `StdLoadbalancerSettingsProviderFactory` (`from_config` is renamed because clippy forbids a `from_*` method that takes `&self`) |
-| `grpc_egress_transport_std::GrpcEgressInterceptorChain` (`new`, `push`, `len`, `is_empty`, `run_before`, `run_after`) | domain trait `grpc_egress_transport::GrpcEgressInterceptorChain`, created by `StdGrpcEgressInterceptorChainFactory` |
+| `grpc_egress_transport_std::MtlsConfigFactory` (`MtlsConfig::new`, `MtlsConfig::with_root_ca`) | `grpc_egress_transport_api::MtlsConfigFactory`, implemented by `StdMtlsConfigFactory`: `build(BuildMtlsConfigRequest { cert_pem_path, key_pem_path, ca_pem_path })`, `ca_pem_path: None` for `new` |
+| `grpc_egress_transport_std::TlsSettingsResolver::resolve(identity, root_ca)` | `grpc_egress_transport_api::TlsSettingsResolver::resolve(ResolveTlsSettingsRequest { identity, root_ca })`, created by `StdTlsSettingsResolverFactory` |
+| `grpc_egress_transport_std::LoadbalancerSettingsProvider` (`LoadbalancerSettings::from_config`) | `grpc_egress_transport_api::LoadbalancerSettingsProvider::parse_config(text)`, created by `StdLoadbalancerSettingsProviderFactory` (`from_config` is renamed because clippy forbids a `from_*` method that takes `&self`) |
+| `grpc_egress_transport_std::GrpcEgressInterceptorChain` (`new`, `push`, `len`, `is_empty`, `run_before`, `run_after`) | domain trait `grpc_egress_transport_api::GrpcEgressInterceptorChain`, created by `StdGrpcEgressInterceptorChainFactory` |
 | `grpc_egress_transport_std::TraceContextGrpcEgressInterceptor` (`pass_through`, `with_static`) | `StdGrpcEgressInterceptorFactory::new(TraceContextSource::PassThrough or Static { .. }).build(BuildGrpcEgressInterceptorRequest)`; the type is `pub(crate)` |
-| `grpc_egress_transport_std::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` | `grpc_egress_transport::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}`; health payloads retain the `grpc.health.v1` wire format |
+| `grpc_egress_transport_std::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` | `grpc_egress_transport_api::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}`; health payloads retain the `grpc.health.v1` wire format |
 | `grpc_egress_transport_std::TokenCancellation` | implement the domain `CancellationSignal` trait on a caller-owned wrapper around the caller's cancellation token |
-| `grpc_egress_transport_std::{SecurityContextIdentity, SecurityContext}` | import `SecurityContext` from `edge_security_runtime` and implement `grpc_egress_transport::CallerIdentity` on a caller-owned wrapper |
-| `grpc_egress_retry_std::GrpcRetryConfigProvider` (`GrpcRetryConfig::from_config`, `initial_backoff`, `max_backoff`, `rate_limit_initial_backoff`, `rate_limit_max_backoff`, `validate`) | `grpc_egress_retry::GrpcRetryConfigProvider` (`parse_config(text)`, and the others take the config as an argument), created by `StdGrpcRetryConfigProviderFactory` |
-| `grpc_egress_retry_std::GrpcRetryConfigBuilder` (type, `new`) | domain trait `grpc_egress_retry::GrpcRetryConfigBuilder`, created by `StdGrpcRetryConfigBuilderFactory` |
-| `grpc_egress_retry_std::RetryDecision` (`classify`, `should_retry`, `is_rate_limit`, `read_retry_after`, `parse_retry_after_hint`) and `ResourceExhaustedContext::classify` | the enums `RetryDecision` and `ResourceExhaustedContext` are values of `grpc_egress_retry`; the operations are methods of `grpc_egress_retry::RetryClassifier` (`classify`, `should_retry(decision)`, `is_rate_limit(decision)`, `read_retry_after`, `parse_retry_after_hint`, `classify_resource_exhausted`), created by `StdRetryClassifierFactory` |
-| `grpc_egress_breaker_std::GrpcBreakerConfigProvider` (`GrpcBreakerConfig::from_config`, `cool_down`, `validate`) | `grpc_egress_breaker::GrpcBreakerConfigProvider` (`parse_config`, `cool_down(&config)`, `validate(&config)`), created by `StdGrpcBreakerConfigProviderFactory` |
-| `grpc_egress_resilient_std::ResilienceConfigProvider` (`ResilienceConfig::from_config`, `validate`, `to_retry_config`, `to_breaker_config`) | `grpc_egress_resilient::ResilienceConfigProvider` (`parse_config`, and the others take the config), created by `StdResilienceConfigProviderFactory`. `grpc-egress-resilient` now depends on `grpc-egress-retry` (a domain crate) |
-| `grpc_egress_auth_bearer_std::BearerSecretGuard` (`secret.ct_eq_hs256(&other)`) | `grpc_egress_auth_bearer::BearerSecretGuard::ct_eq_hs256(&left, &right)`, created by `StdBearerSecretGuardFactory` |
-| `grpc_egress_auth_bearer_std::BearerEgressConfigBuilder` and `JwtClaimsBuilder` (types, `new`) | domain traits of the same names in `grpc_egress_auth_bearer`, created by `StdBearerEgressConfigBuilderFactory` and `StdJwtClaimsBuilderFactory` |
+| `grpc_egress_transport_std::{SecurityContextIdentity, SecurityContext}` | import `SecurityContext` from `edge_security_runtime` and implement `grpc_egress_transport_api::CallerIdentity` on a caller-owned wrapper |
+| `grpc_egress_retry_std::GrpcRetryConfigProvider` (`GrpcRetryConfig::from_config`, `initial_backoff`, `max_backoff`, `rate_limit_initial_backoff`, `rate_limit_max_backoff`, `validate`) | `grpc_egress_retry_api::GrpcRetryConfigProvider` (`parse_config(text)`, and the others take the config as an argument), created by `StdGrpcRetryConfigProviderFactory` |
+| `grpc_egress_retry_std::GrpcRetryConfigBuilder` (type, `new`) | domain trait `grpc_egress_retry_api::GrpcRetryConfigBuilder`, created by `StdGrpcRetryConfigBuilderFactory` |
+| `grpc_egress_retry_std::RetryDecision` (`classify`, `should_retry`, `is_rate_limit`, `read_retry_after`, `parse_retry_after_hint`) and `ResourceExhaustedContext::classify` | the enums `RetryDecision` and `ResourceExhaustedContext` are values of `grpc_egress_retry_api`; the operations are methods of `grpc_egress_retry_api::RetryClassifier` (`classify`, `should_retry(decision)`, `is_rate_limit(decision)`, `read_retry_after`, `parse_retry_after_hint`, `classify_resource_exhausted`), created by `StdRetryClassifierFactory` |
+| `grpc_egress_breaker_std::GrpcBreakerConfigProvider` (`GrpcBreakerConfig::from_config`, `cool_down`, `validate`) | `grpc_egress_breaker_api::GrpcBreakerConfigProvider` (`parse_config`, `cool_down(&config)`, `validate(&config)`), created by `StdGrpcBreakerConfigProviderFactory` |
+| `grpc_egress_resilient_std::ResilienceConfigProvider` (`ResilienceConfig::from_config`, `validate`, `to_retry_config`, `to_breaker_config`) | `grpc_egress_resilient_api::ResilienceConfigProvider` (`parse_config`, and the others take the config), created by `StdResilienceConfigProviderFactory`. `grpc-egress-resilient-api` now depends on `grpc-egress-retry-api` (a domain crate) |
+| `grpc_egress_auth_bearer_std::BearerSecretGuard` (`secret.ct_eq_hs256(&other)`) | `grpc_egress_auth_bearer_api::BearerSecretGuard::ct_eq_hs256(&left, &right)`, created by `StdBearerSecretGuardFactory` |
+| `grpc_egress_auth_bearer_std::BearerEgressConfigBuilder` and `JwtClaimsBuilder` (types, `new`) | domain traits of the same names in `grpc_egress_auth_bearer_api`, created by `StdBearerEgressConfigBuilderFactory` and `StdJwtClaimsBuilderFactory` |
 
 ### Downstream (issue 60, task 9)
 
@@ -103,8 +109,8 @@ type of the same crate that implements the domain factory trait of the same name
   configuration, `MtlsConfig`, a retry or breaker policy parsed from TOML) changes as the table says.
 
 New in the domain crates: `pub use proto_pattern;` (the contract the interfaces are written over, so that an
-implementation depends on the domain crate only); `grpc_egress_transport::MetadataExtender`;
-`grpc_egress_breaker::FailureClassifier` and `Outcome`. In `-std` crates the code that names a third-party crate
+implementation depends on the domain crate only); `grpc_egress_transport_api::MetadataExtender`;
+`grpc_egress_breaker_api::FailureClassifier` and `Outcome`. In `-std` crates the code that names a third-party crate
 moved from `std/` to `spi/` (no public path changed for it, except as listed above). `scripts/check_layout.py` has
 rules 19 (`program_over_the_interface`), 20 (`std_names_no_third_party`) and 21 (`every_function_a_method`: no free function in `src/`). `deny.toml` lists the two git repositories (`proto-pattern`, `proto-svc`) that made `cargo deny check` fail on `sources`.
 

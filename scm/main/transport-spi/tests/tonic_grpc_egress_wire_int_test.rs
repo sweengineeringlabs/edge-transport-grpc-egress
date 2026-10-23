@@ -13,7 +13,7 @@ use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, Fixture, PeerBehaviour, PeerServer, RunningPeer};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressBuilderFactory,
 };

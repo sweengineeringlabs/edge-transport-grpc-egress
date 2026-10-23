@@ -22,7 +22,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use grpc_egress_retry::{
+use grpc_egress_retry_api::{
     BuildGrpcRetryConfigBuilderRequest, BuildGrpcRetryRequest, GrpcRetryConfigBuilder,
     GrpcRetryConfigBuilderFactory, GrpcRetryFactory,
 };

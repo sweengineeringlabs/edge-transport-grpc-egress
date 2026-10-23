@@ -14,7 +14,7 @@ impl<C: GrpcEgressInterceptorChain + Send + Sync> PatternEgressInterceptor<C> {
     }
 
     fn failed(&self, path: &str, kind: CallKind, error: &CallError) {
-        self.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Failed {
+        self.on_event::<grpc_egress_transport_api::proto_pattern::Metadata>(CallEvent::Failed {
             call: CallIdentity::new(path, kind),
             error,
         });
@@ -198,7 +198,7 @@ where
 impl<S, C: GrpcEgressInterceptorChain + Send + Sync> Drop for PatternResponseStream<S, C> {
     fn drop(&mut self) {
         if !self.terminal {
-            self.adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Cancelled {
+            self.adapter.on_event::<grpc_egress_transport_api::proto_pattern::Metadata>(CallEvent::Cancelled {
                 call: self.identity(),
             });
         }

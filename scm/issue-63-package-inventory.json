@@ -8,8 +8,8 @@
       "current_layer": "spi",
       "declared_dependencies": {
         "dependencies": [
-          "grpc-egress-auth-bearer",
-          "grpc-egress-transport",
+          "grpc-egress-auth-bearer-api",
+          "grpc-egress-transport-api",
           "jsonwebtoken",
           "proto-pattern",
           "subtle",
@@ -26,7 +26,7 @@
           "toml"
         ]
       },
-      "domain_package": "grpc-egress-auth-bearer",
+      "domain_package": "grpc-egress-auth-bearer-api",
       "layers": {
         "saf": [
           "scm/main/auth-bearer-spi/src/saf/mod.rs",
@@ -131,15 +131,15 @@
       "package": "grpc-egress-auth-bearer-spi",
       "path": "scm/main/auth-bearer-spi",
       "related_packages": [
-        "grpc-egress-auth-bearer",
+        "grpc-egress-auth-bearer-api",
         "grpc-egress-auth-bearer-spi",
         "grpc-egress-auth-bearer-std"
       ],
       "requires_saf_ownership_map": true,
       "source_referenced_dependencies": {
         "dependencies": [
-          "grpc-egress-auth-bearer",
-          "grpc-egress-transport",
+          "grpc-egress-auth-bearer-api",
+          "grpc-egress-transport-api",
           "jsonwebtoken",
           "proto-pattern",
           "subtle",
@@ -180,10 +180,10 @@
       "current_layer": "std",
       "declared_dependencies": {
         "dependencies": [
-          "grpc-egress-auth-bearer"
+          "grpc-egress-auth-bearer-api"
         ]
       },
-      "domain_package": "grpc-egress-auth-bearer",
+      "domain_package": "grpc-egress-auth-bearer-api",
       "layers": {
         "saf": [
           "scm/main/auth-bearer-std/src/saf/mod.rs",
@@ -242,14 +242,14 @@
       "package": "grpc-egress-auth-bearer-std",
       "path": "scm/main/auth-bearer-std",
       "related_packages": [
-        "grpc-egress-auth-bearer",
+        "grpc-egress-auth-bearer-api",
         "grpc-egress-auth-bearer-spi",
         "grpc-egress-auth-bearer-std"
       ],
       "requires_saf_ownership_map": true,
       "source_referenced_dependencies": {
         "dependencies": [
-          "grpc-egress-auth-bearer"
+          "grpc-egress-auth-bearer-api"
         ]
       },
       "unclassified_src_files": [
@@ -275,7 +275,7 @@
           "edge-transport-breaker",
           "edge-transport-breaker-policy",
           "futures",
-          "grpc-egress-breaker",
+          "grpc-egress-breaker-api",
           "proto-pattern",
           "tokio",
           "toml",
@@ -283,13 +283,13 @@
         ],
         "dev-dependencies": [
           "grpc-egress-test-support",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "grpc-egress-transport-std",
           "swe-edge-configbuilder",
           "tokio"
         ]
       },
-      "domain_package": "grpc-egress-breaker",
+      "domain_package": "grpc-egress-breaker-api",
       "layers": {
         "saf": [
           "scm/main/breaker-spi/src/saf/mod.rs",
@@ -392,7 +392,7 @@
       "package": "grpc-egress-breaker-spi",
       "path": "scm/main/breaker-spi",
       "related_packages": [
-        "grpc-egress-breaker",
+        "grpc-egress-breaker-api",
         "grpc-egress-breaker-spi"
       ],
       "requires_saf_ownership_map": true,
@@ -401,7 +401,7 @@
           "edge-transport-breaker",
           "edge-transport-breaker-policy",
           "futures",
-          "grpc-egress-breaker",
+          "grpc-egress-breaker-api",
           "proto-pattern",
           "tokio",
           "toml",
@@ -409,7 +409,7 @@
         ],
         "dev-dependencies": [
           "grpc-egress-test-support",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "grpc-egress-transport-std",
           "swe-edge-configbuilder",
           "tokio"
@@ -448,12 +448,12 @@
       "current_layer": "spi",
       "declared_dependencies": {
         "dependencies": [
-          "grpc-egress-breaker",
+          "grpc-egress-breaker-api",
           "grpc-egress-breaker-spi",
-          "grpc-egress-resilient",
-          "grpc-egress-retry",
+          "grpc-egress-resilient-api",
+          "grpc-egress-retry-api",
           "grpc-egress-retry-spi",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "proto-pattern",
           "toml"
         ],
@@ -464,7 +464,7 @@
           "tokio"
         ]
       },
-      "domain_package": "grpc-egress-resilient",
+      "domain_package": "grpc-egress-resilient-api",
       "layers": {
         "saf": [
           "scm/main/resilient-spi/src/saf/mod.rs",
@@ -539,18 +539,18 @@
       "package": "grpc-egress-resilient-spi",
       "path": "scm/main/resilient-spi",
       "related_packages": [
-        "grpc-egress-resilient",
+        "grpc-egress-resilient-api",
         "grpc-egress-resilient-spi"
       ],
       "requires_saf_ownership_map": true,
       "source_referenced_dependencies": {
         "dependencies": [
-          "grpc-egress-breaker",
+          "grpc-egress-breaker-api",
           "grpc-egress-breaker-spi",
-          "grpc-egress-resilient",
-          "grpc-egress-retry",
+          "grpc-egress-resilient-api",
+          "grpc-egress-retry-api",
           "grpc-egress-retry-spi",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "proto-pattern",
           "toml"
         ],
@@ -581,7 +581,7 @@
       "declared_dependencies": {
         "dependencies": [
           "edge-transport-retry",
-          "grpc-egress-retry",
+          "grpc-egress-retry-api",
           "grpc-egress-retry-std",
           "proto-pattern",
           "tokio",
@@ -591,13 +591,13 @@
         "dev-dependencies": [
           "futures",
           "grpc-egress-test-support",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "grpc-egress-transport-std",
           "swe-edge-configbuilder",
           "tokio"
         ]
       },
-      "domain_package": "grpc-egress-retry",
+      "domain_package": "grpc-egress-retry-api",
       "layers": {
         "saf": [
           "scm/main/retry-spi/src/saf/mod.rs",
@@ -709,7 +709,7 @@
       "package": "grpc-egress-retry-spi",
       "path": "scm/main/retry-spi",
       "related_packages": [
-        "grpc-egress-retry",
+        "grpc-egress-retry-api",
         "grpc-egress-retry-spi",
         "grpc-egress-retry-std"
       ],
@@ -717,7 +717,7 @@
       "source_referenced_dependencies": {
         "dependencies": [
           "edge-transport-retry",
-          "grpc-egress-retry",
+          "grpc-egress-retry-api",
           "grpc-egress-retry-std",
           "proto-pattern",
           "tokio",
@@ -726,7 +726,7 @@
         ],
         "dev-dependencies": [
           "grpc-egress-test-support",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "grpc-egress-transport-std",
           "swe-edge-configbuilder",
           "tokio"
@@ -766,10 +766,10 @@
       "current_layer": "std",
       "declared_dependencies": {
         "dependencies": [
-          "grpc-egress-retry"
+          "grpc-egress-retry-api"
         ]
       },
-      "domain_package": "grpc-egress-retry",
+      "domain_package": "grpc-egress-retry-api",
       "layers": {
         "saf": [
           "scm/main/retry-std/src/saf/mod.rs",
@@ -810,14 +810,14 @@
       "package": "grpc-egress-retry-std",
       "path": "scm/main/retry-std",
       "related_packages": [
-        "grpc-egress-retry",
+        "grpc-egress-retry-api",
         "grpc-egress-retry-spi",
         "grpc-egress-retry-std"
       ],
       "requires_saf_ownership_map": true,
       "source_referenced_dependencies": {
         "dependencies": [
-          "grpc-egress-retry"
+          "grpc-egress-retry-api"
         ]
       },
       "unclassified_src_files": [
@@ -841,7 +841,7 @@
       "declared_dependencies": {
         "dependencies": [
           "futures",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "grpc-egress-transport-std",
           "http",
           "proto-pattern",
@@ -875,7 +875,7 @@
           "zstd"
         ]
       },
-      "domain_package": "grpc-egress-transport",
+      "domain_package": "grpc-egress-transport-api",
       "layers": {
         "saf": [
           "scm/main/transport-spi/src/saf/cancellation/mod.rs",
@@ -1144,7 +1144,7 @@
       "package": "grpc-egress-transport-spi",
       "path": "scm/main/transport-spi",
       "related_packages": [
-        "grpc-egress-transport",
+        "grpc-egress-transport-api",
         "grpc-egress-transport-spi",
         "grpc-egress-transport-std"
       ],
@@ -1152,7 +1152,7 @@
       "source_referenced_dependencies": {
         "dependencies": [
           "futures",
-          "grpc-egress-transport",
+          "grpc-egress-transport-api",
           "grpc-egress-transport-std",
           "http",
           "proto-pattern",
@@ -1242,10 +1242,10 @@
       "current_layer": "std",
       "declared_dependencies": {
         "dependencies": [
-          "grpc-egress-transport"
+          "grpc-egress-transport-api"
         ]
       },
-      "domain_package": "grpc-egress-transport",
+      "domain_package": "grpc-egress-transport-api",
       "layers": {
         "saf": [
           "scm/main/transport-std/src/saf/channel/mod.rs",
@@ -1341,14 +1341,14 @@
       "package": "grpc-egress-transport-std",
       "path": "scm/main/transport-std",
       "related_packages": [
-        "grpc-egress-transport",
+        "grpc-egress-transport-api",
         "grpc-egress-transport-spi",
         "grpc-egress-transport-std"
       ],
       "requires_saf_ownership_map": true,
       "source_referenced_dependencies": {
         "dependencies": [
-          "grpc-egress-transport"
+          "grpc-egress-transport-api"
         ]
       },
       "unclassified_src_files": [

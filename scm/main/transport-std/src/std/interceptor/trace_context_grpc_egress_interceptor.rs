@@ -1,7 +1,7 @@
 //! W3C Trace Context outbound interceptor.
 
-use grpc_egress_transport::proto_pattern::CallError;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::proto_pattern::CallError;
+use grpc_egress_transport_api::{
     GrpcEgressInterceptor, InboundReply, OutboundCall, TraceContextSource,
 };
 

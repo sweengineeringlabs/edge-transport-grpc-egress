@@ -1,6 +1,6 @@
 //! Integration tests covering the error of the bearer crate.
 
-use grpc_egress_auth_bearer::BearerAuthError;
+use grpc_egress_auth_bearer_api::BearerAuthError;
 
 /// @covers: BearerAuthError::InvalidSystemTime
 #[test]

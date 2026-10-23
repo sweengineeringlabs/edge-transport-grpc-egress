@@ -1,14 +1,14 @@
 //! Integration tests for `ResilientTransportError`, produced by
 //! [`StdGrpcResilientFactory::build`].
 
-use grpc_egress_breaker::{BreakerObservable, BreakerState, ObserveStateRequest};
-use grpc_egress_resilient::{
+use grpc_egress_breaker_api::{BreakerObservable, BreakerState, ObserveStateRequest};
+use grpc_egress_resilient_api::{
     BuildGrpcResilientRequest, BuildResilienceConfigProviderRequest, GrpcResilientFactory,
     ResilienceConfig, ResilienceConfigProvider as _, ResilienceConfigProviderFactory as _,
 };
 use grpc_egress_resilient_spi::{StdGrpcResilientFactory, StdResilienceConfigProviderFactory};
 use grpc_egress_test_support::{ClientFixture, Fixture};
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder as _;
 use proto_pattern::{RawTransport, Transport};
 
 /// A real client built through the public builder; no connection is made until a call is.
@@ -32,7 +32,7 @@ fn test_error_invalid_resilience_variant_produced_on_bad_config(
         .ok_or("invalid retry policy must fail")?;
     assert!(matches!(
         err,
-        grpc_egress_resilient::ResilientTransportError::InvalidResilience(_)
+        grpc_egress_resilient_api::ResilientTransportError::InvalidResilience(_)
     ));
     assert!(err.to_string().contains("invalid resilience config"));
     Ok(())
@@ -60,12 +60,12 @@ async fn test_build_valid_config_returns_a_client_whose_breaker_is_closed(
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
     new_config_builder().with_endpoint(endpoint)
 }
 
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+fn new_config_builder() -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
 }

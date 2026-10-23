@@ -4,7 +4,7 @@
 //! twice, then succeed) are made with a scripted client that implements both contract traits and counts its calls.
 //! The cases a real peer can make are in `retry_peer_int_test.rs`.
 
-use grpc_egress_retry::proto_pattern::{
+use grpc_egress_retry_api::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
@@ -20,8 +20,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use grpc_egress_retry::GrpcRetryConfigProvider as _;
-use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
+use grpc_egress_retry_api::GrpcRetryConfigProvider as _;
+use grpc_egress_retry_api::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_spi::StdGrpcRetryFactory;
 
 const OK_BODY: &[u8] = b"ok";
@@ -335,7 +335,7 @@ impl RawTransport for ScriptedTransport {
     }
 }
 
-fn fast_config() -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
+fn fast_config() -> Result<GrpcRetryConfig, grpc_egress_retry_api::Error> {
     retry_provider().parse_config(
         r#"
             max_attempts = 5
@@ -985,8 +985,8 @@ fn test_grpc_retry_config_section_name_is_grpc_retry() {
     assert_eq!(GrpcRetryConfig::section_name(), "grpc_retry");
 }
 
-fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
-    use grpc_egress_retry::GrpcRetryConfigProviderFactory;
+fn retry_provider() -> impl grpc_egress_retry_api::GrpcRetryConfigProvider {
+    use grpc_egress_retry_api::GrpcRetryConfigProviderFactory;
     grpc_egress_retry_spi::StdGrpcRetryConfigProviderFactory
-        .build(grpc_egress_retry::BuildGrpcRetryConfigProviderRequest)
+        .build(grpc_egress_retry_api::BuildGrpcRetryConfigProviderRequest)
 }

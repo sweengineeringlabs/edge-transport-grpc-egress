@@ -1,12 +1,14 @@
 //! `ClientFixture::from_config` builds a client from a channel configuration, through the public
 //! builder, and the client reaches a peer.
 
-use grpc_egress_transport::proto_pattern::{CallRawRequestBuilder, CallRawResponse, RawTransport};
+use grpc_egress_transport_api::proto_pattern::{
+    CallRawRequestBuilder, CallRawResponse, RawTransport,
+};
 use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{GrpcChannelConfigBuilder as _, GrpcChannelConfigError};
+use grpc_egress_transport_api::{GrpcChannelConfigBuilder as _, GrpcChannelConfigError};
 
 /// @covers: ClientFixture::from_config
 #[tokio::test]
@@ -55,10 +57,10 @@ fn test_from_config_plaintext_endpoint_without_the_opt_in_is_refused() -> Result
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
         .with_endpoint(endpoint)
 }
 

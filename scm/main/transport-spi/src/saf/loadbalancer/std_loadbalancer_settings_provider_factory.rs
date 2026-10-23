@@ -1,6 +1,6 @@
 //! `StdLoadbalancerSettingsProviderFactory` -- creates the reader of the load balancer settings.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildLoadbalancerSettingsProviderRequest, LoadbalancerSettingsProvider,
     LoadbalancerSettingsProviderFactory,
 };

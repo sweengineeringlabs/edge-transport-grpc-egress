@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use grpc_egress_retry::GrpcRetryConfig;
+use grpc_egress_retry_api::GrpcRetryConfig;
 
 /// Decorator that wraps an inner `Transport` and `RawTransport` with the
 /// retry semantics described at the crate root.

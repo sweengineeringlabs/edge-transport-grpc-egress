@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use crate::spi::client::{PendingCall, StdMetadataExtender};
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallEvent, CallIdentity, CallKind, CallOptions,
     CallRawBidiStreamRequest, CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse,
@@ -15,7 +15,7 @@ use grpc_egress_transport::proto_pattern::{
     ReadMessageRequest, ReadMessageResponse, ReadTrailersRequest, ReadTrailersResponse,
     ResponseStream, ServerStreamMethod, StatusCode, Transport, TransportInterceptor, UnaryMethod,
 };
-use grpc_egress_transport::{GrpcEgressInterceptorChain, InboundReply, MetadataExtender};
+use grpc_egress_transport_api::{GrpcEgressInterceptorChain, InboundReply, MetadataExtender};
 
 /// Runs `chain` around every call of `inner`: `before_call` on every shape before anything is sent, `after_call`
 /// after a unary or client-streaming response. A call with no interceptor in the chain is forwarded as it is.
@@ -47,9 +47,9 @@ impl<T, C: GrpcEgressInterceptorChain + Send + Sync> InterceptedTransport<T, C> 
     ) -> Result<CallOptions, CallError> {
         let identity = CallIdentity::new(path, kind);
         let options = adapter.before_call(CallStart::new(identity, options))?;
-        adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Started {
-            call: identity,
-        });
+        adapter.on_event::<grpc_egress_transport_api::proto_pattern::Metadata>(
+            CallEvent::Started { call: identity },
+        );
         Ok(options)
     }
 
@@ -63,10 +63,12 @@ impl<T, C: GrpcEgressInterceptorChain + Send + Sync> InterceptedTransport<T, C> 
         trailers: &H,
     ) -> Result<(), CallError> {
         if let Err(error) = self.run_after_egress(path, headers, trailers) {
-            adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Failed {
-                call: CallIdentity::new(path, kind),
-                error: &error,
-            });
+            adapter.on_event::<grpc_egress_transport_api::proto_pattern::Metadata>(
+                CallEvent::Failed {
+                    call: CallIdentity::new(path, kind),
+                    error: &error,
+                },
+            );
             return Err(error);
         }
         adapter.on_event::<H>(CallEvent::Completed {
@@ -112,7 +114,7 @@ impl<T, C: GrpcEgressInterceptorChain + Send + Sync> InterceptedTransport<T, C> 
         kind: CallKind,
         error: &CallError,
     ) {
-        adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Failed {
+        adapter.on_event::<grpc_egress_transport_api::proto_pattern::Metadata>(CallEvent::Failed {
             call: CallIdentity::new(path, kind),
             error,
         });

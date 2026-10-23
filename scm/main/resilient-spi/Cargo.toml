@@ -19,12 +19,12 @@ application_type = "lib"
 service_type     = "processor"
 
 [dependencies]
-grpc-egress-resilient = { path = "../resilient" }
-grpc-egress-transport = { path = "../transport" }
+grpc-egress-resilient-api = { path = "../resilient-api" }
+grpc-egress-transport-api = { path = "../transport-api" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
-grpc-egress-retry = { path = "../retry" }
+grpc-egress-retry-api = { path = "../retry-api" }
 grpc-egress-retry-spi = { path = "../retry-spi" }
-grpc-egress-breaker = { path = "../breaker" }
+grpc-egress-breaker-api = { path = "../breaker-api" }
 grpc-egress-breaker-spi = { path = "../breaker-spi" }
 toml = "0.8"
 [dev-dependencies]

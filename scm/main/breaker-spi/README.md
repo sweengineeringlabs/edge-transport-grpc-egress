@@ -4,7 +4,7 @@
 
 ## WHAT
 
-The implementation of the breaker domain `grpc-egress-breaker`: `StdGrpcBreakerFactory::new(config)` wraps
+The implementation of the breaker domain `grpc-egress-breaker-api`: `StdGrpcBreakerFactory::new(config)` wraps
 any client that is a `Transport` and a `RawTransport` (the traits of `proto-pattern`) with a circuit breaker. After
 `failure_threshold` consecutive failures the circuit opens and calls fail fast, until the cool-down has
 passed and probe calls close it again. The built client is also a `BreakerObservable`.
@@ -33,4 +33,4 @@ cargo test
 
 ## Documentation
 
-See the [domain contract](../breaker/README.md), [workspace overview](../../docs/README.md), and [ADR-007](../../docs/adr/ADR-007-decorators-wrap-a-built-client.md).
+See the [domain contract](../breaker-api/README.md), [workspace overview](../../docs/README.md), and [ADR-007](../../docs/adr/ADR-007-decorators-wrap-a-built-client.md).

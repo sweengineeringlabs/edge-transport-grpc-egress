@@ -2,7 +2,7 @@
 //! client certificate is presented, the configured root CA is the only one trusted, the server name is checked,
 //! and a file that cannot be used fails when the client is built, naming its path.
 
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder as _;
 use std::error::Error;
 use std::time::Duration;
 
@@ -10,7 +10,7 @@ use grpc_egress_test_support::{
     CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer, RunningPeer, TestPki,
     TlsServerMode,
 };
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, MtlsConfig,
 };
@@ -492,23 +492,23 @@ fn test_resolve_identity_key_file_with_text_but_no_key_returns_unusable_tls_file
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
     new_config_builder().with_endpoint(endpoint)
 }
 
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+fn new_config_builder() -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
 }
 
 fn mtls_config(
     cert: impl Into<String>,
     key: impl Into<String>,
-) -> Result<grpc_egress_transport::MtlsConfig, GrpcChannelConfigError> {
-    use grpc_egress_transport::MtlsConfigFactory;
+) -> Result<grpc_egress_transport_api::MtlsConfig, GrpcChannelConfigError> {
+    use grpc_egress_transport_api::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
-        grpc_egress_transport::BuildMtlsConfigRequest {
+        grpc_egress_transport_api::BuildMtlsConfigRequest {
             cert_pem_path: cert.into(),
             key_pem_path: key.into(),
             ca_pem_path: None,
@@ -520,10 +520,10 @@ fn mtls_config_with_ca(
     cert: impl Into<String>,
     key: impl Into<String>,
     ca: impl Into<String>,
-) -> Result<grpc_egress_transport::MtlsConfig, GrpcChannelConfigError> {
-    use grpc_egress_transport::MtlsConfigFactory;
+) -> Result<grpc_egress_transport_api::MtlsConfig, GrpcChannelConfigError> {
+    use grpc_egress_transport_api::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
-        grpc_egress_transport::BuildMtlsConfigRequest {
+        grpc_egress_transport_api::BuildMtlsConfigRequest {
             cert_pem_path: cert.into(),
             key_pem_path: key.into(),
             ca_pem_path: Some(ca.into()),
@@ -532,10 +532,10 @@ fn mtls_config_with_ca(
 }
 
 fn resolve_tls(
-    identity: Option<&grpc_egress_transport::MtlsConfig>,
+    identity: Option<&grpc_egress_transport_api::MtlsConfig>,
     root_ca: Option<&str>,
-) -> Result<proto_pattern::TlsSettings, grpc_egress_transport::GrpcChannelConfigError> {
-    use grpc_egress_transport::{
+) -> Result<proto_pattern::TlsSettings, grpc_egress_transport_api::GrpcChannelConfigError> {
+    use grpc_egress_transport_api::{
         BuildTlsSettingsResolverRequest, ResolveTlsSettingsRequest, TlsSettingsResolver,
         TlsSettingsResolverFactory,
     };

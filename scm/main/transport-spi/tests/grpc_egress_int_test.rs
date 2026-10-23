@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 
 use bytes::Bytes;
 use grpc_egress_test_support::{CallFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;

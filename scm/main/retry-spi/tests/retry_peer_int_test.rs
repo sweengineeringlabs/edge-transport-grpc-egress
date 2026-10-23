@@ -1,7 +1,7 @@
 //! The retry decorator against a real in-process gRPC peer: what the peer sees of a retried call, a call that is not
 //! retried, and the three streaming shapes the decorator forwards.
 
-use grpc_egress_retry::proto_pattern::{
+use grpc_egress_retry_api::proto_pattern::{
     CallError, CallOptions, CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse,
     CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequestBuilder,
     CallRawResponse, CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest,
@@ -14,11 +14,11 @@ use std::error::Error;
 use std::time::{Duration, Instant};
 
 use edge_transport_retry::BackoffScheduler;
-use grpc_egress_retry::GrpcRetryConfigProvider as _;
-use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
+use grpc_egress_retry_api::GrpcRetryConfigProvider as _;
+use grpc_egress_retry_api::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_spi::StdGrpcRetryFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder as _;
 
 /// A text message, as a `Payload`: its encoding is its bytes.
 #[derive(Debug, Clone, PartialEq)]
@@ -90,7 +90,7 @@ fn config(
     initial_backoff_ms: u64,
     rate_limit_max_attempts: u32,
     rate_limit_max_backoff_ms: u64,
-) -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
+) -> Result<GrpcRetryConfig, grpc_egress_retry_api::Error> {
     retry_provider().parse_config(&format!(
         r#"
             max_attempts = {max_attempts}
@@ -105,7 +105,7 @@ fn config(
     ))
 }
 
-fn fast_config(max_attempts: u32) -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
+fn fast_config(max_attempts: u32) -> Result<GrpcRetryConfig, grpc_egress_retry_api::Error> {
     config(max_attempts, 1, 1, 1)
 }
 
@@ -754,17 +754,17 @@ async fn test_call_raw_zero_timeout_fails_with_deadline_exceeded_and_the_peer_se
     Ok(())
 }
 
-fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {
-    use grpc_egress_retry::GrpcRetryConfigProviderFactory;
+fn retry_provider() -> impl grpc_egress_retry_api::GrpcRetryConfigProvider {
+    use grpc_egress_retry_api::GrpcRetryConfigProviderFactory;
     grpc_egress_retry_spi::StdGrpcRetryConfigProviderFactory
-        .build(grpc_egress_retry::BuildGrpcRetryConfigProviderRequest)
+        .build(grpc_egress_retry_api::BuildGrpcRetryConfigProviderRequest)
 }
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
         .with_endpoint(endpoint)
 }

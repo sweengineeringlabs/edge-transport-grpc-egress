@@ -23,7 +23,7 @@ name = "basic_transport"
 path = "examples/basic_transport.rs"
 
 [dependencies]
-grpc-egress-transport = { path = "../transport" }
+grpc-egress-transport-api = { path = "../transport-api" }
 grpc-egress-transport-std = { path = "../transport-std" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
 proto-tonic-spi = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.2" }

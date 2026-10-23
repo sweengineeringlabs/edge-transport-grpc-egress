@@ -1,6 +1,6 @@
 //! `StdGrpcRetryConfigBuilderFactory` -- creates the builder of a retry policy.
 
-use grpc_egress_retry::{
+use grpc_egress_retry_api::{
     BuildGrpcRetryConfigBuilderRequest, GrpcRetryConfigBuilder, GrpcRetryConfigBuilderFactory,
 };
 

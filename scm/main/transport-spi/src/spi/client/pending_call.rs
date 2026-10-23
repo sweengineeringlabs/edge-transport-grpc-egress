@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     CallError, CallOptions, GetValuesRequest, GetValuesResponse, Metadata, MetadataView, StatusCode,
 };
-use grpc_egress_transport::{MetadataExtender, OutboundCall};
+use grpc_egress_transport_api::{MetadataExtender, OutboundCall};
 
 use crate::spi::client::StdMetadataExtender;
 

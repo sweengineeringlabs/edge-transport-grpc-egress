@@ -1,6 +1,6 @@
 //! `StdGrpcCancellationFactory` -- binds a client to a cancellation signal.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcCancellationRequest, CancellationSignal, GrpcCancellationFactory,
 };
 use proto_pattern::{RawTransport, Transport};

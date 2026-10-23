@@ -16,7 +16,7 @@ use grpc_egress_test_support::{
     CallFixture, ClosedPort, Fixture, PeerBehaviour, PeerServer, RunningPeer, TestPki,
     TlsServerMode,
 };
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, GrpcEgressInterceptor, InboundReply, LoadbalancerSettings,
     OutboundCall, TraceContextSource,

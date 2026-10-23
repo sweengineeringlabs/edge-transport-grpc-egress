@@ -3,7 +3,7 @@
 use proto_pattern::{CallOptions, CallRawRequestBuilder, MethodPath, RawTransport};
 use std::error::Error;
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;

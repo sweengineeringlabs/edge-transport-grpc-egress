@@ -1,7 +1,7 @@
 //! `StdBearerInterceptorFactory` -- creates the interceptor that signs a JWT and attaches it.
 
-use grpc_egress_auth_bearer::BearerEgressConfig;
-use grpc_egress_transport::{
+use grpc_egress_auth_bearer_api::BearerEgressConfig;
+use grpc_egress_transport_api::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
 };
 

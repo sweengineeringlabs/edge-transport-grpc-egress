@@ -1,6 +1,8 @@
 //! `StdGrpcRetryConfigBuilder` -- the standard [`GrpcRetryConfigBuilder`].
 
-use grpc_egress_retry::{Error, GrpcRetryConfig, GrpcRetryConfigBuilder, GrpcRetryConfigProvider};
+use grpc_egress_retry_api::{
+    Error, GrpcRetryConfig, GrpcRetryConfigBuilder, GrpcRetryConfigProvider,
+};
 
 use super::std_grpc_retry_config_provider::StdGrpcRetryConfigProvider;
 
@@ -76,16 +78,17 @@ impl GrpcRetryConfigBuilder for StdGrpcRetryConfigBuilder {
     }
 
     fn build(self) -> Result<GrpcRetryConfig, Error> {
-        let config = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
-            max_attempts: self.max_attempts,
-            initial_backoff_ms: self.initial_backoff_ms,
-            backoff_multiplier: self.backoff_multiplier,
-            jitter_factor: self.jitter_factor,
-            max_backoff_ms: self.max_backoff_ms,
-            rate_limit_max_attempts: self.rate_limit_max_attempts,
-            rate_limit_initial_backoff_ms: self.rate_limit_initial_backoff_ms,
-            rate_limit_max_backoff_ms: self.rate_limit_max_backoff_ms,
-        })?;
+        let config =
+            GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
+                max_attempts: self.max_attempts,
+                initial_backoff_ms: self.initial_backoff_ms,
+                backoff_multiplier: self.backoff_multiplier,
+                jitter_factor: self.jitter_factor,
+                max_backoff_ms: self.max_backoff_ms,
+                rate_limit_max_attempts: self.rate_limit_max_attempts,
+                rate_limit_initial_backoff_ms: self.rate_limit_initial_backoff_ms,
+                rate_limit_max_backoff_ms: self.rate_limit_max_backoff_ms,
+            })?;
         StdGrpcRetryConfigProvider.validate(&config)?;
         Ok(config)
     }

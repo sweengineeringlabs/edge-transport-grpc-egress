@@ -1,6 +1,6 @@
 //! `StdBearerEgressConfigBuilder` -- the standard [`BearerEgressConfigBuilder`].
 
-use grpc_egress_auth_bearer::{BearerEgressConfig, BearerEgressConfigBuilder, BearerSecret};
+use grpc_egress_auth_bearer_api::{BearerEgressConfig, BearerEgressConfigBuilder, BearerSecret};
 
 /// Fluent builder for [`BearerEgressConfig`]. Every field is required.
 #[derive(Debug, Default)]

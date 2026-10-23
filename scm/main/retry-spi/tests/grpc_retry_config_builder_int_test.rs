@@ -1,6 +1,6 @@
-//! Coverage stub for `src/api/types/grpc/grpc_retry_config_builder.rs`.
+//! Coverage stub for `src/std/grpc_retry_config_builder.rs`.
 
-use grpc_egress_retry::GrpcRetryConfigBuilder as _;
+use grpc_egress_retry_api::GrpcRetryConfigBuilder as _;
 
 /// @covers: GrpcRetryConfigBuilder — type is accessible and holds real fields (not zero-sized)
 #[test]
@@ -34,7 +34,7 @@ fn retry_struct_grpc_retry_config_builder_max_attempts_override_int_test(
 fn retry_struct_grpc_retry_config_builder_build_with_zero_attempts_is_refused_int_test() {
     let result = retry_config_builder().max_attempts(0).build();
     assert!(
-        matches!(result, Err(grpc_egress_retry::Error::InvalidConfig(ref m)) if m.contains("max_attempts")),
+        matches!(result, Err(grpc_egress_retry_api::Error::InvalidConfig(ref m)) if m.contains("max_attempts")),
         "got {result:?}"
     );
 }
@@ -48,13 +48,13 @@ fn retry_struct_grpc_retry_config_builder_build_with_ceiling_below_first_backoff
         .max_backoff_ms(100)
         .build();
     assert!(
-        matches!(result, Err(grpc_egress_retry::Error::InvalidConfig(_))),
+        matches!(result, Err(grpc_egress_retry_api::Error::InvalidConfig(_))),
         "got {result:?}"
     );
 }
 
-fn retry_config_builder() -> impl grpc_egress_retry::GrpcRetryConfigBuilder {
-    use grpc_egress_retry::GrpcRetryConfigBuilderFactory;
+fn retry_config_builder() -> impl grpc_egress_retry_api::GrpcRetryConfigBuilder {
+    use grpc_egress_retry_api::GrpcRetryConfigBuilderFactory;
     grpc_egress_retry_spi::StdGrpcRetryConfigBuilderFactory
-        .build(grpc_egress_retry::BuildGrpcRetryConfigBuilderRequest)
+        .build(grpc_egress_retry_api::BuildGrpcRetryConfigBuilderRequest)
 }

@@ -19,7 +19,7 @@ application_type = "lib"
 service_type = "processor"
 
 [dependencies]
-grpc-egress-retry = { path = "../retry" }
+grpc-egress-retry-api = { path = "../retry-api" }
 
 [lints.rust]
 unsafe_code = "deny"

@@ -1,8 +1,10 @@
 //! `StdResilienceConfigProvider` -- parsing (with `toml`), validation and projection of a [`ResilienceConfig`].
 
-use grpc_egress_breaker::GrpcBreakerConfig;
-use grpc_egress_resilient::{ResilienceConfig, ResilienceConfigProvider, ResilientTransportError};
-use grpc_egress_retry::GrpcRetryConfig;
+use grpc_egress_breaker_api::GrpcBreakerConfig;
+use grpc_egress_resilient_api::{
+    ResilienceConfig, ResilienceConfigProvider, ResilientTransportError,
+};
+use grpc_egress_retry_api::GrpcRetryConfig;
 
 /// Parsing, validation and projection of a [`ResilienceConfig`].
 #[derive(Debug, Clone, Copy, Default)]
@@ -55,7 +57,7 @@ impl ResilienceConfigProvider for StdResilienceConfigProvider {
         &self,
         config: &ResilienceConfig,
     ) -> Result<GrpcRetryConfig, ResilientTransportError> {
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: config.max_attempts(),
             initial_backoff_ms: config.initial_backoff_ms(),
             backoff_multiplier: config.backoff_multiplier(),

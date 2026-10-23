@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, PeerBehaviour, PeerServer, TestPki, TlsServerMode};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, BuildMtlsConfigRequest, BuildTlsSettingsResolverRequest,
     GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig, MtlsConfigFactory,
     ResolveTlsSettingsRequest, TlsSettingsResolver, TlsSettingsResolverFactory, TraceContextSource,

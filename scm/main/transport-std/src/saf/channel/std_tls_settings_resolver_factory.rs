@@ -1,6 +1,6 @@
 //! `StdTlsSettingsResolverFactory` -- creates the reader of the TLS files.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildTlsSettingsResolverRequest, TlsSettingsResolver, TlsSettingsResolverFactory,
 };
 

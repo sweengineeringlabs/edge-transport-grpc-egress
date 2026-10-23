@@ -1,7 +1,7 @@
 //! Integration tests for `GrpcChannelConfigBuilder`.
 
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
-use grpc_egress_transport::{CompressionMode, KeepAliveConfig};
+use grpc_egress_transport_api::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport_api::{CompressionMode, KeepAliveConfig};
 use std::time::Duration;
 
 /// @covers: GrpcChannelConfigBuilder::build — valid endpoint returns Ok
@@ -121,24 +121,25 @@ fn transport_struct_grpc_channel_config_builder_build_without_request_timeout_le
     );
     assert_eq!(
         cfg.max_message_bytes(),
-        grpc_egress_transport::DEFAULT_MAX_MESSAGE_BYTES
+        grpc_egress_transport_api::DEFAULT_MAX_MESSAGE_BYTES
     );
     Ok(())
 }
 
-fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+fn new_config_builder() -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
 }
 
 fn mtls_config(
     cert: impl Into<String>,
     key: impl Into<String>,
-) -> Result<grpc_egress_transport::MtlsConfig, grpc_egress_transport::GrpcChannelConfigError> {
-    use grpc_egress_transport::MtlsConfigFactory;
+) -> Result<grpc_egress_transport_api::MtlsConfig, grpc_egress_transport_api::GrpcChannelConfigError>
+{
+    use grpc_egress_transport_api::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
-        grpc_egress_transport::BuildMtlsConfigRequest {
+        grpc_egress_transport_api::BuildMtlsConfigRequest {
             cert_pem_path: cert.into(),
             key_pem_path: key.into(),
             ca_pem_path: None,

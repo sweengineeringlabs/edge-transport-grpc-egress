@@ -1,6 +1,6 @@
 //! Minimal example: build a gRPC client for an endpoint, with one option.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;

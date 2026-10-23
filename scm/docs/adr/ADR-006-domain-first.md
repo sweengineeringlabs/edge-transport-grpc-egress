@@ -19,7 +19,7 @@ methods in `core/`.
 
 ## Decision
 
-Two crates, the domain first. `grpc-egress-transport` (`scm/main/transport`) holds the domain:
+Two crates, the domain first. `grpc-egress-transport-api` (`scm/main/transport-api`) holds the domain:
 plain data, traits and errors, one folder per theme (`client`, `channel`, `interceptor`,
 `loadbalancer`, `codec` behind the Cargo feature `prost`), each with the folders its kinds need
 (`dto/`, `vo/`, `error/`, `traits/`). `grpc-egress-transport-std` (`scm/main/transport-std`) holds
@@ -50,7 +50,7 @@ implementation, and it is the thing the audit rule `api_no_inherent_impl` flags.
 
 **Task 4: `SecurityContext`.** `CallUnaryWithContextRequest` carries it, so the domain crate depends
 on `edge-security-runtime` and re-exports `SecurityContext`. The dependency is light enough to
-keep: `cargo tree -p grpc-egress-transport` shows `edge-security-runtime` pulling in only
+keep: `cargo tree -p grpc-egress-transport-api` shows `edge-security-runtime` pulling in only
 `edge-security-runtime-identity-port` and `thiserror`. None of `tonic`, `hyper`, `hyper-util`,
 `hyper-rustls`, `rustls`, `tower`, `swe-edge-loadbalancer`, `swe-edge-configbuilder` is present
 (acceptance criterion 1).
@@ -72,7 +72,7 @@ closed circuit whatever happened).
 ## Consequences
 
 - Breaking for a caller that named the old package `edge-transport-grpc-egress-transport`: the
-  domain types come from `grpc-egress-transport`; the factories, builders and extension traits from
+  domain types come from `grpc-egress-transport-api`; the factories, builders and extension traits from
   `grpc-egress-transport-std`.
 - A consumer that needs only the types depends on the light crate.
 - `retry`, `breaker`, `resilient` and `auth-bearer` depend on the domain crate for `GrpcEgress` and the

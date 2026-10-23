@@ -1,6 +1,6 @@
 //! `grpc_egress_breaker_spi` — circuit-breaker decorator around any client that is a
-//! [`Transport`](grpc_egress_breaker::proto_pattern::Transport) and a
-//! [`RawTransport`](grpc_egress_breaker::proto_pattern::RawTransport).
+//! [`Transport`](grpc_egress_breaker_api::proto_pattern::Transport) and a
+//! [`RawTransport`](grpc_egress_breaker_api::proto_pattern::RawTransport).
 //!
 //! ```compile_fail
 //! use grpc_egress_breaker_spi::saf::StdGrpcBreakerFactory;

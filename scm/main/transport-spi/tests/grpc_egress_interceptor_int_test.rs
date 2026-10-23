@@ -2,7 +2,7 @@
 //! the request headers of an `OutboundCall` the way an interceptor needs.
 
 use grpc_egress_test_support::OutboundCallFixture;
-use grpc_egress_transport::{GrpcEgressInterceptor, OutboundCall};
+use grpc_egress_transport_api::{GrpcEgressInterceptor, OutboundCall};
 use proto_pattern::{
     BinaryMetadataEntry, CallError, GetBinaryEntriesRequest, GetCountRequest, Metadata,
     MetadataEntry, MetadataView, StatusCode,

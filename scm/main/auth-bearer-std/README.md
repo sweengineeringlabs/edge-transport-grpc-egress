@@ -8,4 +8,4 @@ JWT signing and constant-time secret comparison live in the separate
 [`grpc-egress-auth-bearer-spi`](../auth-bearer-spi/README.md) package. A composition that needs both
 configuration builders and signing depends on both packages.
 
-See the [domain contract](../auth-bearer/README.md).
+See the [domain contract](../auth-bearer-api/README.md).

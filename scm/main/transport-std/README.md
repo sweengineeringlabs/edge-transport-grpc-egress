@@ -7,4 +7,4 @@ The provider-backed client over `proto-svc`, along with cancellation, caller-ide
 in [`grpc-egress-transport-spi`](../transport-spi/README.md). Applications that build the provider-backed client
 depend on both packages.
 
-See the [domain contract](../transport/README.md).
+See the [domain contract](../transport-api/README.md).

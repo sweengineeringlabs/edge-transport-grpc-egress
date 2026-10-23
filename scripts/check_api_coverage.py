@@ -24,9 +24,9 @@ def check(root):
     failures = []
     main = root / "scm" / "main"
     for crate in sorted(main.iterdir()):
-        api = crate / "src" / "api"
+        api = crate / "src"
         tests = crate / "tests"
-        if not api.is_dir() or crate.name.endswith(("-std", "-spi")):
+        if not api.is_dir() or not crate.name.endswith("-api"):
             continue
         test_texts = {}
         for test_root in (tests,):
@@ -34,8 +34,9 @@ def check(root):
                 for path in test_root.rglob("*.rs"):
                     test_texts[path] = path.read_text(encoding="utf-8")
         # Domain traits may be implemented and exercised by either or both package layers.
+        base = crate.name[:-4]
         for suffix in ("-std", "-spi"):
-            paired_tests = main / f"{crate.name}{suffix}" / "tests"
+            paired_tests = main / f"{base}{suffix}" / "tests"
             if paired_tests.is_dir():
                 for path in paired_tests.rglob("*.rs"):
                     test_texts[path] = path.read_text(encoding="utf-8")

@@ -12,13 +12,16 @@ class ApiCoverageTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        self.api = self.root / "scm/main/foo/src/api"
+        self.api = self.root / "scm/main/foo-api/src"
         self.api.mkdir(parents=True)
+        (self.root / "scm/main/foo-api/Cargo.toml").write_text(
+            '[package]\nname = "grpc-egress-foo-api"\n', encoding="utf-8"
+        )
         (self.api / "traits").mkdir()
         (self.api / "traits/service.rs").write_text(
             "pub trait Service { fn call(&self); }\n", encoding="utf-8"
         )
-        self.tests = self.root / "scm/main/foo/tests"
+        self.tests = self.root / "scm/main/foo-api/tests"
         self.tests.mkdir()
 
     def tearDown(self):

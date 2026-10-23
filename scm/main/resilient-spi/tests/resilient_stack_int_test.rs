@@ -5,7 +5,7 @@
 //! for every call, and these cases need a failure at a chosen call. The second group runs the whole stack against
 //! a real in-process gRPC peer and the real engine client.
 
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamResponse,
@@ -21,28 +21,28 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BreakerDomainError, BreakerObservable, BreakerState, BuildGrpcBreakerRequest,
     GrpcBreakerConfig, GrpcBreakerFactory, ObserveStateRequest,
 };
 use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
-use grpc_egress_resilient::{
+use grpc_egress_resilient_api::{
     BuildGrpcResilientRequest, GrpcResilientFactory, ResilienceConfig, ResilientTransportError,
 };
 use grpc_egress_resilient_spi::StdGrpcResilientFactory;
-use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
+use grpc_egress_retry_api::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
 use grpc_egress_retry_spi::StdGrpcRetryFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::GrpcChannelConfigBuilder;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder;
 
 const PATH: &str = "/svc/Method";
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
         .with_endpoint(endpoint)
 }
 
@@ -107,7 +107,7 @@ fn rate_limited() -> Answer {
 
 fn valid_resilience() -> Result<ResilienceConfig, Box<dyn std::error::Error>> {
     Ok(ResilienceConfig::from_policies(
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: 3,
             initial_backoff_ms: 10,
             backoff_multiplier: 2.0,
@@ -321,8 +321,8 @@ impl Method for Echo {
 impl UnaryMethod for Echo {}
 
 // Minimal retry config suitable for fast tests (1 ms backoff).
-fn fast_retry(max_attempts: u32) -> Result<GrpcRetryConfig, grpc_egress_retry::Error> {
-    GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+fn fast_retry(max_attempts: u32) -> Result<GrpcRetryConfig, grpc_egress_retry_api::Error> {
+    GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
         max_attempts,
         initial_backoff_ms: 1,
         backoff_multiplier: 1.0,
@@ -422,7 +422,7 @@ async fn test_apply_resilience_retries_a_typed_transient_failure_happy(
 #[test]
 fn test_retry_policy_constructor_rejects_invalid_resilience(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let r = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+    let r = GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
         max_attempts: 0,
         initial_backoff_ms: 100,
         backoff_multiplier: 2.0,
@@ -434,7 +434,7 @@ fn test_retry_policy_constructor_rejects_invalid_resilience(
     })
     .err()
     .ok_or("zero attempts must be rejected")?;
-    assert!(matches!(r, grpc_egress_retry::Error::InvalidConfig(_)));
+    assert!(matches!(r, grpc_egress_retry_api::Error::InvalidConfig(_)));
     Ok(())
 }
 
@@ -954,7 +954,7 @@ async fn test_call_raw_unavailable_peer_is_retried_max_attempts_times_through_th
     })
     .await?;
     let config = ResilienceConfig::from_policies(
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: 3,
             initial_backoff_ms: 1,
             backoff_multiplier: 1.0,

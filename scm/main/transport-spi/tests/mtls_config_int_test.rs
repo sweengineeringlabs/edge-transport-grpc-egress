@@ -21,7 +21,7 @@ fn transport_struct_with_root_ca_stores_all_three_paths_int_test(
 
 #[test]
 fn mtls_config_rejects_empty_paths_on_construction_and_deserialization() {
-    use grpc_egress_transport::MtlsConfig;
+    use grpc_egress_transport_api::MtlsConfig;
 
     assert!(MtlsConfig::try_new("", "key.pem", None).is_err());
     assert!(MtlsConfig::try_new("cert.pem", " ", None).is_err());
@@ -34,10 +34,11 @@ fn mtls_config_rejects_empty_paths_on_construction_and_deserialization() {
 fn mtls_config(
     cert: impl Into<String>,
     key: impl Into<String>,
-) -> Result<grpc_egress_transport::MtlsConfig, grpc_egress_transport::GrpcChannelConfigError> {
-    use grpc_egress_transport::MtlsConfigFactory;
+) -> Result<grpc_egress_transport_api::MtlsConfig, grpc_egress_transport_api::GrpcChannelConfigError>
+{
+    use grpc_egress_transport_api::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
-        grpc_egress_transport::BuildMtlsConfigRequest {
+        grpc_egress_transport_api::BuildMtlsConfigRequest {
             cert_pem_path: cert.into(),
             key_pem_path: key.into(),
             ca_pem_path: None,
@@ -49,10 +50,11 @@ fn mtls_config_with_ca(
     cert: impl Into<String>,
     key: impl Into<String>,
     ca: impl Into<String>,
-) -> Result<grpc_egress_transport::MtlsConfig, grpc_egress_transport::GrpcChannelConfigError> {
-    use grpc_egress_transport::MtlsConfigFactory;
+) -> Result<grpc_egress_transport_api::MtlsConfig, grpc_egress_transport_api::GrpcChannelConfigError>
+{
+    use grpc_egress_transport_api::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
-        grpc_egress_transport::BuildMtlsConfigRequest {
+        grpc_egress_transport_api::BuildMtlsConfigRequest {
             cert_pem_path: cert.into(),
             key_pem_path: key.into(),
             ca_pem_path: Some(ca.into()),

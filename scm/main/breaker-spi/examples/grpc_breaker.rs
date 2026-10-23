@@ -7,18 +7,18 @@
 //! and is proved by `tests/breaker_int_test.rs`.
 //!
 //! [`StdGrpcBreakerFactory`]: grpc_egress_breaker_spi::StdGrpcBreakerFactory
-use grpc_egress_breaker::proto_pattern::{
+use grpc_egress_breaker_api::proto_pattern::{
     CallError, CallRawRequestBuilder, CallRawResponse, RawTransport, StatusCode,
 };
 use std::time::Duration;
 
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
     GrpcBreakerFactory, ObserveStateRequest,
 };
 use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
 use grpc_egress_test_support::{CallFixture, ClientFixture, Fixture, PeerBehaviour, PeerServer};
-use grpc_egress_transport::GrpcChannelConfigBuilder as _;
+use grpc_egress_transport_api::GrpcChannelConfigBuilder as _;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -94,9 +94,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn config_builder(
     endpoint: impl Into<String>,
-) -> impl grpc_egress_transport::GrpcChannelConfigBuilder {
-    use grpc_egress_transport::GrpcChannelConfigBuilderFactory;
+) -> impl grpc_egress_transport_api::GrpcChannelConfigBuilder {
+    use grpc_egress_transport_api::GrpcChannelConfigBuilderFactory;
     grpc_egress_transport_std::StdGrpcChannelConfigBuilderFactory
-        .build(grpc_egress_transport::BuildGrpcChannelConfigBuilderRequest)
+        .build(grpc_egress_transport_api::BuildGrpcChannelConfigBuilderRequest)
         .with_endpoint(endpoint)
 }

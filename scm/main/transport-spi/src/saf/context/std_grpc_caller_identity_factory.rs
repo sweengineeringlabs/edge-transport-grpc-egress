@@ -1,6 +1,6 @@
 //! `StdGrpcCallerIdentityFactory` -- binds a client to the identity of a caller.
 
-use grpc_egress_transport::{BuildGrpcCallerIdentityRequest, GrpcCallerIdentityFactory};
+use grpc_egress_transport_api::{BuildGrpcCallerIdentityRequest, GrpcCallerIdentityFactory};
 use proto_pattern::{RawTransport, Transport};
 
 use crate::spi::context::ContextTransport;

@@ -8,7 +8,7 @@ The standard channel, TLS, and interceptor implementations are in the separate
 contracts to assemble the client; depend on both packages when using the tonic client.
 
 ```rust,ignore
-use grpc_egress_transport::{BuildGrpcEgressBuilderRequest, GrpcEgressBuilderFactory};
+use grpc_egress_transport_api::{BuildGrpcEgressBuilderRequest, GrpcEgressBuilderFactory};
 use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
 
 let client = TonicGrpcEgressBuilderSpiFactory::new("https://service:443")
@@ -16,5 +16,5 @@ let client = TonicGrpcEgressBuilderSpiFactory::new("https://service:443")
     .build()?;
 ```
 
-See the [domain contract](../transport/README.md), [workspace overview](../../docs/README.md), and
+See the [domain contract](../transport-api/README.md), [workspace overview](../../docs/README.md), and
 [ADR-012](../../docs/adr/ADR-012-pattern-egress-lifecycle-adapter.md).

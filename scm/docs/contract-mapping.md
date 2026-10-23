@@ -35,7 +35,7 @@ That is `RawTransport`, not `Transport`, whose path is a constant of a type. `pr
 reason. A caller that calls by path keeps its call shape and moves to `RawTransport`; a caller that has a `Method` type
 uses `Transport`; both come from one client (`DualTransportFactory`, one engine).
 
-## Port and call types (`grpc-egress-transport`, `api/client`)
+## Port and call types (`grpc-egress-transport-api`, `api/client`)
 
 | Item | Disposition | Contract item or reason |
 |---|---|---|
@@ -44,7 +44,7 @@ uses `Transport`; both come from one client (`DualTransportFactory`, one engine)
 | `call_server_stream`, `call_client_stream`, `call_bidi_stream` | replaced | `call_raw_server_stream`, `call_raw_client_stream`, `call_raw_bidi_stream` / the typed three |
 | `call_stream` (default `Unimplemented`) | removed | every real shape has its own method; no consumer in this repository or its dependents used it (checked) |
 | `call_unary_with_context` | replaced | the caller-identity view (`GrpcCallerIdentityFactory`, ADR-009 section 4) |
-| `health_check` | replaced | `grpc_egress_transport::HealthCheck`, the typed `grpc.health.v1.Health/Check` call; the old one opened a TCP connection and said nothing about the service |
+| `health_check` | replaced | `grpc_egress_transport_api::HealthCheck`, the typed `grpc.health.v1.Health/Check` call; the old one opened a TCP connection and said nothing about the service |
 | `GrpcRequest` | replaced | `MethodPath` + `CallRequest<Vec<u8>>` + `CallOptions`; its `cancellation` token is the cancellation view (`GrpcCancellationFactory`) |
 | `GrpcResponse` | replaced | `CallResponse<Vec<u8>, M>` (headers and trailers apart) |
 | `GrpcMessageStreamResponse`, `CallStreamRequest` | replaced | `impl ResponseStream<Vec<u8>>` and `impl MessageStream<Vec<u8>>`: typed, no boxing |
@@ -75,7 +75,7 @@ uses `Transport`; both come from one client (`DualTransportFactory`, one engine)
 | `AfterCallRequest` | replaced | `InboundReply` (path, headers, trailers); an interceptor can no longer rewrite the response body: the typed layer has no bytes, and no interceptor here did |
 | `GrpcEgressInterceptorFactory`, `BuildGrpcEgressInterceptorRequest`, `GrpcEgressInterceptorChain`, `TraceContextGrpcEgressInterceptor`, `TraceContextSource` | kept | W3C trace headers and the ordered chain are not in the contract |
 | `OutboundCall` (interface), `InboundReply` | new | what an interceptor sees, and how it adds a header |
-| `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, `HealthStatus` | moved to domain API | caller-facing health method and wire DTOs live in `grpc-egress-transport::api::client`; `Payload` preserves the `grpc.health.v1` wire format without adding `prost` to the domain crate |
+| `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, `HealthStatus` | moved to domain API | caller-facing health method and wire DTOs live in `grpc-egress-transport-api::client`; `Payload` preserves the `grpc.health.v1` wire format without adding `prost` to the domain crate |
 | cancellation view (`GrpcCancellationFactory`, `BuildGrpcCancellationRequest`) | new | keeps the cancellation capability behind `CancellationSignal`; callers implement it on a caller-owned adapter; dropping a call's future also cancels it |
 | caller-identity view (`GrpcCallerIdentityFactory`, `BuildGrpcCallerIdentityRequest`) | new | keeps identity headers behind `CallerIdentity`; callers implement it on a caller-owned adapter, such as the composition-root's security-context wrapper |
 | `BackendTarget`, `BalancingStrategy`, `LoadbalancerSettings`, `LoadbalancerSettingsProvider` | kept | neither the contract nor the engine balances; one client per backend behind the endpoint transport |
@@ -84,10 +84,10 @@ uses `Transport`; both come from one client (`DualTransportFactory`, one engine)
 
 | Crate | Disposition | Reason |
 |---|---|---|
-| `grpc-egress-retry`, `-retry-std` | kept, over the contract | the contract has none; generic over `Transport + RawTransport`, retries unary only, classifies by `StatusCode`; its typed unary call encodes once and retries over bytes; streams are forwarded (the old client answered `Unimplemented` for them: a defect) |
-| `grpc-egress-breaker`, `-breaker-spi` | kept, over the contract | same; admits or short-circuits with `Transport(Unavailable)`, records unary outcomes and stream opens; streams forwarded (same defect fixed) |
-| `grpc-egress-resilient`, `-resilient-spi` | kept, over the contract | retry inside breaker, as ADR-007 |
-| `grpc-egress-auth-bearer`, `-auth-bearer-std` | kept | bearer auth is an interceptor; it sets `authorization` through `Metadata`. Whether this crate stays in this repository is for #6, #7 and #8 |
+| `grpc-egress-retry-api`, `-retry-std` | kept, over the contract | the contract has none; generic over `Transport + RawTransport`, retries unary only, classifies by `StatusCode`; its typed unary call encodes once and retries over bytes; streams are forwarded (the old client answered `Unimplemented` for them: a defect) |
+| `grpc-egress-breaker-api`, `-breaker-spi` | kept, over the contract | same; admits or short-circuits with `Transport(Unavailable)`, records unary outcomes and stream opens; streams forwarded (same defect fixed) |
+| `grpc-egress-resilient-api`, `-resilient-spi` | kept, over the contract | retry inside breaker, as ADR-007 |
+| `grpc-egress-auth-bearer-api`, `-auth-bearer-std` | kept | bearer auth is an interceptor; it sets `authorization` through `Metadata`. Whether this crate stays in this repository is for #6, #7 and #8 |
 
 ## What this table does not cover
 

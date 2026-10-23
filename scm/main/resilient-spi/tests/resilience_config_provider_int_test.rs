@@ -3,14 +3,14 @@
 
 use std::error::Error;
 
-use grpc_egress_breaker::GrpcBreakerConfig;
-use grpc_egress_resilient::ResilienceConfigProvider as _;
-use grpc_egress_resilient::{ResilienceConfig, ResilientTransportError};
-use grpc_egress_retry::GrpcRetryConfig;
+use grpc_egress_breaker_api::GrpcBreakerConfig;
+use grpc_egress_resilient_api::ResilienceConfigProvider as _;
+use grpc_egress_resilient_api::{ResilienceConfig, ResilientTransportError};
+use grpc_egress_retry_api::GrpcRetryConfig;
 
 fn valid() -> Result<ResilienceConfig, Box<dyn Error>> {
     Ok(ResilienceConfig::from_policies(
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: 3,
             initial_backoff_ms: 100,
             backoff_multiplier: 2.0,
@@ -30,7 +30,7 @@ fn valid() -> Result<ResilienceConfig, Box<dyn Error>> {
 fn test_validate_valid_config_returns_ok() -> Result<(), Box<dyn Error>> {
     assert!(resilience_provider().validate(&valid()?).is_ok());
     assert!(
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: 0,
             initial_backoff_ms: 100,
             backoff_multiplier: 2.0,
@@ -49,7 +49,7 @@ fn test_validate_valid_config_returns_ok() -> Result<(), Box<dyn Error>> {
 #[test]
 fn test_validate_zero_max_attempts_names_the_field() {
     assert!(
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: 0,
             initial_backoff_ms: 100,
             backoff_multiplier: 2.0,
@@ -68,7 +68,7 @@ fn test_validate_zero_max_attempts_names_the_field() {
 #[test]
 fn test_validate_zero_rate_limit_max_attempts_names_the_field() {
     assert!(
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: 3,
             initial_backoff_ms: 100,
             backoff_multiplier: 2.0,
@@ -88,7 +88,7 @@ fn test_validate_zero_rate_limit_max_attempts_names_the_field() {
 fn test_validate_jitter_factor_out_of_range_names_the_field() -> Result<(), Box<dyn Error>> {
     for jitter_factor in [1.5, -0.1] {
         assert!(
-            GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
                 max_attempts: 3,
                 initial_backoff_ms: 100,
                 backoff_multiplier: 2.0,
@@ -117,7 +117,7 @@ fn test_validate_zero_half_open_probe_count_names_the_field() {
 #[test]
 fn test_validate_rate_limit_max_backoff_below_initial_names_both_fields() {
     assert!(
-        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        GrpcRetryConfig::try_new(grpc_egress_retry_api::BuildGrpcRetryConfigRequest {
             max_attempts: 3,
             initial_backoff_ms: 100,
             backoff_multiplier: 2.0,
@@ -227,8 +227,8 @@ fn test_from_config_zero_max_attempts_is_an_invalid_resilience_error() {
     ));
 }
 
-fn resilience_provider() -> impl grpc_egress_resilient::ResilienceConfigProvider {
-    use grpc_egress_resilient::ResilienceConfigProviderFactory;
+fn resilience_provider() -> impl grpc_egress_resilient_api::ResilienceConfigProvider {
+    use grpc_egress_resilient_api::ResilienceConfigProviderFactory;
     grpc_egress_resilient_spi::StdResilienceConfigProviderFactory
-        .build(grpc_egress_resilient::BuildResilienceConfigProviderRequest)
+        .build(grpc_egress_resilient_api::BuildResilienceConfigProviderRequest)
 }

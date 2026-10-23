@@ -1,6 +1,6 @@
 //! `StdLoadbalancerSettingsProvider` -- `LoadbalancerSettings` from TOML text, read with `toml`.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     GrpcChannelConfigError, LoadbalancerSettings, LoadbalancerSettingsProvider,
 };
 use serde::Deserialize;

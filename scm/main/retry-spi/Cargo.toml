@@ -23,7 +23,7 @@ name = "grpc_retry"
 path = "examples/grpc_retry.rs"
 
 [dependencies]
-grpc-egress-retry = { path = "../retry" }
+grpc-egress-retry-api = { path = "../retry-api" }
 grpc-egress-retry-std = { path = "../retry-std" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
 edge-transport-retry = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
@@ -32,7 +32,7 @@ tokio = { version = "1.52", features = ["macros", "net", "rt", "sync", "time"] }
 tracing = "0.1"
 
 [dev-dependencies]
-grpc-egress-transport = { path = "../transport" }
+grpc-egress-transport-api = { path = "../transport-api" }
 grpc-egress-transport-std = { path = "../transport-std" }
 grpc-egress-test-support = { path = "../test-support" }
 swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }

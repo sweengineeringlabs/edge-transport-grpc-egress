@@ -5,15 +5,15 @@
 
 Every failure line names the path and the rule. Exit code 1 when there is a failure.
 
-The layout: `scm/main/<crate>/` is a crate (`scm/main/examples/<name>/` an example crate). A domain
-crate `grpc-egress-<theme>` holds only the domain, all of it under `src/api/` (traits, plain data,
-errors; one folder per theme, each with `dto/`, `vo/`, `error/`, `traits/` as needed). Its implementation
+The layout: `scm/main/<crate>/` is a crate (`scm/main/examples/<name>/` an example crate). A contract
+crate `grpc-egress-<theme>-api` holds only the domain (traits, plain data, errors; one folder per theme,
+each with `dto/`, `vo/`, `error/`, `traits/` as needed) directly under `src/`, with no `src/api/` folder. Its implementation
 packages are `grpc-egress-<theme>-std` and `grpc-egress-<theme>-spi`; each layer has its own package,
 owns the factories for its implementations under `saf/`, and depends on the domain crate by path. A package
 exists only for a layer that has an implementation.
 
 Rule 19, `program_over_the_interface` (#60): nothing new is defined in `std/` or `spi/`. A trait is declared only
-under `api/` (checked in every crate, the test-support crate and the examples included); a `pub` or `pub(crate)`
+in a `*-api` crate, under a `traits/` directory (checked in every crate, the test-support crate and the examples included); a `pub` or `pub(crate)`
 function, or an inherent impl that exposes one, in `std/` or `spi/` must be a trait impl.
 
 Rule 21, `every_function_a_method` (#60): no free function in `src/` of any crate; every function is a method on a type
@@ -32,7 +32,7 @@ LAYER_DIRS = ("std", "spi", "saf")
 IMPLEMENTATION_LAYERS = ("std", "spi", "saf", "core")
 # The crate that holds fixtures of the tests is not a domain or an implementation of one.
 EXEMPT_CRATES = {"grpc-egress-test-support"}
-PACKAGE_NAME = re.compile(r"^grpc-egress-[a-z][a-z0-9-]*?(-(std|spi))?$")
+PACKAGE_NAME = re.compile(r"^grpc-egress-[a-z][a-z0-9-]*?(-(api|std|spi))?$")
 LOGIC_LINE = re.compile(r"^\s*(pub(\([a-z]+\))?\s+)?(unsafe\s+)?(async\s+)?(fn|struct|enum|trait|impl|const|static|type)\b")
 ALLOW_ATTRIBUTE = re.compile(r"#!?\[(?:cfg_attr\([^\]]*?)?allow\(")
 TEST_CONFIG = re.compile(r"#\[cfg\(test\)\]")
@@ -123,7 +123,7 @@ class LayoutChecker:
         for crate_dir, package in crates.items():
             self.check_no_attributes(crate_dir)
             self.check_value_object_fields(crate_dir, package)
-            self.check_program_over_the_interface(crate_dir)
+            self.check_program_over_the_interface(crate_dir, package)
             self.check_std_names_no_third_party(crate_dir, package)
             self.check_every_function_a_method(crate_dir)
         return self.failures
@@ -132,11 +132,11 @@ class LayoutChecker:
         """Every named field of a domain VO is private; construction goes through its API."""
         if package is None or self.is_implementation_package(package):
             return
-        api = os.path.join(crate_dir, "src", "api")
-        if not os.path.isdir(api):
+        if package is None or not self.is_api_package(package):
             return
-        for path in self.list_rust_files(api):
-            rel = os.path.relpath(path, api).replace("\\", "/")
+        src = os.path.join(crate_dir, "src")
+        for path in self.list_rust_files(src):
+            rel = os.path.relpath(path, src).replace("\\", "/")
             if "/vo/" not in "/" + rel:
                 continue
             text = self.read_text(path)
@@ -162,7 +162,7 @@ class LayoutChecker:
             self.fail(crate_dir, "package_name", "'%s' starts with edge-transport-; our crates are grpc-egress-<theme>[-std|-spi]" % package)
         elif not PACKAGE_NAME.match(package):
             self.fail(crate_dir, "package_name", "'%s' is not grpc-egress-<theme>[-std|-spi]" % package)
-        if self.is_implementation_package(package) and base != package[len("grpc-egress-"):]:
+        if (self.is_implementation_package(package) or self.is_api_package(package)) and base != package[len("grpc-egress-"):]:
             self.fail(crate_dir, "package_name", "folder '%s' does not match package '%s'" % (base, package))
 
     def check_no_nested_main(self, crate_dir):
@@ -171,7 +171,11 @@ class LayoutChecker:
 
     def check_layer_folders(self, crate_dir, package):
         src = os.path.join(crate_dir, "src")
-        if package is None or package in EXEMPT_CRATES or not os.path.isdir(src):
+        if package is None or package in EXEMPT_CRATES:
+            return
+        if not os.path.isdir(src):
+            if self.is_api_package(package):
+                self.fail(crate_dir, "api_package_no_src", "a -api package has its contracts under src/")
             return
         if "/examples/" in crate_dir.replace("\\", "/") + "/":
             return
@@ -188,15 +192,14 @@ class LayoutChecker:
                 self.fail(os.path.join(src, "spi"), "std_package_has_spi", "a standard package contains standard implementations only; move spi/ to its own -spi package")
             if package.endswith("-std") and not os.path.isdir(os.path.join(src, "std")):
                 self.fail(src, "std_package_missing_std", "an -std package exists only when it contains standard implementation code under src/std/")
-        else:
+        elif self.is_api_package(package):
+            if os.path.isdir(os.path.join(src, "api")):
+                self.fail(os.path.join(src, "api"), "api_package_no_api_folder", "the package suffix is -api; contract modules are directly under src/")
             for layer in IMPLEMENTATION_LAYERS:
                 if os.path.isdir(os.path.join(src, layer)):
-                    self.fail(os.path.join(src, layer), "domain_has_no_implementation", "a domain crate has no %s/ folder" % layer)
-            if not os.path.isdir(os.path.join(src, "api")):
-                self.fail(src, "domain_has_api", "a domain crate holds its domain under src/api/")
-            for entry in sorted(os.listdir(src)):
-                if os.path.isdir(os.path.join(src, entry)) and entry != "api":
-                    self.fail(os.path.join(src, entry), "domain_has_api", "'%s' lies beside api/; a domain crate holds only src/api/ and lib.rs" % entry)
+                    self.fail(os.path.join(src, layer), "domain_has_no_implementation", "an API contract crate has no %s/ folder" % layer)
+        else:
+            self.fail(crate_dir, "package_name", "a contract package must end in -api")
 
     def check_source_folders(self, crate_dir, package):
         src = os.path.join(crate_dir, "src")
@@ -239,34 +242,37 @@ class LayoutChecker:
                 continue
             domain = self.domain_package_name(package)
             if domain not in by_name:
-                self.fail(crate_dir, "pair", "implementation crate '%s' has no domain crate '%s'" % (package, domain))
+                self.fail(crate_dir, "pair", "implementation crate '%s' has no API crate '%s'" % (package, domain))
                 continue
             manifest = self.read_text(os.path.join(crate_dir, "Cargo.toml"))
             if not re.search(r"(?m)^%s\s*(=|\.workspace)" % re.escape(domain), manifest):
-                self.fail(crate_dir, "pair", "'%s' does not depend on its domain crate '%s'" % (package, domain))
+                self.fail(crate_dir, "pair", "'%s' does not depend on its API crate '%s'" % (package, domain))
         for crate_dir, package in crates.items():
-            if package and not self.is_implementation_package(package) and package not in EXEMPT_CRATES:
+            if package and self.is_api_package(package) and package not in EXEMPT_CRATES:
                 if "/examples/" in crate_dir.replace("\\", "/") + "/":
                     continue
                 if not os.path.isdir(os.path.join(crate_dir, "src")):
                     continue
-                # A domain crate may have either or both implementation layers.
-                if package + "-std" not in by_name and package + "-spi" not in by_name:
-                    self.fail(crate_dir, "pair", "domain crate '%s' has no implementation package '%s-std' or '%s-spi'" % (package, package, package))
+                base = package[:-4]
+                if base + "-std" not in by_name and base + "-spi" not in by_name:
+                    self.fail(crate_dir, "pair", "API crate '%s' has no implementation package '%s-std' or '%s-spi'" % (package, base, base))
 
     @staticmethod
     def is_implementation_package(package):
         return package.endswith(("-std", "-spi"))
 
     @staticmethod
+    def is_api_package(package):
+        return package.endswith("-api")
+
+    @staticmethod
     def domain_package_name(package):
-        return package.rsplit("-", 1)[0]
+        return package.rsplit("-", 1)[0] + "-api"
 
     def theme_folders(self, domain_src):
-        api = os.path.join(domain_src, "api")
-        if not os.path.isdir(api):
+        if not os.path.isdir(domain_src):
             return set()
-        return {d for d in os.listdir(api) if os.path.isdir(os.path.join(api, d)) and d not in KIND_DIRS}
+        return {d for d in os.listdir(domain_src) if os.path.isdir(os.path.join(domain_src, d)) and d not in KIND_DIRS}
 
     def check_theme_mirroring(self, crates):
         by_name = {package: crate_dir for crate_dir, package in crates.items() if package}
@@ -386,17 +392,17 @@ class LayoutChecker:
     def line_of(text, position):
         return text.count("\n", 0, position) + 1
 
-    def check_program_over_the_interface(self, crate_dir):
-        """Rule 19: a trait is declared under api/ only; std/ and spi/ hold no public function that is not a trait impl."""
+    def check_program_over_the_interface(self, crate_dir, package):
+        """Rule 19: traits live under traits/ in API crates; std/ and spi/ hold no public non-trait functions."""
         src = os.path.join(crate_dir, "src")
         if not os.path.isdir(src):
             return
         for path in self.list_rust_files(src):
             parts = os.path.relpath(path, src).replace("\\", "/").split("/")
             text = self.blank_out(self.read_text(path))
-            if "api" not in parts[:-1]:
+            if TRAIT_DECL.search(text) and (not self.is_api_package(package) or "traits" not in parts[:-1]):
                 for m in TRAIT_DECL.finditer(text):
-                    self.fail(path, "program_over_the_interface", "line %d declares trait %s outside api/: a trait is defined in the domain crate, under api/<theme>/traits/" % (self.line_of(text, m.start()), m.group(1)))
+                    self.fail(path, "program_over_the_interface", "line %d declares trait %s outside a traits/ folder in a -api crate" % (self.line_of(text, m.start()), m.group(1)))
             if parts[0] in ("std", "spi"):
                 for position, visibility, name, where in self.list_public_functions(text):
                     self.fail(path, "program_over_the_interface", "line %d declares `%s fn %s` %s; in %s/ only trait impls are public: a constructor is a From/TryFrom/Default impl or a domain factory trait method, an operation is a domain trait method, a helper is private" % (self.line_of(text, position), visibility, name, where, parts[0]))
@@ -486,7 +492,7 @@ class LayoutChecker:
             return
         allowed = set(PATH_KEYWORDS) | PRIMITIVES | {package.replace("-", "_")}
         if package.endswith("-std"):
-            allowed.add(package[: -len("-std")].replace("-", "_"))
+            allowed.add(package[: -len("-std")].replace("-", "_") + "_api")
         for path in self.list_rust_files(std_dir):
             text = self.blank_out(self.read_text(path))
             local = set(re.findall(r"\bmod\s+([a-z_][a-z0-9_]*)", text))

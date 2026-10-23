@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use edge_security_runtime::SecurityContext;
 use grpc_egress_test_support::CallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, CallerIdentity,
     GrpcCallerIdentityFactory, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };

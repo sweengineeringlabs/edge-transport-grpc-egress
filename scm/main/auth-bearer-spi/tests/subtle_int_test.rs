@@ -7,8 +7,8 @@
 //! This file exercises that path through the public API so the
 //! `subtle` dependency is demonstrably tested, not just linked.
 
-use grpc_egress_auth_bearer::BearerSecret;
-use grpc_egress_auth_bearer::BearerSecretGuard as _;
+use grpc_egress_auth_bearer_api::BearerSecret;
+use grpc_egress_auth_bearer_api::BearerSecretGuard as _;
 
 /// @covers: subtle::ConstantTimeEq — the dependency's constant-time primitive directly
 #[test]
@@ -24,7 +24,7 @@ fn bearer_trait_constant_time_eq_reports_equality_int_test() {
 /// @covers: subtle::ConstantTimeEq — equal secrets compare as equal
 #[test]
 fn bearer_struct_bearer_secret_ct_eq_hs256_equal_secrets_returns_true_int_test(
-) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<(), grpc_egress_auth_bearer_api::BearerAuthError> {
     let a = BearerSecret::hs256(b"shared-secret-value".to_vec())?;
     let b = BearerSecret::hs256(b"shared-secret-value".to_vec())?;
     assert!(
@@ -37,7 +37,7 @@ fn bearer_struct_bearer_secret_ct_eq_hs256_equal_secrets_returns_true_int_test(
 /// @covers: subtle::ConstantTimeEq — unequal secrets compare as unequal
 #[test]
 fn bearer_struct_bearer_secret_ct_eq_hs256_different_secrets_returns_false_int_test(
-) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<(), grpc_egress_auth_bearer_api::BearerAuthError> {
     let a = BearerSecret::hs256(b"correct-secret".to_vec())?;
     let b = BearerSecret::hs256(b"wrong-secret".to_vec())?;
     assert!(
@@ -50,7 +50,7 @@ fn bearer_struct_bearer_secret_ct_eq_hs256_different_secrets_returns_false_int_t
 /// @covers: subtle::ConstantTimeEq — variant mismatch returns false (no timing leak)
 #[test]
 fn bearer_struct_bearer_secret_ct_eq_hs256_variant_mismatch_returns_false_int_test(
-) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<(), grpc_egress_auth_bearer_api::BearerAuthError> {
     let hs = BearerSecret::hs256(b"secret".to_vec())?;
     let rs = BearerSecret::rs256(b"pem-bytes".to_vec())?;
     assert!(
@@ -60,8 +60,8 @@ fn bearer_struct_bearer_secret_ct_eq_hs256_variant_mismatch_returns_false_int_te
     Ok(())
 }
 
-fn secret_guard() -> impl grpc_egress_auth_bearer::BearerSecretGuard {
-    use grpc_egress_auth_bearer::BearerSecretGuardFactory;
+fn secret_guard() -> impl grpc_egress_auth_bearer_api::BearerSecretGuard {
+    use grpc_egress_auth_bearer_api::BearerSecretGuardFactory;
     grpc_egress_auth_bearer_spi::StdBearerSecretGuardFactory
-        .build(grpc_egress_auth_bearer::BuildBearerSecretGuardRequest)
+        .build(grpc_egress_auth_bearer_api::BuildBearerSecretGuardRequest)
 }

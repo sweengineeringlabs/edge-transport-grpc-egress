@@ -3,7 +3,7 @@
 //! Tests that access the `pub(crate)` field `interceptor.source` are omitted.
 
 use grpc_egress_test_support::OutboundCallFixture;
-use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
+use grpc_egress_transport_api::{GrpcEgressInterceptor, InboundReply, OutboundCall};
 use proto_pattern::{Metadata, MetadataEntry};
 
 const UPSTREAM: &str = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1-bbbbbbbbbbbbbbbb-01";
@@ -28,7 +28,7 @@ fn call_with_upstream() -> Result<OutboundCallFixture, Box<dyn std::error::Error
 #[test]
 fn test_pass_through_keeps_an_existing_upstream_traceparent(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = trace_interceptor(grpc_egress_transport::TraceContextSource::PassThrough);
+    let interceptor = trace_interceptor(grpc_egress_transport_api::TraceContextSource::PassThrough);
     let mut call = call_with_upstream()?;
 
     interceptor.before_call(&mut call)?;
@@ -40,7 +40,7 @@ fn test_pass_through_keeps_an_existing_upstream_traceparent(
 /// @covers: TraceContextGrpcEgressInterceptor::pass_through
 #[test]
 fn test_pass_through_does_not_inject_a_traceparent() -> Result<(), Box<dyn std::error::Error>> {
-    let interceptor = trace_interceptor(grpc_egress_transport::TraceContextSource::PassThrough);
+    let interceptor = trace_interceptor(grpc_egress_transport_api::TraceContextSource::PassThrough);
     let mut call = call();
 
     interceptor.before_call(&mut call)?;
@@ -104,25 +104,25 @@ fn test_with_static_keeps_an_upstream_traceparent_and_adds_no_tracestate(
 /// @covers: TraceContextGrpcEgressInterceptor::after_call
 #[test]
 fn test_after_call_accepts_any_reply() {
-    let interceptor = trace_interceptor(grpc_egress_transport::TraceContextSource::PassThrough);
+    let interceptor = trace_interceptor(grpc_egress_transport_api::TraceContextSource::PassThrough);
     let reply = InboundReply::new("/svc/M", Metadata::default(), Metadata::default());
 
     assert!(interceptor.after_call(&reply).is_ok());
 }
 
 fn trace_interceptor(
-    source: grpc_egress_transport::TraceContextSource,
-) -> impl grpc_egress_transport::GrpcEgressInterceptor {
-    use grpc_egress_transport::GrpcEgressInterceptorFactory;
+    source: grpc_egress_transport_api::TraceContextSource,
+) -> impl grpc_egress_transport_api::GrpcEgressInterceptor {
+    use grpc_egress_transport_api::GrpcEgressInterceptorFactory;
     grpc_egress_transport_std::StdGrpcEgressInterceptorFactory::new(source)
-        .build(grpc_egress_transport::BuildGrpcEgressInterceptorRequest)
+        .build(grpc_egress_transport_api::BuildGrpcEgressInterceptorRequest)
 }
 
 fn static_trace_interceptor(
     traceparent: impl Into<String>,
     tracestate: Option<String>,
-) -> impl grpc_egress_transport::GrpcEgressInterceptor {
-    trace_interceptor(grpc_egress_transport::TraceContextSource::Static {
+) -> impl grpc_egress_transport_api::GrpcEgressInterceptor {
+    trace_interceptor(grpc_egress_transport_api::TraceContextSource::Static {
         traceparent: traceparent.into(),
         tracestate,
     })

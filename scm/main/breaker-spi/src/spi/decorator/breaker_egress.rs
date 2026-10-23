@@ -1,6 +1,6 @@
 //! [`Transport`] and [`RawTransport`] impls for [`GrpcBreakerClient`].
 
-use grpc_egress_breaker::proto_pattern::{
+use grpc_egress_breaker_api::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallRawBidiStreamRequest, CallRawBidiStreamRequestBuilder,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamRequestBuilder,
@@ -16,8 +16,8 @@ use edge_transport_breaker::DefaultBreakerTransition;
 use edge_transport_breaker_policy::{
     Admission, AdmitRequest, BreakerTransition, Outcome, RecordOutcomeRequest,
 };
-use grpc_egress_breaker::FailureClassifier;
-use grpc_egress_breaker::BREAKER_EGRESS_LOG_PREFIX;
+use grpc_egress_breaker_api::FailureClassifier;
+use grpc_egress_breaker_api::BREAKER_EGRESS_LOG_PREFIX;
 use tracing::error;
 
 use super::grpc_breaker_client::GrpcBreakerClient;

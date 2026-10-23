@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret, AUTHORIZATION_HEADER};
+use grpc_egress_auth_bearer_api::{BearerEgressConfig, BearerSecret, AUTHORIZATION_HEADER};
 use grpc_egress_auth_bearer_spi::StdBearerInterceptorFactory;
 use grpc_egress_test_support::OutboundCallFixture;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
     InboundReply, OutboundCall,
 };
@@ -27,7 +27,7 @@ struct Claims {
 
 fn hs256_config(
     secret: &[u8],
-) -> Result<BearerEgressConfig, grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<BearerEgressConfig, grpc_egress_auth_bearer_api::BearerAuthError> {
     BearerEgressConfig::try_new(
         BearerSecret::hs256(secret.to_vec())?,
         "test-iss",
@@ -39,7 +39,7 @@ fn hs256_config(
 
 fn rs256_config(
     private_pem: &[u8],
-) -> Result<BearerEgressConfig, grpc_egress_auth_bearer::BearerAuthError> {
+) -> Result<BearerEgressConfig, grpc_egress_auth_bearer_api::BearerAuthError> {
     BearerEgressConfig::try_new(
         BearerSecret::rs256(private_pem.to_vec())?,
         "test-iss",

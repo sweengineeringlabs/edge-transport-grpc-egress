@@ -1,6 +1,6 @@
 //! `StdBearerSecretGuard` -- the constant-time comparison of [`BearerSecret`], with `subtle`.
 
-use grpc_egress_auth_bearer::{BearerSecret, BearerSecretGuard};
+use grpc_egress_auth_bearer_api::{BearerSecret, BearerSecretGuard};
 use subtle::ConstantTimeEq;
 
 /// Constant-time comparison of secret material.

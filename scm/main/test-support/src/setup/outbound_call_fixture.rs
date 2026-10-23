@@ -6,7 +6,7 @@ use proto_pattern::{
 };
 use std::time::Duration;
 
-use grpc_egress_transport::OutboundCall;
+use grpc_egress_transport_api::OutboundCall;
 
 /// An implementation of [`OutboundCall`] for tests, written without the library's own: a test that runs an interceptor
 /// on its own needs a call to hand it, and one that shares code with the code under test would prove nothing.

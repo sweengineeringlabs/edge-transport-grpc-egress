@@ -1,6 +1,6 @@
 //! `StdGrpcChannelConfigBuilderFactory` -- creates the builder of a channel configuration.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcChannelConfigBuilderRequest, GrpcChannelConfigBuilder, GrpcChannelConfigBuilderFactory,
 };
 

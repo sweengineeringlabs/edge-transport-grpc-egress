@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use edge_transport_breaker_policy::BreakerNode;
 use futures::future::BoxFuture;
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BreakerDomainError, BreakerObservable, BreakerState, GrpcBreakerConfig, ObserveStateRequest,
     ObserveStateResponse, GRPC_BREAKER_CLIENT_LOG_TARGET,
 };

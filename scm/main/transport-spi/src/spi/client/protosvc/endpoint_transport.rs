@@ -12,7 +12,7 @@ use proto_pattern::{
 };
 use std::sync::Arc;
 
-use grpc_egress_transport::{BalancingStrategy, GrpcChannelConfigError, LoadbalancerSettings};
+use grpc_egress_transport_api::{BalancingStrategy, GrpcChannelConfigError, LoadbalancerSettings};
 use swe_edge_loadbalancer::{
     Backend, BackendConfig, BackendPoolInstance, LoadbalancerConfig, LoadbalancerSvc, Outcome,
     Strategy,

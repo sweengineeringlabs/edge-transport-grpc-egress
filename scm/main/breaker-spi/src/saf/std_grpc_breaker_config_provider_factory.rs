@@ -1,6 +1,6 @@
 //! `StdGrpcBreakerConfigProviderFactory` -- creates the reader of breaker policies.
 
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BuildGrpcBreakerConfigProviderRequest, GrpcBreakerConfigProvider,
     GrpcBreakerConfigProviderFactory,
 };

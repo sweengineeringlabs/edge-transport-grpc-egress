@@ -1,6 +1,6 @@
 //! `StdGrpcEgressInterceptorFactory` -- creates the trace-context interceptor.
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressInterceptorRequest, GrpcEgressInterceptor, GrpcEgressInterceptorFactory,
     TraceContextSource,
 };

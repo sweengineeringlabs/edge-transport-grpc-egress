@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use grpc_egress_test_support::{ClosedPort, Fixture};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, HealthCheck,
     HealthCheckRequest, HealthStatus,
 };

@@ -3,18 +3,18 @@ resolver = "2"
 # Listed one by one: a glob over main/* would also match main/examples, which holds example crates
 # one level deeper and has no manifest of its own. scripts/check_layout.py checks that every crate is listed.
 members = [
-    "main/auth-bearer",
+    "main/auth-bearer-api",
     "main/auth-bearer-std",
     "main/auth-bearer-spi",
-    "main/breaker",
+    "main/breaker-api",
     "main/breaker-spi",
-    "main/resilient",
+    "main/resilient-api",
     "main/resilient-spi",
-    "main/retry",
+    "main/retry-api",
     "main/retry-std",
     "main/retry-spi",
     "main/test-support",
-    "main/transport",
+    "main/transport-api",
     "main/transport-std",
     "main/transport-spi",
     "main/examples/composition-root",
@@ -24,7 +24,7 @@ members = [
 version      = "0.10.0"
 edition      = "2021"
 license      = "MIT OR Apache-2.0"
-rust-version = "1.99"
+rust-version = "1.99.1"
 authors      = ["SWE Engineering Labs"]
 repository   = "https://github.com/sweengineeringlabs/edge-transport-grpc-egress"
 

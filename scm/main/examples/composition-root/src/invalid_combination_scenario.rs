@@ -2,7 +2,7 @@
 
 use std::error::Error;
 
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, LoadbalancerSettings,
 };

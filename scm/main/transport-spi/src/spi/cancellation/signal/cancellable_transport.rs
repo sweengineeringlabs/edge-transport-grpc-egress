@@ -1,6 +1,6 @@
 //! `CancellableTransport` -- a view of a client whose calls end when a signal fires.
 
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallRawBidiStreamRequest, CallRawBidiStreamRequestBuilder,
     CallRawBidiStreamResponse, CallRawClientStreamRequest, CallRawClientStreamRequestBuilder,
@@ -13,7 +13,7 @@ use grpc_egress_transport::proto_pattern::{
 use std::future::Future;
 use std::sync::Arc;
 
-use grpc_egress_transport::{BuildGrpcCancellationRequest, CancellationSignal};
+use grpc_egress_transport_api::{BuildGrpcCancellationRequest, CancellationSignal};
 
 use super::cancellable_response_stream::CancellableResponseStream;
 

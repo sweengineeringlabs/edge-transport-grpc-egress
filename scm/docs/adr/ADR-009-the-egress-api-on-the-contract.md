@@ -130,7 +130,7 @@ as `&dyn CallerIdentity` and read once, when the view is made, so the view does 
 
 ### 8. Health
 
-The `grpc.health.v1.Health/Check` call as a `Method` (`HealthCheck`) with its messages, in `grpc-egress-transport`
+The `grpc.health.v1.Health/Check` call as a `Method` (`HealthCheck`) with its messages, in `grpc-egress-transport-api`
 (`Payload` by `prost`, a dependency of that crate). The old `health_check` opened a TCP connection and said nothing about the
 service; this asks it. Tested against a real health service (`tonic-health`).
 

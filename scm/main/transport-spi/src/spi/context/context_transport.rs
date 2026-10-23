@@ -1,6 +1,6 @@
 //! `ContextTransport` -- a view of a client whose calls carry the headers of a caller's identity.
 
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_transport_api::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
@@ -13,7 +13,7 @@ use grpc_egress_transport::proto_pattern::{
 
 use super::ContextHeaders;
 use crate::spi::client::StdMetadataExtender;
-use grpc_egress_transport::{BuildGrpcCallerIdentityRequest, MetadataExtender};
+use grpc_egress_transport_api::{BuildGrpcCallerIdentityRequest, MetadataExtender};
 
 /// A view of `inner` bound to an identity: every call carries the headers derived from it, except one the call
 /// already carries. The headers are derived when the view is made, so a call pays one copy of its own headers.

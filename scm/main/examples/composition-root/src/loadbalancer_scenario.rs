@@ -5,7 +5,7 @@ use std::error::Error;
 use std::time::Duration;
 
 use grpc_egress_test_support::{CallFixture, ClosedPort, PeerBehaviour};
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, LoadbalancerSettings,
 };

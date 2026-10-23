@@ -3,11 +3,11 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
+use grpc_egress_transport_api::{GrpcEgressInterceptor, InboundReply, OutboundCall};
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use proto_pattern::{CallError, StatusCode};
 
-use grpc_egress_auth_bearer::{BearerAuthError, BearerEgressConfig, AUTHORIZATION_HEADER};
+use grpc_egress_auth_bearer_api::{BearerAuthError, BearerEgressConfig, AUTHORIZATION_HEADER};
 use swe_edge_security::JwtClaims;
 
 /// `GrpcEgressInterceptor` that signs and attaches a JWT bearer token.

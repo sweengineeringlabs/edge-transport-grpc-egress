@@ -579,7 +579,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-auth-bearer"
+name = "grpc-egress-auth-bearer-api"
 version = "0.10.0"
 dependencies = [
  "edge-security-transport-egress-grpc",
@@ -594,10 +594,10 @@ name = "grpc-egress-auth-bearer-spi"
 version = "0.10.0"
 dependencies = [
  "edge-security-transport-egress-grpc",
- "grpc-egress-auth-bearer",
+ "grpc-egress-auth-bearer-api",
  "grpc-egress-auth-bearer-std",
  "grpc-egress-test-support",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "grpc-egress-transport-spi",
  "grpc-egress-transport-std",
  "jsonwebtoken",
@@ -613,11 +613,11 @@ dependencies = [
 name = "grpc-egress-auth-bearer-std"
 version = "0.10.0"
 dependencies = [
- "grpc-egress-auth-bearer",
+ "grpc-egress-auth-bearer-api",
 ]
 
 [[package]]
-name = "grpc-egress-breaker"
+name = "grpc-egress-breaker-api"
 version = "0.10.0"
 dependencies = [
  "edge-transport-breaker-policy",
@@ -635,9 +635,9 @@ dependencies = [
  "edge-transport-breaker",
  "edge-transport-breaker-policy",
  "futures",
- "grpc-egress-breaker",
+ "grpc-egress-breaker-api",
  "grpc-egress-test-support",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "proto-pattern",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
@@ -651,12 +651,12 @@ name = "grpc-egress-example-composition-root"
 version = "0.10.0"
 dependencies = [
  "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",
- "grpc-egress-breaker",
+ "grpc-egress-breaker-api",
  "grpc-egress-breaker-spi",
- "grpc-egress-retry",
+ "grpc-egress-retry-api",
  "grpc-egress-retry-spi",
  "grpc-egress-test-support",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "grpc-egress-transport-spi",
  "grpc-egress-transport-std",
  "prost",
@@ -668,13 +668,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-resilient"
+name = "grpc-egress-resilient-api"
 version = "0.10.0"
 dependencies = [
  "futures",
- "grpc-egress-breaker",
- "grpc-egress-retry",
- "grpc-egress-transport",
+ "grpc-egress-breaker-api",
+ "grpc-egress-retry-api",
+ "grpc-egress-transport-api",
  "proto-pattern",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
@@ -688,13 +688,13 @@ name = "grpc-egress-resilient-spi"
 version = "0.10.0"
 dependencies = [
  "futures",
- "grpc-egress-breaker",
+ "grpc-egress-breaker-api",
  "grpc-egress-breaker-spi",
- "grpc-egress-resilient",
- "grpc-egress-retry",
+ "grpc-egress-resilient-api",
+ "grpc-egress-retry-api",
  "grpc-egress-retry-spi",
  "grpc-egress-test-support",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "proto-pattern",
  "tokio",
@@ -702,11 +702,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-retry"
+name = "grpc-egress-retry-api"
 version = "0.10.0"
 dependencies = [
  "edge-transport-retry-policy",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "proto-pattern",
  "serde",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
@@ -719,10 +719,10 @@ version = "0.10.0"
 dependencies = [
  "edge-transport-retry",
  "futures",
- "grpc-egress-retry",
+ "grpc-egress-retry-api",
  "grpc-egress-retry-std",
  "grpc-egress-test-support",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "proto-pattern",
  "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
@@ -735,7 +735,7 @@ dependencies = [
 name = "grpc-egress-retry-std"
 version = "0.10.0"
 dependencies = [
- "grpc-egress-retry",
+ "grpc-egress-retry-api",
 ]
 
 [[package]]
@@ -743,7 +743,7 @@ name = "grpc-egress-test-support"
 version = "0.10.0"
 dependencies = [
  "bytes",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "grpc-egress-transport-spi",
  "grpc-egress-transport-std",
  "http",
@@ -760,7 +760,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-transport"
+name = "grpc-egress-transport-api"
 version = "0.10.0"
 dependencies = [
  "proto-pattern",
@@ -779,7 +779,7 @@ dependencies = [
  "flate2",
  "futures",
  "grpc-egress-test-support",
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "http",
  "http-body",
@@ -808,7 +808,7 @@ dependencies = [
 name = "grpc-egress-transport-std"
 version = "0.10.0"
 dependencies = [
- "grpc-egress-transport",
+ "grpc-egress-transport-api",
 ]
 
 [[package]]

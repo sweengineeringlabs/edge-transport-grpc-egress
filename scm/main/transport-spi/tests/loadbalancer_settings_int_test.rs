@@ -4,7 +4,7 @@
 use proto_pattern::{CallRawRequestBuilder, CallRawResponse, RawTransport};
 use std::error::Error;
 
-use grpc_egress_transport::{BackendTarget, BalancingStrategy, GrpcChannelConfigError};
+use grpc_egress_transport_api::{BackendTarget, BalancingStrategy, GrpcChannelConfigError};
 
 const FULL: &str = r#"
 [loadbalancer]
@@ -95,7 +95,7 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
 
     use grpc_egress_test_support::CallFixture;
     use grpc_egress_test_support::{Fixture, PeerBehaviour, PeerServer};
-    use grpc_egress_transport::{
+    use grpc_egress_transport_api::{
         BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
     };
     use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
@@ -144,10 +144,10 @@ async fn test_from_config_settings_drive_a_balanced_client_that_reaches_every_ba
 fn read_settings(
     text: &str,
 ) -> Result<
-    grpc_egress_transport::LoadbalancerSettings,
-    grpc_egress_transport::GrpcChannelConfigError,
+    grpc_egress_transport_api::LoadbalancerSettings,
+    grpc_egress_transport_api::GrpcChannelConfigError,
 > {
-    use grpc_egress_transport::{
+    use grpc_egress_transport_api::{
         BuildLoadbalancerSettingsProviderRequest, LoadbalancerSettingsProvider,
         LoadbalancerSettingsProviderFactory,
     };

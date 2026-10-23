@@ -4,7 +4,7 @@
 
 ## WHAT
 
-The implementation of the resilience domain `grpc-egress-resilient`: `StdGrpcResilientFactory::new(config)`
+The implementation of the resilience domain `grpc-egress-resilient-api`: `StdGrpcResilientFactory::new(config)`
 wraps an already-built `Transport + RawTransport` client in retry and then a circuit breaker. It does not build the
 client.
 
@@ -32,4 +32,4 @@ cargo test
 
 ## Documentation
 
-See the [domain contract](../resilient/README.md) and [ADR-007](../../docs/adr/ADR-007-decorators-wrap-a-built-client.md).
+See the [domain contract](../resilient-api/README.md) and [ADR-007](../../docs/adr/ADR-007-decorators-wrap-a-built-client.md).

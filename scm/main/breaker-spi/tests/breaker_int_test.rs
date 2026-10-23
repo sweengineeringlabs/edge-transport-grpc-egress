@@ -4,8 +4,8 @@
 //! The scripted transport is a test double because a real peer cannot be told to fail on the third call and
 //! recover on the fifth; what a real peer and the real engine do is in `breaker_engine_int_test.rs`.
 
-use grpc_egress_breaker::GrpcBreakerConfigProvider as _;
-use grpc_egress_transport::proto_pattern::{
+use grpc_egress_breaker_api::GrpcBreakerConfigProvider as _;
+use grpc_egress_transport_api::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
     CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
     CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
@@ -22,7 +22,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use grpc_egress_breaker::{
+use grpc_egress_breaker_api::{
     BreakerDomainError, BreakerObservable, BreakerState, BuildGrpcBreakerRequest,
     GrpcBreakerConfig, GrpcBreakerFactory, ObserveStateRequest,
 };
@@ -412,10 +412,10 @@ fn fast_cfg() -> Result<GrpcBreakerConfig, BreakerDomainError> {
     )
 }
 
-fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {
-    use grpc_egress_breaker::GrpcBreakerConfigProviderFactory;
+fn breaker_provider() -> impl grpc_egress_breaker_api::GrpcBreakerConfigProvider {
+    use grpc_egress_breaker_api::GrpcBreakerConfigProviderFactory;
     grpc_egress_breaker_spi::StdGrpcBreakerConfigProviderFactory
-        .build(grpc_egress_breaker::BuildGrpcBreakerConfigProviderRequest)
+        .build(grpc_egress_breaker_api::BuildGrpcBreakerConfigProviderRequest)
 }
 
 fn build(

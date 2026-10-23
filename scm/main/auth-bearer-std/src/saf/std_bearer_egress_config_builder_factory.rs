@@ -1,6 +1,6 @@
 //! `StdBearerEgressConfigBuilderFactory` -- creates the builder of the outbound bearer config.
 
-use grpc_egress_auth_bearer::{
+use grpc_egress_auth_bearer_api::{
     BearerEgressConfigBuilder, BearerEgressConfigBuilderFactory,
     BuildBearerEgressConfigBuilderRequest,
 };

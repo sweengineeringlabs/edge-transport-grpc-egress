@@ -19,18 +19,19 @@ A Rust workspace for outbound gRPC clients that implement Pattern typed and raw 
 
 ## Crates
 
-The workspace is `scm/`; each crate is in `scm/main/<crate>/`. Every theme is a pair: a domain crate
-(traits, plain data, errors; no implementation) and an implementation crate (`-std`) that depends on it
+The workspace is `scm/`; each crate is in `scm/main/<crate>/`. Every contract is its own `-api` package
+(traits, plain data, errors; no implementation), separate from its `-std` and/or `-spi` implementation packages,
+which depend on it
 ([ADR-006](scm/docs/adr/ADR-006-domain-first.md)).
 
 | Crate | What it is |
 |-------|------------|
-| `grpc-egress-transport` | the domain: the client builder trait, the options of a client, the interceptor trait, the factories of the cancellation and security-context views, and the channel configuration. The calls, requests, responses, errors, status codes and metadata are the contract's (`proto-pattern`). No `tonic`, `hyper` or `rustls` |
+| `grpc-egress-transport-api` | the domain: the client builder trait, the options of a client, the interceptor trait, the factories of the cancellation and security-context views, and the channel configuration. The calls, requests, responses, errors, status codes and metadata are the contract's (`proto-pattern`). No `tonic`, `hyper` or `rustls` |
 | `grpc-egress-transport-std` | the implementation: the builder over the `proto-svc` engine, the load-balanced client, interceptors, the cancellation and security-context views, the `grpc.health.v1` health-check call, the reading of TLS files, and the constructors of the domain types |
-| `grpc-egress-retry` / `-std` | retry: `GrpcRetryFactory`, `StdGrpcRetryFactory`, the retry policy `GrpcRetryConfig`; wraps any `Transport + RawTransport` |
-| `grpc-egress-breaker` / `-std` | circuit breaker: `GrpcBreakerFactory`, `StdGrpcBreakerFactory`, the policy `GrpcBreakerConfig`, `BreakerObservable`; wraps any `Transport + RawTransport` |
-| `grpc-egress-resilient` / `-std` | retry and breaker together: `StdGrpcResilientFactory`, the policy `ResilienceConfig` |
-| `grpc-egress-auth-bearer` / `-std` | JWT bearer: `StdBearerInterceptorFactory` signs a token and adds `authorization: Bearer <jwt>` to each request |
+| `grpc-egress-retry-api` / `-std` | retry: `GrpcRetryFactory`, `StdGrpcRetryFactory`, the retry policy `GrpcRetryConfig`; wraps any `Transport + RawTransport` |
+| `grpc-egress-breaker-api` / `-std` | circuit breaker: `GrpcBreakerFactory`, `StdGrpcBreakerFactory`, the policy `GrpcBreakerConfig`, `BreakerObservable`; wraps any `Transport + RawTransport` |
+| `grpc-egress-resilient-api` / `-std` | retry and breaker together: `StdGrpcResilientFactory`, the policy `ResilienceConfig` |
+| `grpc-egress-auth-bearer-api` / `-std` | JWT bearer: `StdBearerInterceptorFactory` signs a token and adds `authorization: Bearer <jwt>` to each request |
 | `grpc-egress-test-support` | fixtures for tests: an in-process peer (echo, reply, delay, status, TLS, mTLS), a freezable proxy |
 | `grpc-egress-example-composition-root` | what a composition root does with these crates: nine tested scenarios (`scm/main/examples/composition-root`) |
 
@@ -48,7 +49,7 @@ option; `build()` validates and returns the client, naming the options of any re
 
 ```rust,ignore
 use std::time::Duration;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
@@ -117,7 +118,7 @@ cancellation signal (`GrpcCancellationFactory`) and a caller identity (`GrpcCall
 scm/
   Cargo.toml                    the workspace (members listed one by one)
   CHANGELOG.md
-  main/<theme>/                 domain crate: src/<theme folder>/{dto,vo,error,traits}/, tests/
+  main/<theme>-api/              contract package: src/<theme folder>/{dto,vo,error,traits}/, tests/
   main/<theme>-std/             implementation crate: src/{std,spi,saf}/, tests/, examples/
   main/examples/composition-root/
   docs/                         architecture and ADRs

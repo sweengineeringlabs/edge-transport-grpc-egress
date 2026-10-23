@@ -1,7 +1,7 @@
 //! `TonicGrpcEgressBuilderSpiFactory` -- creates the builder of the client over the `proto-svc` engine.
 
 use crate::spi::client::protosvc::GrpcEgressBuilderImpl;
-use grpc_egress_transport::{
+use grpc_egress_transport_api::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
 
