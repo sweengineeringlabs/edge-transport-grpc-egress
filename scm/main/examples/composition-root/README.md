@@ -1,16 +1,26 @@
 # grpc-egress-example-composition-root
 
+**Audience:** Developers integrating the egress crates and maintainers verifying the public API.
+
+## WHAT
+
 What a composition root does with the gRPC egress crates, using nothing but their public API. It loads a
 `GrpcChannelConfig` from TOML text, assembles a client from it and from options, and wraps the client in
 the retry and breaker decorators. The client is a `proto-pattern` `Transport` and `RawTransport`; the root holds it
 through a generic bound, never a `dyn`. An in-process peer stands in for the server, so no network is needed.
+
+## WHY
+
+A consumer-shaped example proves that clients can be assembled and decorated using only public APIs, with observable behavior against real in-process gRPC peers.
+
+## HOW
 
 ```bash
 cargo run -p grpc-egress-example-composition-root                    # one line per scenario, exit 0
 cargo test -p grpc-egress-example-composition-root
 ```
 
-## The consumer code
+### The consumer code
 
 This is the whole of what a root writes to start from a configuration file (`CompositionRoot::assemble`) and to
 make a call through any client (`CompositionRoot::ping`); the options are added to the builder `assemble` returns,
@@ -52,11 +62,9 @@ pub async fn ping<T: RawTransport>(client: &T, body: &[u8]) -> Result<Vec<u8>, B
 
 A test fails when this quote differs from `src/composition_root.rs`.
 
-## The nine scenarios
+### The nine scenarios
 
-The first six are the scenarios of the restructuring (a seventh, the prost codec option, went with the option: the
-engine always sends `application/grpc`). The last three show a ruling of ADR-008 each, as running code, against a
-real server:
+The current scenarios cover transport options, configuration, interceptors and lifecycle events, balancing, decorators, invalid combinations, generic clients, cancellation, and caller identity. The removed prost-codec scenario is not part of the current contract; typed calls use `proto-pattern::Payload`. Each scenario runs against in-process peers:
 
 1. every transport option (`AllOptionsScenario`)
 2. a loaded config and one overriding option (`LoadedConfigScenario`)
@@ -69,9 +77,17 @@ real server:
 8. ruling 2, dropping a call's future cancels it, and a token can too: against a real `tonic` server (`CancellationScenario`)
 9. ruling 3, the caller's identity is headers of the call (`SecurityContextScenario`)
 
-## What a composition root does, and what the builder changes
+### What a composition root does, and what the builder changes
 
 A composition root that built clients with the removed factory functions
 (`create_*_from_config`) and wrapped them itself makes, with the builder, one call chain per client:
 the factory, the options, `build()`. Retry and breaker stay outside the transport (ADR-004): the root
 wraps the built client with each decorator crate's own factory, as scenario 5 does.
+
+## API
+
+`CompositionRoot` assembles a builder from loaded config; `ping` is generic over `RawTransport`. Each scenario is a public-API consumer and its effects are asserted in `tests/composition_root_int_test.rs`.
+
+## Documentation
+
+See the [workspace overview](../../../docs/README.md), [ADR-007](../../../docs/adr/ADR-007-decorators-wrap-a-built-client.md), and [ADR-012](../../../docs/adr/ADR-012-pattern-egress-lifecycle-adapter.md).

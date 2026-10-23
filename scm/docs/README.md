@@ -1,5 +1,7 @@
 # edge-transport-grpc-egress
 
+**Audience:** Consumers composing outbound gRPC clients and maintainers of this Rust workspace.
+
 ## WHAT
 
 Outbound gRPC client for swe-edge: a client over the `proto-svc` engine that is a `proto-pattern` `Transport`
@@ -26,3 +28,7 @@ Key capabilities:
 ## Verification records
 
 The current mutation manifest has 128 entries: 122 caught, 6 documented expected survivors, and 0 invalid or unexplained survivors. The issue #16 composition-root scenario rerun and per-mutant results are in [mutation-results.md](mutation-results.md). The Pattern lifecycle adapter decision and implementation are in [ADR-012](adr/ADR-012-pattern-egress-lifecycle-adapter.md).
+
+## HOW
+
+The transport builder creates typed and raw clients through the `proto-svc` engine. Configure the endpoint, security, limits, compression, timeout, balancing, and interceptors before calling `build()`. Apply retry or breaker after construction with their separate factories. The [root README](../../README.md) has consumer examples and workspace commands; the [composition-root example](../main/examples/composition-root/README.md) demonstrates all nine scenarios.

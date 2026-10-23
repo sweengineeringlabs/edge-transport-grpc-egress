@@ -2,6 +2,21 @@
 
 > **TLDR:** Outbound gRPC client for swe-edge: a client that is a `proto-pattern` `Transport` and `RawTransport` over the `proto-svc` engine, with a client-side load balancer built through one builder, and retry, circuit-breaker and bearer-auth pieces as separate crates. See [Overview](scm/docs/README.md) for details.
 
+**Audience:** Rust developers integrating the egress client, and maintainers working on its domain and implementation crates.
+
+## Table of Contents
+
+- [WHAT](#what)
+- [WHY](#why)
+- [HOW](#how)
+- [Crates](#crates)
+- [Options](#options-of-the-client-builder)
+- [Building and checking](#building-and-checking)
+
+## WHAT
+
+A Rust workspace for outbound gRPC clients that implement Pattern typed and raw transport contracts over the `proto-svc` engine. It also provides load balancing and separately composable retry, breaker, and bearer-auth crates.
+
 ## Crates
 
 The workspace is `scm/`; each crate is in `scm/main/<crate>/`. Every theme is a pair: a domain crate
@@ -19,7 +34,14 @@ The workspace is `scm/`; each crate is in `scm/main/<crate>/`. Every theme is a 
 | `grpc-egress-test-support` | fixtures for tests: an in-process peer (echo, reply, delay, status, TLS, mTLS), a freezable proxy |
 | `grpc-egress-example-composition-root` | what a composition root does with these crates: nine tested scenarios (`scm/main/examples/composition-root`) |
 
-## Usage
+## WHY
+
+The workspace gives service authors one typed and raw client construction path while keeping transport mechanics, retry, breaker, and bearer authentication in their owning crates. This makes options composable and lets policies wrap the same client contract.
+
+## HOW
+
+### Quick Start
+
 
 One way to build a client: a factory for the endpoint hands out a builder; every capability is a `with_*`
 option; `build()` validates and returns the client, naming the options of any refusal.
@@ -71,7 +93,8 @@ Runnable versions: `scm/main/transport-std/examples/basic_transport.rs`,
 `scm/main/resilient-std/examples/resilient.rs` and the composition-root example
 (`cargo run -p grpc-egress-example-composition-root`).
 
-## What this crate ships, and what it does not
+### Scope
+
 
 This crate ships the client side of the transport: the client over the `proto-svc` engine (which owns the
 wire format, the connection, TLS, compression and the status codes), the load balancer and interceptors. It does **not** ship
@@ -79,7 +102,7 @@ server machinery: it binds no listener, runs no accept loop, terminates no TLS a
 lifecycle on the serving side. That is the job of the deploying application. The in-process peer in `grpc-egress-test-support` is for tests and is not part of any
 published crate.
 
-## Options of the client builder
+### Options of the client builder
 
 `with_endpoint`, `with_plaintext_allowed`, `with_request_timeout`, `with_max_decoding_message_size`,
 `with_max_encoding_message_size`, `with_send_compression`, `with_accept_compression`, `with_tls`, `with_keep_alive`,
@@ -88,7 +111,7 @@ published crate.
 cancellation signal (`GrpcCancellationFactory`) and a caller identity (`GrpcCallerIdentityFactory`). The
 `grpc.health.v1` health-check call is `HealthCheck`.
 
-## Layout
+### Layout
 
 ```
 scm/
@@ -102,7 +125,16 @@ scripts/                        check_layout.py, rename_crate.py, mutation/ (run
 .githooks/                      pre-commit: fmt, clippy, arch audit, cargo audit, layout, script tests
 ```
 
-## Building and checking
+### Documentation
+
+- [Workspace overview](scm/docs/README.md)
+- [Architecture](scm/docs/architecture.md)
+- [Behavior comparison](scm/docs/behaviour-comparison.md)
+- [Conformance record](scm/docs/egress-conformance.md)
+- [Mutation results](scm/docs/mutation-results.md)
+- [Changelog](scm/CHANGELOG.md)
+
+### Building and checking
 
 ```bash
 cd scm
@@ -113,3 +145,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 cargo run -p grpc-egress-example-composition-root
 cd .. && python scripts/check_layout.py
 ```
+
+## Summary
+
+Build a client with `GrpcEgressBuilder`, then apply retry or breaker policies around the resulting `Transport + RawTransport`. See the [composition-root example](scm/main/examples/composition-root/README.md) for a complete public-API consumer.
