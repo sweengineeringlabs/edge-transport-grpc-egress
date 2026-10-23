@@ -86,3 +86,25 @@ Seven lifecycle mutations were added to `scripts/mutation/mutants.json` and run 
 ## Issue #60 public implementation paths
 
 The six health contract mutations (`H60-01`–`H60-06`) and the two older health mutations (`N01`, `N02`) were run against `grpc-egress-transport::health_check_payload_int_test`. All eight were caught, covering request service encoding/decoding, response status encoding/decoding, unknown statuses, and the standard method path. The obsolete `D20` token-adapter mutation was removed because `TokenCancellation` is no longer an implementation type; cancellation is supplied by a caller-owned `CancellationSignal` implementation. Combined with the documented issue #62 rerun (101 caught, 6 expected survivors) and issue #61 lifecycle rerun (7 caught), the current 119-entry manifest has **113 caught, 6 expected survivors, and 0 invalid or unexplained survivors**. The prior package-group runs were not repeated because the local build volume had less than 1 GB free; this follow-up reran both health mutations against the moved API.
+
+## Issue #16 composition-root scenario mutants
+
+Nine behavior-breaking mutants were added for the nine current composition-root scenarios and run with the scenario integration suite. The unmutated baseline passed; all nine mutants were caught, with no survivors or invalid mutations. The decorator retry mutant was caught by both its scenario test and the public-composition test.
+
+| Mutant | Scenario test that caught it |
+|---|---|
+| E16-01 all-options loses gzip | `test_run_every_transport_option_scenario_observes_every_effect` |
+| E16-02 loaded config loses compression override | `test_run_loaded_config_scenario_observes_the_file_and_the_override` |
+| E16-03 interceptor drops tracestate | `test_run_interceptor_scenario_observes_order_trace_context_and_refusal` |
+| E16-04 load balancer creates zero-weight backend | `test_run_loadbalancer_scenario_reaches_both_backends_and_avoids_the_dead_one` |
+| E16-05 decorator retries only once | `test_run_decorator_scenario_retries_then_opens_the_breaker`; `test_static_compositions_run_through_public_contracts` |
+| E16-06 invalid-combination omits plaintext option | `test_run_invalid_combination_scenario_names_the_options_of_every_refusal` |
+| E16-07 generic client drops request payload | `test_run_generic_client_scenario_passes_every_layer_to_one_generic_function` |
+| E16-08 cancellation never observes signal | `test_run_cancellation_scenario_ends_the_call_on_the_peer_and_on_a_fired_token` |
+| E16-09 security context drops tenant identity | `test_run_security_context_scenario_carries_the_context_as_headers` |
+
+The current 128-entry manifest therefore has **122 caught, 6 documented expected survivors, and 0 invalid or unexplained survivors**. Command:
+
+```powershell
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-example-composition-root --test composition_root_int_test" --only E16 --target-dir C:\temp\egress61-target --min-free-gb 2
+```

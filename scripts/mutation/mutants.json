@@ -724,5 +724,59 @@
     "file": "scm/main/transport/src/api/client/health_check.rs",
     "find": "const PATH: &'static str = \"/grpc.health.v1.Health/Check\";",
     "replace": "const PATH: &'static str = \"/grpc.health.v1.Health/Watch\";"
+  },
+  {
+    "name": "E16-01 composition root all-options scenario loses gzip",
+    "file": "scm/main/examples/composition-root/src/all_options_scenario.rs",
+    "find": ".with_send_compression(Compression::Gzip)",
+    "replace": ".with_send_compression(Compression::Zstd)"
+  },
+  {
+    "name": "E16-02 loaded-config scenario no longer overrides compression",
+    "file": "scm/main/examples/composition-root/src/loaded_config_scenario.rs",
+    "find": ".with_send_compression(Compression::Zstd)",
+    "replace": ".with_send_compression(Compression::Gzip)"
+  },
+  {
+    "name": "E16-03 interceptor scenario drops tracestate",
+    "file": "scm/main/examples/composition-root/src/interceptor_scenario.rs",
+    "find": "tracestate: Some(\"vendor=1\".to_string()),",
+    "replace": "tracestate: None,"
+  },
+  {
+    "name": "E16-04 load-balancer scenario creates zero-weight backends",
+    "file": "scm/main/examples/composition-root/src/loadbalancer_scenario.rs",
+    "find": "BackendTarget::try_new(url.clone(), 1)",
+    "replace": "BackendTarget::try_new(url.clone(), 0)"
+  },
+  {
+    "name": "E16-05 decorator scenario retries only once",
+    "file": "scm/main/examples/composition-root/src/decorator_scenario.rs",
+    "find": ".max_attempts(ATTEMPTS as u32)",
+    "replace": ".max_attempts(1)"
+  },
+  {
+    "name": "E16-06 invalid-combination scenario omits the plaintext option",
+    "file": "scm/main/examples/composition-root/src/invalid_combination_scenario.rs",
+    "find": "Self::builder(\"http://127.0.0.1:1\")\n            .with_plaintext_allowed()\n            .with_tls(TlsSettings::create(None, Vec::new(), Some(identity)))",
+    "replace": "Self::builder(\"http://127.0.0.1:1\")\n            .with_tls(TlsSettings::create(None, Vec::new(), Some(identity)))"
+  },
+  {
+    "name": "E16-07 generic-client scenario drops the request payload",
+    "file": "scm/main/examples/composition-root/src/composition_root.rs",
+    "find": ".with_message(body.to_vec())",
+    "replace": ".with_message(Vec::new())"
+  },
+  {
+    "name": "E16-08 cancellation scenario never observes the signal",
+    "file": "scm/main/examples/composition-root/src/cancellation_scenario.rs",
+    "find": "self.0.cancelled().await;",
+    "replace": "std::future::pending::<()>().await;"
+  },
+  {
+    "name": "E16-09 security-context scenario drops tenant identity",
+    "file": "scm/main/examples/composition-root/src/security_context_scenario.rs",
+    "find": "self.0.tenant_id.as_deref()",
+    "replace": "None"
   }
 ]
