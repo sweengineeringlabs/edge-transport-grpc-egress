@@ -18,7 +18,8 @@ impl TlsSettingsResolver for StdTlsSettingsResolver {
         &self,
         req: ResolveTlsSettingsRequest<'_>,
     ) -> Result<TlsSettings, GrpcChannelConfigError> {
-        let ResolveTlsSettingsRequest { identity, root_ca } = req;
+        let identity = req.identity();
+        let root_ca = req.root_ca();
         let roots = match root_ca {
             Some(path) => vec![Self::read_pem(
                 path,
@@ -30,12 +31,12 @@ impl TlsSettingsResolver for StdTlsSettingsResolver {
         let identity = match identity {
             Some(mtls) => Some(TlsIdentity::create(
                 Self::read_pem(
-                    &mtls.cert_pem_path,
+                    mtls.cert_pem_path(),
                     CERTIFICATE_MARKER,
                     "no certificate found in the file",
                 )?,
                 Self::read_pem(
-                    &mtls.key_pem_path,
+                    mtls.key_pem_path(),
                     PRIVATE_KEY_MARKER,
                     "no private key found in the file",
                 )?,

@@ -23,47 +23,41 @@ fn bearer_trait_constant_time_eq_reports_equality_int_test() {
 
 /// @covers: subtle::ConstantTimeEq — equal secrets compare as equal
 #[test]
-fn bearer_struct_bearer_secret_ct_eq_hs256_equal_secrets_returns_true_int_test() {
-    let a = BearerSecret::Hs256 {
-        secret: b"shared-secret-value".to_vec(),
-    };
-    let b = BearerSecret::Hs256 {
-        secret: b"shared-secret-value".to_vec(),
-    };
+fn bearer_struct_bearer_secret_ct_eq_hs256_equal_secrets_returns_true_int_test(
+) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+    let a = BearerSecret::hs256(b"shared-secret-value".to_vec())?;
+    let b = BearerSecret::hs256(b"shared-secret-value".to_vec())?;
     assert!(
         secret_guard().ct_eq_hs256(&a, &b),
         "identical HS256 secrets must compare as equal via subtle::ConstantTimeEq",
     );
+    Ok(())
 }
 
 /// @covers: subtle::ConstantTimeEq — unequal secrets compare as unequal
 #[test]
-fn bearer_struct_bearer_secret_ct_eq_hs256_different_secrets_returns_false_int_test() {
-    let a = BearerSecret::Hs256 {
-        secret: b"correct-secret".to_vec(),
-    };
-    let b = BearerSecret::Hs256 {
-        secret: b"wrong-secret".to_vec(),
-    };
+fn bearer_struct_bearer_secret_ct_eq_hs256_different_secrets_returns_false_int_test(
+) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+    let a = BearerSecret::hs256(b"correct-secret".to_vec())?;
+    let b = BearerSecret::hs256(b"wrong-secret".to_vec())?;
     assert!(
         !secret_guard().ct_eq_hs256(&a, &b),
         "different HS256 secrets must compare as unequal via subtle::ConstantTimeEq",
     );
+    Ok(())
 }
 
 /// @covers: subtle::ConstantTimeEq — variant mismatch returns false (no timing leak)
 #[test]
-fn bearer_struct_bearer_secret_ct_eq_hs256_variant_mismatch_returns_false_int_test() {
-    let hs = BearerSecret::Hs256 {
-        secret: b"secret".to_vec(),
-    };
-    let rs = BearerSecret::Rs256 {
-        private_pem: b"pem-bytes".to_vec(),
-    };
+fn bearer_struct_bearer_secret_ct_eq_hs256_variant_mismatch_returns_false_int_test(
+) -> Result<(), grpc_egress_auth_bearer::BearerAuthError> {
+    let hs = BearerSecret::hs256(b"secret".to_vec())?;
+    let rs = BearerSecret::rs256(b"pem-bytes".to_vec())?;
     assert!(
         !secret_guard().ct_eq_hs256(&hs, &rs),
         "cross-variant comparison must return false — algorithm mismatch is never equal",
     );
+    Ok(())
 }
 
 fn secret_guard() -> impl grpc_egress_auth_bearer::BearerSecretGuard {

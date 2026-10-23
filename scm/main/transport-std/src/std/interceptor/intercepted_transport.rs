@@ -54,23 +54,23 @@ impl<T> InterceptedTransport<T> {
         if self.chain.is_empty() {
             return Ok(());
         }
-        self.chain.run_after(&InboundReply {
-            path,
-            headers: StdMetadataExtender
-                .copy(headers)
-                .map_err(|error| CallError::Transport {
-                    path: path.into(),
-                    code: StatusCode::Internal,
-                    reason: error.to_string(),
-                })?,
-            trailers: StdMetadataExtender
+        let headers = StdMetadataExtender
+            .copy(headers)
+            .map_err(|error| CallError::Transport {
+                path: path.into(),
+                code: StatusCode::Internal,
+                reason: error.to_string(),
+            })?;
+        let trailers =
+            StdMetadataExtender
                 .copy(trailers)
                 .map_err(|error| CallError::Transport {
                     path: path.into(),
                     code: StatusCode::Internal,
                     reason: error.to_string(),
-                })?,
-        })
+                })?;
+        self.chain
+            .run_after(&InboundReply::new(path, headers, trailers))
     }
 }
 

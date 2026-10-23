@@ -23,8 +23,14 @@ pub trait ResilienceConfigProvider {
     fn validate(&self, config: &ResilienceConfig) -> Result<(), ResilientTransportError>;
 
     /// Project the standard and rate-limit retry fields of `config` onto the retry crate's own config shape.
-    fn to_retry_config(&self, config: &ResilienceConfig) -> GrpcRetryConfig;
+    fn to_retry_config(
+        &self,
+        config: &ResilienceConfig,
+    ) -> Result<GrpcRetryConfig, ResilientTransportError>;
 
     /// Project the circuit-breaker fields of `config` onto the breaker crate's own config shape.
-    fn to_breaker_config(&self, config: &ResilienceConfig) -> GrpcBreakerConfig;
+    fn to_breaker_config(
+        &self,
+        config: &ResilienceConfig,
+    ) -> Result<GrpcBreakerConfig, ResilientTransportError>;
 }

@@ -33,7 +33,7 @@ impl<T: Transport + RawTransport> Transport for GrpcRetryClient<T> {
         request: CallRequest<M::Request>,
     ) -> Result<CallResponse<M::Response, <Self as Transport>::Metadata>, CallError> {
         let (message, options) = request.into_parts();
-        if self.config.max_attempts <= 1 {
+        if self.config.max_attempts() <= 1 {
             return self
                 .inner
                 .call::<M>(CallRequest::new(message, options))
@@ -202,8 +202,8 @@ impl<T> GrpcRetryClient<T> {
         Fut: Future<Output = Result<R, CallError>>,
     {
         let started = Instant::now();
-        let max_attempts = self.config.max_attempts;
-        let rate_limit_max = self.config.rate_limit_max_attempts;
+        let max_attempts = self.config.max_attempts();
+        let rate_limit_max = self.config.rate_limit_max_attempts();
         let mut rng = DefaultJitterRng::from_clock();
         let mut standard_attempt = 0u32;
         let mut rate_lim_attempt = 0u32;

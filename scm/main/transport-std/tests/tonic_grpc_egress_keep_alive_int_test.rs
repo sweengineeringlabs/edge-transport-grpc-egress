@@ -19,12 +19,9 @@ use proto_pattern::{CallError, CallRawRequestBuilder, RawTransport, StatusCode, 
 const PING_INTERVAL: Duration = Duration::from_millis(200);
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
 
-fn keep_alive(permit_without_calls: bool) -> KeepAliveConfig {
-    KeepAliveConfig {
-        interval: PING_INTERVAL,
-        timeout: PING_TIMEOUT,
-        permit_without_calls,
-    }
+fn keep_alive(permit_without_calls: bool) -> Result<KeepAliveConfig, std::io::Error> {
+    KeepAliveConfig::try_new(PING_INTERVAL, PING_TIMEOUT, permit_without_calls)
+        .map_err(std::io::Error::other)
 }
 
 async fn call<C: RawTransport>(client: &C, timeout: Duration) -> Result<(), CallError> {
@@ -101,7 +98,7 @@ async fn freeze_during_a_call<C: RawTransport + 'static>(
 async fn test_with_keep_alive_peer_that_stops_answering_pings_ends_the_call_near_the_timeout_error(
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
-    let client = client_through(&proxy, Some(keep_alive(false)))?;
+    let client = client_through(&proxy, Some(keep_alive(false)?))?;
 
     let (result, elapsed) = freeze_during_a_call(client, &proxy, Duration::from_secs(20)).await;
 
@@ -151,7 +148,7 @@ async fn test_build_without_keep_alive_peer_that_stops_answering_is_noticed_only
 async fn test_with_keep_alive_permit_without_calls_idle_connection_to_a_frozen_peer_is_closed_happy(
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Reply(b"ok".to_vec())).await?;
-    let client = client_through(&proxy, Some(keep_alive(true)))?;
+    let client = client_through(&proxy, Some(keep_alive(true)?))?;
     call(&client, Duration::from_secs(5)).await?;
 
     proxy.freeze();
@@ -168,7 +165,7 @@ async fn test_with_keep_alive_permit_without_calls_idle_connection_to_a_frozen_p
 async fn test_with_keep_alive_without_permit_without_calls_idle_connection_is_left_alone_edge(
 ) -> Result<(), Box<dyn Error>> {
     let (_peer, proxy) = start_proxied(PeerBehaviour::Reply(b"ok".to_vec())).await?;
-    let client = client_through(&proxy, Some(keep_alive(false)))?;
+    let client = client_through(&proxy, Some(keep_alive(false)?))?;
     call(&client, Duration::from_secs(5)).await?;
 
     proxy.freeze();
@@ -189,7 +186,7 @@ async fn test_with_channel_config_keep_alive_is_applied_to_the_client_happy(
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
     let config = config_builder(proxy.get_endpoint())
         .allow_plaintext()
-        .with_keep_alive(keep_alive(false))
+        .with_keep_alive(keep_alive(false)?)
         .build()?;
     let client = TonicGrpcEgressBuilderSpiFactory::new(proxy.get_endpoint())
         .build(BuildGrpcEgressBuilderRequest)
@@ -213,7 +210,7 @@ async fn test_from_config_keep_alive_is_applied_to_the_client_the_caller_gets_ha
     let (_peer, proxy) = start_proxied(PeerBehaviour::Delay(Duration::from_secs(10))).await?;
     let config = config_builder(proxy.get_endpoint())
         .allow_plaintext()
-        .with_keep_alive(keep_alive(false))
+        .with_keep_alive(keep_alive(false)?)
         .build()?;
     let client = ClientFixture::from_config(&config)?;
 

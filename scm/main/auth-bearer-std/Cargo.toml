@@ -37,6 +37,7 @@ subtle        = "2"
 [dev-dependencies]
 grpc-egress-transport-std = { path = "../transport-std" }
 grpc-egress-test-support = { path = "../test-support" }
+toml = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 subtle = "2"

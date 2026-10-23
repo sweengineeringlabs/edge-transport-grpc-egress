@@ -61,17 +61,17 @@ impl<T> EndpointTransport<T> {
         settings: &LoadbalancerSettings,
     ) -> Result<BackendPoolInstance, GrpcChannelConfigError> {
         let config = LoadbalancerConfig {
-            strategy: match settings.strategy {
+            strategy: match settings.strategy() {
                 BalancingStrategy::RoundRobin => Strategy::RoundRobin,
                 BalancingStrategy::Weighted => Strategy::Weighted,
                 BalancingStrategy::LeastConnections => Strategy::LeastConnections,
             },
             backends: settings
-                .backends
+                .backends()
                 .iter()
                 .map(|b| BackendConfig {
-                    url: b.url.clone(),
-                    weight: b.weight,
+                    url: b.url().to_owned(),
+                    weight: b.weight(),
                 })
                 .collect(),
         };

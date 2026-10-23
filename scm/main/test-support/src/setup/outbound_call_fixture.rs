@@ -47,11 +47,11 @@ impl OutboundCallFixture {
 }
 
 impl OutboundCall for OutboundCallFixture {
-    fn get_path(&self) -> &str {
+    fn path(&self) -> &str {
         &self.path
     }
 
-    fn get_timeout(&self) -> Option<Duration> {
+    fn timeout(&self) -> Option<Duration> {
         self.timeout
     }
 
@@ -68,7 +68,7 @@ impl OutboundCall for OutboundCallFixture {
             .is_empty()
     }
 
-    fn get_header_values(&self, key: &str) -> Vec<&str> {
+    fn header_values(&self, key: &str) -> Vec<&str> {
         self.metadata
             .get_values(GetValuesRequest::new(key))
             .map(GetValuesResponse::into_values)

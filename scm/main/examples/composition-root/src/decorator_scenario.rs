@@ -11,8 +11,11 @@ use grpc_egress_breaker::{
     GrpcBreakerFactory, ObserveStateRequest,
 };
 use grpc_egress_breaker_std::StdGrpcBreakerFactory;
-use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
-use grpc_egress_retry_std::StdGrpcRetryFactory;
+use grpc_egress_retry::{
+    BuildGrpcRetryConfigBuilderRequest, BuildGrpcRetryRequest, GrpcRetryConfigBuilder,
+    GrpcRetryConfigBuilderFactory, GrpcRetryFactory,
+};
+use grpc_egress_retry_std::{StdGrpcRetryConfigBuilderFactory, StdGrpcRetryFactory};
 use grpc_egress_test_support::{CallFixture, PeerBehaviour};
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
@@ -46,21 +49,18 @@ impl DecoratorScenario {
             .build(BuildGrpcEgressBuilderRequest)
             .with_plaintext_allowed()
             .build()?;
-        let retrying = StdGrpcRetryFactory::new(GrpcRetryConfig {
-            max_attempts: ATTEMPTS as u32,
-            initial_backoff_ms: 1,
-            backoff_multiplier: 1.0,
-            jitter_factor: 0.0,
-            max_backoff_ms: 1,
-            ..GrpcRetryConfig::default()
-        })
-        .build(BuildGrpcRetryRequest { inner: bare });
-        let client = StdGrpcBreakerFactory::new(GrpcBreakerConfig {
-            failure_threshold: 2,
-            cool_down_seconds: 60,
-            half_open_probe_count: 1,
-        })
-        .build(BuildGrpcBreakerRequest { inner: retrying })?;
+        let retry_config = StdGrpcRetryConfigBuilderFactory
+            .build(BuildGrpcRetryConfigBuilderRequest)
+            .max_attempts(ATTEMPTS as u32)
+            .initial_backoff_ms(1)
+            .backoff_multiplier(1.0)
+            .jitter_factor(0.0)
+            .max_backoff_ms(1)
+            .build()?;
+        let retrying =
+            StdGrpcRetryFactory::new(retry_config).build(BuildGrpcRetryRequest { inner: bare });
+        let client = StdGrpcBreakerFactory::new(GrpcBreakerConfig::try_new(true, 2, 60, 1)?)
+            .build(BuildGrpcBreakerRequest { inner: retrying })?;
 
         let _ = client
             .call_raw({
@@ -89,7 +89,7 @@ impl DecoratorScenario {
             })
             .await
             .map(CallRawResponse::into_response);
-        let state = client.state(ObserveStateRequest).await?.state;
+        let state = client.state(ObserveStateRequest::new()).await?.state();
         report.record(
             "the breaker opens after the threshold of failed calls",
             matches!(state, BreakerState::Open { .. }),

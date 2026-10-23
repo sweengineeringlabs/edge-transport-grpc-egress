@@ -22,9 +22,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use grpc_egress_retry::GrpcRetryConfig;
-use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryFactory};
-use grpc_egress_retry_std::StdGrpcRetryFactory;
+use grpc_egress_retry::{
+    BuildGrpcRetryConfigBuilderRequest, BuildGrpcRetryRequest, GrpcRetryConfigBuilder,
+    GrpcRetryConfigBuilderFactory, GrpcRetryFactory,
+};
+use grpc_egress_retry_std::{StdGrpcRetryConfigBuilderFactory, StdGrpcRetryFactory};
 
 /// An upstream that fails its first `fail_until` calls with `Unavailable`, then succeeds. A real peer answers one
 /// way for every call, so this double is what makes "fails twice, then succeeds" happen.
@@ -185,15 +187,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fail_until: 2,
     };
 
-    let client = StdGrpcRetryFactory::new(GrpcRetryConfig {
-        max_attempts: 3,
-        initial_backoff_ms: 50,
-        backoff_multiplier: 2.0,
-        jitter_factor: 0.0,
-        max_backoff_ms: 200,
-        ..GrpcRetryConfig::default()
-    })
-    .build(BuildGrpcRetryRequest { inner: upstream });
+    let retry_config = StdGrpcRetryConfigBuilderFactory
+        .build(BuildGrpcRetryConfigBuilderRequest)
+        .max_attempts(3)
+        .initial_backoff_ms(50)
+        .backoff_multiplier(2.0)
+        .jitter_factor(0.0)
+        .max_backoff_ms(200)
+        .build()?;
+    let client =
+        StdGrpcRetryFactory::new(retry_config).build(BuildGrpcRetryRequest { inner: upstream });
 
     // A single logical call. The retry layer's internal attempt loop must
     // re-invoke the upstream after a real backoff sleep on each retriable

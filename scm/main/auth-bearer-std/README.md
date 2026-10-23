@@ -20,7 +20,7 @@ use grpc_egress_auth_bearer_std::{StdBearerEgressConfigBuilderFactory, StdBearer
 
 let config = StdBearerEgressConfigBuilderFactory
     .build(BuildBearerEgressConfigBuilderRequest)
-    .secret(BearerSecret::Hs256 { secret: secret_bytes })
+    .secret(BearerSecret::hs256(secret_bytes ).unwrap())
     .issuer("svc-a")
     .audience("svc-b")
     .subject("svc-a-client")

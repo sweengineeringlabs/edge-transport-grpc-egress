@@ -33,7 +33,7 @@ fn test_pass_through_keeps_an_existing_upstream_traceparent(
 
     interceptor.before_call(&mut call)?;
 
-    assert_eq!(call.get_header_values("traceparent"), [UPSTREAM]);
+    assert_eq!(call.header_values("traceparent"), [UPSTREAM]);
     Ok(())
 }
 
@@ -59,7 +59,7 @@ fn test_with_static_injects_the_traceparent_when_absent() -> Result<(), Box<dyn 
 
     interceptor.before_call(&mut call)?;
 
-    assert_eq!(call.get_header_values("traceparent"), [INJECTED]);
+    assert_eq!(call.header_values("traceparent"), [INJECTED]);
     assert!(
         !call.has_header("tracestate"),
         "no tracestate was configured, so none is sent"
@@ -76,7 +76,7 @@ fn test_with_static_injects_the_tracestate_when_configured(
 
     interceptor.before_call(&mut call)?;
 
-    assert_eq!(call.get_header_values("tracestate"), ["v=1"]);
+    assert_eq!(call.header_values("tracestate"), ["v=1"]);
     Ok(())
 }
 
@@ -90,7 +90,7 @@ fn test_with_static_keeps_an_upstream_traceparent_and_adds_no_tracestate(
     interceptor.before_call(&mut call)?;
 
     assert_eq!(
-        call.get_header_values("traceparent"),
+        call.header_values("traceparent"),
         [UPSTREAM],
         "an upstream traceparent is not overwritten, nor repeated"
     );
@@ -105,11 +105,7 @@ fn test_with_static_keeps_an_upstream_traceparent_and_adds_no_tracestate(
 #[test]
 fn test_after_call_accepts_any_reply() {
     let interceptor = trace_interceptor(grpc_egress_transport::TraceContextSource::PassThrough);
-    let reply = InboundReply {
-        path: "/svc/M",
-        headers: Metadata::default(),
-        trailers: Metadata::default(),
-    };
+    let reply = InboundReply::new("/svc/M", Metadata::default(), Metadata::default());
 
     assert!(interceptor.after_call(&reply).is_ok());
 }

@@ -9,10 +9,8 @@ pub(crate) struct StdBearerSecretGuard;
 
 impl BearerSecretGuard for StdBearerSecretGuard {
     fn ct_eq_hs256(&self, left: &BearerSecret, right: &BearerSecret) -> bool {
-        match (left, right) {
-            (BearerSecret::Hs256 { secret: a }, BearerSecret::Hs256 { secret: b }) => {
-                a.as_slice().ct_eq(b.as_slice()).into()
-            }
+        match (left.hs256_secret(), right.hs256_secret()) {
+            (Some(a), Some(b)) => a.ct_eq(b).into(),
             _ => false,
         }
     }

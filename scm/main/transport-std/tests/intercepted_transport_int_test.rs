@@ -78,7 +78,7 @@ struct Deny;
 impl GrpcEgressInterceptor for Deny {
     fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Err(CallError::Status {
-            path: call.get_path().into(),
+            path: call.path().into(),
             code: StatusCode::PermissionDenied,
             message: "denied by interceptor".to_string(),
             details: Vec::new(),
@@ -101,7 +101,7 @@ impl GrpcEgressInterceptor for RefuseReply {
 
     fn after_call(&self, reply: &InboundReply<'_>) -> Result<(), CallError> {
         Err(CallError::Status {
-            path: reply.path.into(),
+            path: reply.path().into(),
             code: StatusCode::DataLoss,
             message: "reply refused by interceptor".to_string(),
             details: Vec::new(),
@@ -148,8 +148,8 @@ impl GrpcEgressInterceptor for Capture {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(SeenReply {
-                path: reply.path.to_string(),
-                headers: reply.headers.clone(),
+                path: reply.path().to_string(),
+                headers: reply.headers().clone(),
             });
         Ok(())
     }
@@ -177,7 +177,7 @@ impl GrpcEgressInterceptor for SeeTimeout {
         self.0
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(call.get_timeout());
+            .push(call.timeout());
         Ok(())
     }
 
@@ -243,6 +243,7 @@ impl Fixture {
 // ---- before_call runs on every shape, typed and raw
 
 #[tokio::test]
+/// @covers: MetadataExtender::append
 async fn test_call_unary_typed_header_added_by_an_interceptor_reaches_the_peer(
 ) -> Result<(), Box<dyn Error>> {
     let peer = RunningPeer::start().await;
@@ -735,6 +736,7 @@ async fn test_call_after_call_runs_for_unary_and_client_stream_and_not_for_the_o
 }
 
 #[tokio::test]
+/// @covers: MetadataExtender::copy
 async fn test_call_unary_response_headers_and_the_path_reach_after_call(
 ) -> Result<(), Box<dyn Error>> {
     let peer = RunningPeer::start().await;

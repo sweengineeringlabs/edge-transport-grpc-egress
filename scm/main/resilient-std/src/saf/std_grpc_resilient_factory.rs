@@ -33,9 +33,9 @@ impl GrpcResilientFactory for StdGrpcResilientFactory {
     {
         let provider = StdResilienceConfigProvider;
         provider.validate(&self.config)?;
-        let with_retry = StdGrpcRetryFactory::new(provider.to_retry_config(&self.config))
+        let with_retry = StdGrpcRetryFactory::new(provider.to_retry_config(&self.config)?)
             .build(BuildGrpcRetryRequest { inner: req.inner });
-        let with_breaker = StdGrpcBreakerFactory::new(provider.to_breaker_config(&self.config))
+        let with_breaker = StdGrpcBreakerFactory::new(provider.to_breaker_config(&self.config)?)
             .build(BuildGrpcBreakerRequest { inner: with_retry })?;
         Ok(with_breaker)
     }

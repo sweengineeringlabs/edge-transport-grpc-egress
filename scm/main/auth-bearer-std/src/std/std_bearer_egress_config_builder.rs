@@ -39,14 +39,14 @@ impl BearerEgressConfigBuilder for StdBearerEgressConfigBuilder {
     }
 
     fn build(self) -> Result<BearerEgressConfig, String> {
-        Ok(BearerEgressConfig {
-            secret: self.secret.ok_or("secret is required")?,
-            issuer: self.issuer.ok_or("issuer is required")?,
-            audience: self.audience.ok_or("audience is required")?,
-            subject: self.subject.ok_or("subject is required")?,
-            lifetime_seconds: self
-                .lifetime_seconds
+        BearerEgressConfig::try_new(
+            self.secret.ok_or("secret is required")?,
+            self.issuer.ok_or("issuer is required")?,
+            self.audience.ok_or("audience is required")?,
+            self.subject.ok_or("subject is required")?,
+            self.lifetime_seconds
                 .ok_or("lifetime_seconds is required")?,
-        })
+        )
+        .map_err(|error| error.to_string())
     }
 }

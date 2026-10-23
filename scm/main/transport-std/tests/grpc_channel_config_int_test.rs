@@ -30,7 +30,7 @@ fn ensure_rustls_provider() {
 #[test]
 fn transport_struct_channel_config_default_requires_tls_int_test() {
     let cfg = GrpcChannelConfig::default();
-    assert!(cfg.tls_required, "TLS-by-default invariant must hold");
+    assert!(cfg.tls_required(), "TLS-by-default invariant must hold");
 }
 
 /// @covers: create_transport_from_config — plaintext endpoint rejected when tls_required.
@@ -132,7 +132,7 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
     impl GrpcEgressInterceptor for Deny {
         fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
             Err(CallError::Status {
-                path: call.get_path().into(),
+                path: call.path().into(),
                 code: StatusCode::PermissionDenied,
                 message: "denied".to_string(),
                 details: Vec::new(),
@@ -185,7 +185,7 @@ fn transport_struct_channel_config_with_compression_overrides_mode_int_test(
     let cfg = config_builder("http://localhost:0")
         .with_compression(CompressionMode::Gzip)
         .build()?;
-    assert_eq!(cfg.compression, CompressionMode::Gzip);
+    assert_eq!(cfg.compression(), CompressionMode::Gzip);
     Ok(())
 }
 

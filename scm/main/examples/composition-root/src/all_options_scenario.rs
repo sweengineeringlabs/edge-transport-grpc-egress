@@ -45,11 +45,11 @@ impl AllOptionsScenario {
             .with_max_decoding_message_size(MESSAGE_CAP_BYTES)
             .with_send_compression(Compression::Gzip)
             .with_accept_compression(Compression::Gzip)
-            .with_keep_alive(KeepAliveConfig {
-                interval: Duration::from_secs(30),
-                timeout: Duration::from_secs(10),
-                permit_without_calls: false,
-            })
+            .with_keep_alive(KeepAliveConfig::try_new(
+                Duration::from_secs(30),
+                Duration::from_secs(10),
+                false,
+            )?)
             .with_interceptor(Arc::new(OrderInterceptor::new("only", log.clone())))
             .with_trace_context(TraceContextSource::Static {
                 traceparent: TRACEPARENT.to_string(),
@@ -182,13 +182,13 @@ impl AllOptionsScenario {
                 .into_owned(),
             key_pem_path: pki.get_client_key_pem_path().to_string_lossy().into_owned(),
             ca_pem_path: Some(pki.get_ca_pem_path().to_string_lossy().into_owned()),
-        });
+        })?;
         let tls = StdTlsSettingsResolverFactory
             .build(BuildTlsSettingsResolverRequest)
-            .resolve(ResolveTlsSettingsRequest {
-                identity: Some(&mtls),
-                root_ca: mtls.ca_pem_path.as_deref(),
-            })?;
+            .resolve(ResolveTlsSettingsRequest::new(
+                Some(&mtls),
+                mtls.ca_pem_path(),
+            ))?;
         let client = TonicGrpcEgressBuilderSpiFactory::new(peer.get_https_endpoint())
             .build(BuildGrpcEgressBuilderRequest)
             .with_tls(tls)

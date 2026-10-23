@@ -17,30 +17,95 @@ use crate::BearerSecret;
 /// ```rust
 /// use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret};
 ///
-/// let config = BearerEgressConfig {
-///     secret: BearerSecret::Hs256 { secret: b"my-secret-key".to_vec() },
-///     issuer: "my-service".to_string(),
-///     audience: "upstream-service".to_string(),
-///     subject: "my-service-account".to_string(),
-///     lifetime_seconds: 3600,
-/// };
+/// let config = BearerEgressConfig::try_new(BearerSecret::hs256(b"my-secret-key".to_vec()).unwrap(),
+///     "my-service", "upstream-service", "my-service-account", 3600).unwrap();
 ///
-/// assert_eq!(config.issuer, "my-service");
-/// assert_eq!(config.lifetime_seconds, 3600);
+/// assert_eq!(config.issuer(), "my-service");
+/// assert_eq!(config.lifetime_seconds(), 3600);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// ```compile_fail,E0451
+/// use grpc_egress_auth_bearer::{BearerEgressConfig, BearerSecret};
+/// let _ = BearerEgressConfig { secret: BearerSecret::hs256(vec![1]).unwrap(), issuer: String::from("i"), audience: String::from("a"), subject: String::from("s"), lifetime_seconds: 1 };
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "BearerEgressConfigData")]
 pub struct BearerEgressConfig {
     /// Algorithm + key material to sign the JWT.  HS256 expects raw
     /// bytes; RS256 expects PEM.
-    pub secret: BearerSecret,
+    secret: BearerSecret,
     /// JWT `iss` claim.
-    pub issuer: String,
+    issuer: String,
     /// JWT `aud` claim.
-    pub audience: String,
+    audience: String,
     /// JWT `sub` claim.
-    pub subject: String,
+    subject: String,
     /// Lifetime of minted tokens in seconds.
-    pub lifetime_seconds: u64,
+    lifetime_seconds: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BearerEgressConfigData {
+    secret: BearerSecret,
+    issuer: String,
+    audience: String,
+    subject: String,
+    lifetime_seconds: u64,
+}
+
+impl TryFrom<BearerEgressConfigData> for BearerEgressConfig {
+    type Error = BearerAuthError;
+    fn try_from(v: BearerEgressConfigData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            v.secret,
+            v.issuer,
+            v.audience,
+            v.subject,
+            v.lifetime_seconds,
+        )
+    }
+}
+
+impl BearerEgressConfig {
+    /// Construct a validated bearer signing configuration.
+    pub fn try_new(
+        secret: BearerSecret,
+        issuer: impl Into<String>,
+        audience: impl Into<String>,
+        subject: impl Into<String>,
+        lifetime_seconds: u64,
+    ) -> Result<Self, BearerAuthError> {
+        let value = Self {
+            secret,
+            issuer: issuer.into(),
+            audience: audience.into(),
+            subject: subject.into(),
+            lifetime_seconds,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+    /// Signing key material.
+    pub fn secret(&self) -> &BearerSecret {
+        &self.secret
+    }
+    /// JWT issuer.
+    pub fn issuer(&self) -> &str {
+        &self.issuer
+    }
+    /// JWT audience.
+    pub fn audience(&self) -> &str {
+        &self.audience
+    }
+    /// JWT subject.
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
+    /// Token lifetime in seconds.
+    pub fn lifetime_seconds(&self) -> u64 {
+        self.lifetime_seconds
+    }
 }
 
 impl Validator for BearerEgressConfig {
@@ -58,6 +123,11 @@ impl Validator for BearerEgressConfig {
         if self.subject.is_empty() {
             return Err(BearerAuthError::ValidationFailed(
                 "subject must not be empty".into(),
+            ));
+        }
+        if self.lifetime_seconds == 0 {
+            return Err(BearerAuthError::ValidationFailed(
+                "lifetime_seconds must be >= 1".into(),
             ));
         }
         Ok(())

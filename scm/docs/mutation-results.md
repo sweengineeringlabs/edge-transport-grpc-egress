@@ -51,5 +51,30 @@ reason: none was accepted as equivalent.
 | BR09 (as first written, a new breaker starts open) | invalid: the variant has a field | rewritten as "starts half-open"; caught by 15 tests |
 | N02 the health call goes to Watch | caught only after 10 minutes: the live-server tests waited on a streaming answer for ever | every health call of the tests is bounded by a limit (30 s) so a call that does not end fails the test; the mutant is now caught by 4 tests in seconds |
 
-Every one of the 107 mutants is caught; none is expected to survive. The groups were run with
-`scripts/mutation/run_mutants.py --only <prefixes> --cmd "cargo test --manifest-path scm/Cargo.toml -p <crates> --no-fail-fast"`.
+The issue 60 table above is historical. The final issue #62 rerun below records the current manifest and the expected survivors justified by construction invariants.
+
+## Issue #62 mutation rerun
+
+The complete 107-entry manifest was rerun against the strengthened API. Each package group first passed its unmutated baseline, then ran each mutation against the domain and implementation crates that cover it. The mutation runner restored the mutated source bytes after each case. The final total was **101 caught, 6 expected to survive, 0 invalid or unexplained survivors**. All mutation `find` fragments are unique in the current source tree.
+
+| Group | Manifest entries | Test command packages | Result |
+|---|---|---|---|
+| Transport, metadata, identity, TLS, cancellation, health, channel and load-balancer (`I`, `C`, `T`, `H`, `M`, `E`, `X`, `Y`, `L`, `B`, `N`, `D`) | 65 | `grpc-egress-transport-std` | All behavior mutations caught. The corrected endpoint-bypass mutant D07 is caught by the existing missing-endpoint builder test. |
+| Breaker (`BR`) | 11 | `grpc-egress-breaker`, `grpc-egress-breaker-std`, `grpc-egress-resilient`, `grpc-egress-resilient-std` | 9 caught; BR07 and BR11 are expected survivors because private `GrpcBreakerConfig` construction/deserialization validates the policy before provider/factory validation. |
+| Bearer authentication (`BA`) | 7 | `grpc-egress-auth-bearer`, `grpc-egress-auth-bearer-std` | All caught. |
+| Retry (`RT`) | 19 | `grpc-egress-retry`, `grpc-egress-retry-std`, `grpc-egress-resilient`, `grpc-egress-resilient-std` | 16 caught; RT14, RT16 and RT17 are expected survivors because `GrpcRetryConfig` construction and deserialization validate before the redundant provider checks. |
+| Resilience (`RS`) | 5 | `grpc-egress-resilient`, `grpc-egress-resilient-std`, `grpc-egress-retry`, `grpc-egress-retry-std`, `grpc-egress-breaker`, `grpc-egress-breaker-std` | 4 caught; RS01 is an expected survivor because private `ResilienceConfig` construction and deserialization validate its embedded policies. |
+
+The stale mutations from the previous API revision were repaired before their final rerun: I05 now swaps `InboundReply::new` arguments; M02 targets the binary-copy loop in the extension path; Y04 uses `CallerIdentity::headers`; B01/B04/B13 use current channel accessors and the TLS resolver; D04-D10/D14 target current builder, mTLS, load-balancer and metadata code; BR07/BR08 and RT14/RT15/RT17/RT18 use value-object accessors and the current builders; RS01-RS05 target the current projection and factory paths; and BA06 targets the builder's current `try_new` argument. D10 now tests rejection of a valid parsed backend list because the immutable `LoadbalancerSettings` constructor correctly prevents creating an invalid empty-backend value.
+
+Representative commands (all run from the repository root with the common target directory and a 2 GB free-space reserve):
+
+```powershell
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-transport-std" --only I C T H M E X Y L N D B01 B03 B04 B05 B06 B07 B08 B09 B10 B11 B12 B13 --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-breaker -p grpc-egress-breaker-std -p grpc-egress-resilient -p grpc-egress-resilient-std" --only BR --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-auth-bearer -p grpc-egress-auth-bearer-std" --only BA --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-retry -p grpc-egress-retry-std -p grpc-egress-resilient -p grpc-egress-resilient-std" --only RT --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-resilient -p grpc-egress-resilient-std -p grpc-egress-retry -p grpc-egress-retry-std -p grpc-egress-breaker -p grpc-egress-breaker-std" --only RS --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+```
+
+The transport group was split into package-scoped batches and corrected-entry reruns to keep the target directory within the reserve. The breaker, bearer, retry and resilience groups were run separately so unrelated mutants were tested by their owning package suites.

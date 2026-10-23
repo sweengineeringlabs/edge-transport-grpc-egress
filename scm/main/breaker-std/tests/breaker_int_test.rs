@@ -428,7 +428,7 @@ fn build(
 }
 
 async fn state_of(client: &impl BreakerObservable) -> Result<BreakerState, BreakerDomainError> {
-    Ok(client.state(ObserveStateRequest).await?.state)
+    Ok(client.state(ObserveStateRequest::new()).await?.state())
 }
 
 fn is_open(state: BreakerState) -> bool {
@@ -439,7 +439,7 @@ fn is_open(state: BreakerState) -> bool {
 #[test]
 fn test_grpc_breaker_config_default_has_positive_failure_threshold() {
     let cfg = GrpcBreakerConfig::default();
-    assert!(cfg.failure_threshold >= 1);
+    assert!(cfg.failure_threshold() >= 1);
 }
 
 /// @covers: StdGrpcBreakerFactory::build â€” a closed breaker passes every shape through.
@@ -709,14 +709,14 @@ async fn test_build_with_default_config_opens_at_the_default_threshold(
     let client = build(&script, GrpcBreakerConfig::default())?;
     let default_cfg = GrpcBreakerConfig::default();
 
-    // Drive exactly (default_cfg.failure_threshold - 1) failures: breaker must still be closed (accepting
+    // Drive exactly (default_cfg.failure_threshold() - 1) failures: breaker must still be closed (accepting
     // calls), proving the DEFAULT threshold â€” not some other value â€” was genuinely applied.
-    for _ in 0..default_cfg.failure_threshold - 1 {
+    for _ in 0..default_cfg.failure_threshold() - 1 {
         let _ = invoke(&client, Shape::RawUnary).await;
     }
     assert_eq!(
         script.call_count(),
-        default_cfg.failure_threshold - 1,
+        default_cfg.failure_threshold() - 1,
         "breaker must still be passing calls through below the default threshold"
     );
 
@@ -724,7 +724,7 @@ async fn test_build_with_default_config_opens_at_the_default_threshold(
     // reaching inner.
     let _ = invoke(&client, Shape::RawUnary).await;
     let calls_at_threshold = script.call_count();
-    assert_eq!(calls_at_threshold, default_cfg.failure_threshold);
+    assert_eq!(calls_at_threshold, default_cfg.failure_threshold());
     let err = invoke(&client, Shape::RawUnary)
         .await
         .err()
@@ -744,15 +744,32 @@ async fn test_build_with_default_config_opens_at_the_default_threshold(
     Ok(())
 }
 
+/// @covers: StdGrpcBreakerFactory::build — disabled policy bypasses admission and state updates
+#[tokio::test(flavor = "multi_thread")]
+async fn test_disabled_breaker_forwards_failures_without_admission_or_state_changes(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let script = Script::new(Mode::Status(StatusCode::Unavailable));
+    let config = GrpcBreakerConfig::try_new(false, 1, 5, 1)?;
+    assert!(!config.enabled());
+    let client = build(&script, config)?;
+
+    for _ in 0..5 {
+        assert!(invoke(&client, Shape::RawUnary).await.is_err());
+    }
+    assert_eq!(
+        script.call_count(),
+        5,
+        "disabled breaker must forward every call"
+    );
+    assert_eq!(state_of(&client).await?, BreakerState::Closed);
+    Ok(())
+}
+
 /// @covers: StdGrpcBreakerFactory::build
 #[tokio::test(flavor = "multi_thread")]
 async fn test_build_with_supplied_config_opens_at_the_supplied_threshold(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let cfg = GrpcBreakerConfig {
-        failure_threshold: 3,
-        cool_down_seconds: 5,
-        half_open_probe_count: 1,
-    };
+    let cfg = GrpcBreakerConfig::try_new(true, 3, 5, 1)?;
     let script = Script::new(Mode::Status(StatusCode::Unavailable));
     let client = build(&script, cfg)?;
 
@@ -801,7 +818,7 @@ async fn test_call_state_after_each_failed_call_follows_the_shared_state_machine
     let mut state = BreakerState::Closed;
     let (mut failures, mut successes) = (0, 0);
 
-    for call in 1..=config.failure_threshold {
+    for call in 1..=config.failure_threshold() {
         let recorded = DefaultBreakerTransition.record(RecordOutcomeRequest {
             state,
             consecutive_failures: failures,
@@ -826,7 +843,7 @@ async fn test_call_state_after_each_failed_call_follows_the_shared_state_machine
     assert!(
         is_open(state),
         "the threshold of {} failures must open the circuit",
-        config.failure_threshold
+        config.failure_threshold()
     );
     Ok(())
 }

@@ -104,7 +104,7 @@ async fn peer_answering_status(code: StatusCode) -> Result<RunningPeer, Box<dyn 
 }
 
 async fn state_of(client: &impl BreakerObservable) -> Result<BreakerState, Box<dyn Error>> {
-    Ok(client.state(ObserveStateRequest).await?.state)
+    Ok(client.state(ObserveStateRequest::new()).await?.state())
 }
 
 async fn call_raw(client: &impl RawTransport) -> Result<Vec<u8>, CallError> {
@@ -124,6 +124,7 @@ async fn call_raw(client: &impl RawTransport) -> Result<Vec<u8>, CallError> {
 
 /// @covers: StdGrpcBreakerFactory::build
 #[tokio::test(flavor = "multi_thread")]
+/// @covers: FailureClassifier::classify_result
 async fn test_call_raw_unavailable_peer_opens_the_circuit_and_an_open_circuit_never_reaches_the_peer(
 ) -> Result<(), Box<dyn Error>> {
     let peer = peer_answering_status(StatusCode::Unavailable).await?;

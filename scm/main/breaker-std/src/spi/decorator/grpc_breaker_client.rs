@@ -23,9 +23,13 @@ pub(crate) struct GrpcBreakerClient<T> {
 impl<T> std::fmt::Debug for GrpcBreakerClient<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GrpcBreakerClient")
-            .field("failure_threshold", &self.config.failure_threshold)
-            .field("cool_down_seconds", &self.config.cool_down_seconds)
-            .field("half_open_probe_count", &self.config.half_open_probe_count)
+            .field("failure_threshold", &self.config.failure_threshold())
+            .field("enabled", &self.config.enabled())
+            .field("cool_down_seconds", &self.config.cool_down_seconds())
+            .field(
+                "half_open_probe_count",
+                &self.config.half_open_probe_count(),
+            )
             .finish()
     }
 }
@@ -53,7 +57,7 @@ impl<T: Send + Sync> BreakerObservable for GrpcBreakerClient<T> {
         Box::pin(async move {
             let state = self.node.lock().await.state;
             trace!(target: GRPC_BREAKER_CLIENT_LOG_TARGET, ?state, "grpc-breaker: state observed");
-            Ok(ObserveStateResponse { state })
+            Ok(ObserveStateResponse::new(state))
         })
     }
 }

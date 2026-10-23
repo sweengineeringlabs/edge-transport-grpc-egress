@@ -71,19 +71,19 @@ impl LoadbalancerScenario {
     }
 
     fn balanced(urls: &[String]) -> Result<impl Transport + RawTransport, Box<dyn Error>> {
+        let backends = urls
+            .iter()
+            .map(|url| {
+                BackendTarget::try_new(url.clone(), 1)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let settings = LoadbalancerSettings::try_new(BalancingStrategy::RoundRobin, backends)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
         Ok(TonicGrpcEgressBuilderSpiFactory::new("")
             .build(BuildGrpcEgressBuilderRequest)
             .with_plaintext_allowed()
-            .with_loadbalancer(LoadbalancerSettings {
-                strategy: BalancingStrategy::RoundRobin,
-                backends: urls
-                    .iter()
-                    .map(|url| BackendTarget {
-                        url: url.clone(),
-                        weight: 1,
-                    })
-                    .collect(),
-            })
+            .with_loadbalancer(settings)
             .build()?)
     }
 

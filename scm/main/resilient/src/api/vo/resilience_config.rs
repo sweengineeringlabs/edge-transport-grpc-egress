@@ -21,7 +21,14 @@
 //! cool_down_seconds             = 10
 //! half_open_probe_count         = 1
 //! ```
+//!
+//! ```compile_fail,E0451
+//! use grpc_egress_resilient::ResilienceConfig;
+//! let _ = ResilienceConfig { max_attempts: 0, ..ResilienceConfig::default() };
+//! ```
 
+use grpc_egress_breaker::GrpcBreakerConfig;
+use grpc_egress_retry::GrpcRetryConfig;
 use serde::{Deserialize, Serialize};
 
 /// Resilience policy for a single outbound gRPC channel.
@@ -88,37 +95,173 @@ use serde::{Deserialize, Serialize};
 /// Set `rate_limit_max_attempts = 1` (no rate-limit retries) because the API
 /// `Retry-After` window is typically 30-60 s — far beyond a typical call deadline.
 /// Let the caller handle quota exhaustion instead of burning the deadline in a retry loop.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "ResilienceConfigData")]
 pub struct ResilienceConfig {
     // ── Standard retry ────────────────────────────────────────────────────────
     /// Total attempts including the first call. `1` disables retry.
-    pub max_attempts: u32,
+    max_attempts: u32,
     /// Wait before the first standard retry (ms).
-    pub initial_backoff_ms: u64,
+    initial_backoff_ms: u64,
     /// Exponential growth factor per retry index.
-    pub backoff_multiplier: f64,
+    backoff_multiplier: f64,
     /// Jitter as a fraction of the computed backoff (0.0 = none, 0.1 = ±10%).
-    pub jitter_factor: f64,
+    jitter_factor: f64,
     /// Hard cap on standard retry backoff (ms).
-    pub max_backoff_ms: u64,
+    max_backoff_ms: u64,
 
     // ── Rate-limit retry track ────────────────────────────────────────────────
     /// Max attempts on the rate-limit track (usually lower than `max_attempts`).
-    pub rate_limit_max_attempts: u32,
+    rate_limit_max_attempts: u32,
     /// Wait before the first rate-limit retry (ms). Overridden by
     /// `[retry-after=Ns]` hint when present.
-    pub rate_limit_initial_backoff_ms: u64,
+    rate_limit_initial_backoff_ms: u64,
     /// Hard cap on rate-limit backoff (ms).
-    pub rate_limit_max_backoff_ms: u64,
+    rate_limit_max_backoff_ms: u64,
 
     // ── Circuit breaker ───────────────────────────────────────────────────────
+    /// Whether the breaker is active; `false` bypasses admission and state updates.
+    breaker_enabled: bool,
     /// Consecutive post-retry transport failures before opening the circuit.
-    pub failure_threshold: u32,
+    failure_threshold: u32,
     /// Seconds the circuit stays open before probing.
-    pub cool_down_seconds: u64,
+    cool_down_seconds: u64,
     /// Consecutive probe successes required in HalfOpen to close.
-    pub half_open_probe_count: u32,
+    half_open_probe_count: u32,
 }
+
+#[derive(Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct ResilienceConfigData {
+    max_attempts: u32,
+    initial_backoff_ms: u64,
+    backoff_multiplier: f64,
+    jitter_factor: f64,
+    max_backoff_ms: u64,
+    rate_limit_max_attempts: u32,
+    rate_limit_initial_backoff_ms: u64,
+    rate_limit_max_backoff_ms: u64,
+    breaker_enabled: bool,
+    failure_threshold: u32,
+    cool_down_seconds: u64,
+    half_open_probe_count: u32,
+}
+
+impl Default for ResilienceConfigData {
+    fn default() -> Self {
+        let v = ResilienceConfig::default();
+        Self {
+            max_attempts: v.max_attempts,
+            initial_backoff_ms: v.initial_backoff_ms,
+            backoff_multiplier: v.backoff_multiplier,
+            jitter_factor: v.jitter_factor,
+            max_backoff_ms: v.max_backoff_ms,
+            rate_limit_max_attempts: v.rate_limit_max_attempts,
+            rate_limit_initial_backoff_ms: v.rate_limit_initial_backoff_ms,
+            rate_limit_max_backoff_ms: v.rate_limit_max_backoff_ms,
+            breaker_enabled: v.breaker_enabled,
+            failure_threshold: v.failure_threshold,
+            cool_down_seconds: v.cool_down_seconds,
+            half_open_probe_count: v.half_open_probe_count,
+        }
+    }
+}
+
+impl TryFrom<ResilienceConfigData> for ResilienceConfig {
+    type Error = crate::ResilientTransportError;
+    fn try_from(v: ResilienceConfigData) -> Result<Self, Self::Error> {
+        let retry = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: v.max_attempts,
+            initial_backoff_ms: v.initial_backoff_ms,
+            backoff_multiplier: v.backoff_multiplier,
+            jitter_factor: v.jitter_factor,
+            max_backoff_ms: v.max_backoff_ms,
+            rate_limit_max_attempts: v.rate_limit_max_attempts,
+            rate_limit_initial_backoff_ms: v.rate_limit_initial_backoff_ms,
+            rate_limit_max_backoff_ms: v.rate_limit_max_backoff_ms,
+        })
+        .map_err(|e| crate::ResilientTransportError::InvalidResilience(e.to_string()))?;
+        let breaker = GrpcBreakerConfig::try_new(
+            v.breaker_enabled,
+            v.failure_threshold,
+            v.cool_down_seconds,
+            v.half_open_probe_count,
+        )
+        .map_err(|e| crate::ResilientTransportError::InvalidResilience(e.to_string()))?;
+        Ok(Self::from_policies(retry, breaker))
+    }
+}
+
+impl ResilienceConfig {
+    /// Compose independently validated retry and breaker policies into one resilient policy.
+    pub fn from_policies(retry: GrpcRetryConfig, breaker: GrpcBreakerConfig) -> Self {
+        Self {
+            max_attempts: retry.max_attempts(),
+            initial_backoff_ms: retry.initial_backoff_ms(),
+            backoff_multiplier: retry.backoff_multiplier(),
+            jitter_factor: retry.jitter_factor(),
+            max_backoff_ms: retry.max_backoff_ms(),
+            rate_limit_max_attempts: retry.rate_limit_max_attempts(),
+            rate_limit_initial_backoff_ms: retry.rate_limit_initial_backoff_ms(),
+            rate_limit_max_backoff_ms: retry.rate_limit_max_backoff_ms(),
+            breaker_enabled: breaker.enabled(),
+            failure_threshold: breaker.failure_threshold(),
+            cool_down_seconds: breaker.cool_down_seconds(),
+            half_open_probe_count: breaker.half_open_probe_count(),
+        }
+    }
+    /// Total standard attempts, including the initial call.
+    pub fn max_attempts(&self) -> u32 {
+        self.max_attempts
+    }
+    /// Initial standard retry delay in milliseconds.
+    pub fn initial_backoff_ms(&self) -> u64 {
+        self.initial_backoff_ms
+    }
+    /// Exponential backoff multiplier.
+    pub fn backoff_multiplier(&self) -> f64 {
+        self.backoff_multiplier
+    }
+    /// Retry jitter factor in the inclusive range from zero to one.
+    pub fn jitter_factor(&self) -> f64 {
+        self.jitter_factor
+    }
+    /// Maximum standard retry delay in milliseconds.
+    pub fn max_backoff_ms(&self) -> u64 {
+        self.max_backoff_ms
+    }
+    /// Maximum attempts for rate-limit responses.
+    pub fn rate_limit_max_attempts(&self) -> u32 {
+        self.rate_limit_max_attempts
+    }
+    /// Initial rate-limit delay in milliseconds.
+    pub fn rate_limit_initial_backoff_ms(&self) -> u64 {
+        self.rate_limit_initial_backoff_ms
+    }
+    /// Maximum rate-limit delay in milliseconds.
+    pub fn rate_limit_max_backoff_ms(&self) -> u64 {
+        self.rate_limit_max_backoff_ms
+    }
+    /// Whether the breaker admits calls and records outcomes.
+    pub fn breaker_enabled(&self) -> bool {
+        self.breaker_enabled
+    }
+    /// Consecutive failures required to open the circuit.
+    pub fn failure_threshold(&self) -> u32 {
+        self.failure_threshold
+    }
+    /// Open-circuit cool-down in seconds.
+    pub fn cool_down_seconds(&self) -> u64 {
+        self.cool_down_seconds
+    }
+    /// Successful half-open probes required to close the circuit.
+    pub fn half_open_probe_count(&self) -> u32 {
+        self.half_open_probe_count
+    }
+}
+
+// Every instance is created from validated retry and breaker policies or validated deserialization.
+impl Eq for ResilienceConfig {}
 
 impl Default for ResilienceConfig {
     /// Returns the fast-stateless-gRPC profile: the calibrated baseline that
@@ -133,6 +276,7 @@ impl Default for ResilienceConfig {
             rate_limit_max_attempts: 2,
             rate_limit_initial_backoff_ms: 1_000,
             rate_limit_max_backoff_ms: 10_000,
+            breaker_enabled: true,
             failure_threshold: 5,
             cool_down_seconds: 30,
             half_open_probe_count: 1,

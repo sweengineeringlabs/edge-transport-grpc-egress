@@ -17,16 +17,16 @@ impl GrpcBreakerConfigProvider for StdGrpcBreakerConfigProvider {
     }
 
     fn cool_down(&self, config: &GrpcBreakerConfig) -> Duration {
-        Duration::from_secs(config.cool_down_seconds)
+        Duration::from_secs(config.cool_down_seconds())
     }
 
     fn validate(&self, config: &GrpcBreakerConfig) -> Result<(), Error> {
-        if config.failure_threshold == 0 {
+        if config.failure_threshold() == 0 {
             return Err(Error::InvalidConfig(
                 "failure_threshold must be >= 1".into(),
             ));
         }
-        if config.half_open_probe_count == 0 {
+        if config.half_open_probe_count() == 0 {
             return Err(Error::InvalidConfig(
                 "half_open_probe_count must be >= 1".into(),
             ));

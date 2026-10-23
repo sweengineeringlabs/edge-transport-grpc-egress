@@ -186,19 +186,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fail_until: 2,
     };
 
-    let config = ResilienceConfig {
-        max_attempts: 3,
-        initial_backoff_ms: 20,
-        backoff_multiplier: 2.0,
-        jitter_factor: 0.0,
-        max_backoff_ms: 100,
-        rate_limit_max_attempts: 1,
-        rate_limit_initial_backoff_ms: 100,
-        rate_limit_max_backoff_ms: 100,
-        failure_threshold: 5,
-        cool_down_seconds: 1,
-        half_open_probe_count: 1,
-    };
+    let config = ResilienceConfig::from_policies(
+        grpc_egress_retry::GrpcRetryConfig::try_new(
+            grpc_egress_retry::BuildGrpcRetryConfigRequest {
+                max_attempts: 3,
+                initial_backoff_ms: 20,
+                backoff_multiplier: 2.0,
+                jitter_factor: 0.0,
+                max_backoff_ms: 100,
+                rate_limit_max_attempts: 1,
+                rate_limit_initial_backoff_ms: 100,
+                rate_limit_max_backoff_ms: 100,
+            },
+        )?,
+        grpc_egress_breaker::GrpcBreakerConfig::try_new(true, 5, 1, 1)?,
+    );
     let client = StdGrpcResilientFactory::new(config)
         .build(BuildGrpcResilientRequest { inner: upstream })?;
 

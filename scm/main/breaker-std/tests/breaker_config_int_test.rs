@@ -15,9 +15,9 @@ fn test_from_config_parses_full_toml() -> Result<(), Box<dyn std::error::Error>>
         half_open_probe_count = 1
     "#;
     let cfg = breaker_provider().parse_config(toml)?;
-    assert_eq!(cfg.failure_threshold, 5);
-    assert_eq!(cfg.cool_down_seconds, 30);
-    assert_eq!(cfg.half_open_probe_count, 1);
+    assert_eq!(cfg.failure_threshold(), 5);
+    assert_eq!(cfg.cool_down_seconds(), 30);
+    assert_eq!(cfg.half_open_probe_count(), 1);
     Ok(())
 }
 
@@ -70,8 +70,8 @@ fn test_zero_probe_count_is_invalid() {
 #[test]
 fn test_default_config_has_valid_positive_fields() {
     let cfg = GrpcBreakerConfig::default();
-    assert!(cfg.failure_threshold >= 1);
-    assert!(cfg.half_open_probe_count >= 1);
+    assert!(cfg.failure_threshold() >= 1);
+    assert!(cfg.half_open_probe_count() >= 1);
 }
 
 /// @covers: section_name
@@ -86,8 +86,15 @@ fn test_cool_down_returns_duration_from_seconds() {
     let cfg = GrpcBreakerConfig::default();
     assert_eq!(
         breaker_provider().cool_down(&cfg),
-        Duration::from_secs(cfg.cool_down_seconds)
+        Duration::from_secs(cfg.cool_down_seconds())
     );
+}
+
+#[test]
+fn test_validate_accepts_the_default_policy() {
+    assert!(breaker_provider()
+        .validate(&GrpcBreakerConfig::default())
+        .is_ok());
 }
 
 fn breaker_provider() -> impl grpc_egress_breaker::GrpcBreakerConfigProvider {

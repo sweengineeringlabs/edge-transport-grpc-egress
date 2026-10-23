@@ -7,6 +7,10 @@
 //! ([`grpc_egress_retry_std::StdGrpcRetryFactory`]), then a circuit breaker
 //! ([`grpc_egress_breaker_std::StdGrpcBreakerFactory`]).
 //!
+//! ```compile_fail
+//! use grpc_egress_resilient_std::saf::StdGrpcResilientFactory;
+//! ```
+//!
 //! Call-stack once wrapped:
 //! ```text
 //! circuit breaker     ← fast-fail when circuit is open

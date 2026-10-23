@@ -9,6 +9,16 @@ word.
 
 ## [Unreleased]
 
+### Issue 62: validated, immutable configuration values
+
+- **Breaking for direct struct construction and field access.** Configuration value objects now keep state private and expose read-only accessors. Use their validated constructors, existing builders, or the documented serde representation.
+- Retry and breaker configs validate at construction and deserialization. `ResilienceConfig::from_policies` composes already validated retry and breaker policies.
+- `GrpcRetryConfig::try_new` now accepts a `BuildGrpcRetryConfigRequest` construction bundle; the standard fluent retry-config builder remains available.
+- `BearerSecret::hs256` and `BearerSecret::rs256` replace public enum variants and reject empty key material. The tagged serialized shape remains compatible.
+- Channel, keep-alive, mTLS, backend-target and load-balancer settings now validate all public construction and deserialization paths. `GrpcChannelConfig::default()` remains an incomplete builder seed; provide an endpoint before building.
+- `GrpcBreakerConfig` adds `enabled` (default `true`). When false, calls pass through without breaker state/admission changes.
+- Request/response DTO fields are private where required by the pinned architecture; use their constructors and accessors.
+
 ### Proto dependency upgrade
 
 - Pin every consumer to `proto-pattern` v0.12.0 and the `proto-svc` crates v0.4.2.

@@ -36,7 +36,8 @@ class Tree:
         for rel, text in files.items():
             path = os.path.join(self.root, rel)
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            open(path, "w", newline="\n").write(text)
+            with open(path, "w", newline="\n") as handle:
+                handle.write(text)
 
     def check(self):
         return LayoutChecker(self.root).check_all()
@@ -124,6 +125,16 @@ class LayoutCheckerTest(unittest.TestCase):
     def test_check_all_error_in_an_error_folder_passes(self):
         files = dict(GOOD)
         files["scm/main/foo/src/api/client/error/bar_error.rs"] = "pub enum BarError {}\n"
+        self.assertEqual(self.rules(files), set())
+
+    def test_check_all_public_value_object_field_fails(self):
+        files = dict(GOOD)
+        files["scm/main/foo/src/api/client/vo/policy.rs"] = "pub struct Policy { pub attempts: u32, value: bool, }\n"
+        self.assertIn("private_vo_fields", self.rules(files))
+
+    def test_check_all_private_value_object_fields_pass(self):
+        files = dict(GOOD)
+        files["scm/main/foo/src/api/client/vo/policy.rs"] = "pub struct Policy { attempts: u32, value: bool, }\n"
         self.assertEqual(self.rules(files), set())
 
     def test_check_all_lib_rs_with_a_function_fails(self):

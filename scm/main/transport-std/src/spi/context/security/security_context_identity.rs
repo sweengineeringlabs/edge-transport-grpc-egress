@@ -17,15 +17,15 @@ impl<'a> From<&'a SecurityContext> for SecurityContextIdentity<'a> {
 }
 
 impl CallerIdentity for SecurityContextIdentity<'_> {
-    fn get_trace_id(&self) -> Option<&str> {
+    fn trace_id(&self) -> Option<&str> {
         self.context.trace_id.as_deref()
     }
 
-    fn get_tenant_id(&self) -> Option<&str> {
+    fn tenant_id(&self) -> Option<&str> {
         self.context.tenant_id.as_deref()
     }
 
-    fn get_bearer_token(&self) -> Option<&str> {
+    fn bearer_token(&self) -> Option<&str> {
         if self.context.authenticated {
             self.context.token.as_deref()
         } else {
@@ -33,7 +33,7 @@ impl CallerIdentity for SecurityContextIdentity<'_> {
         }
     }
 
-    fn list_headers(&self) -> Vec<(&str, &str)> {
+    fn headers(&self) -> Vec<(&str, &str)> {
         let mut entries: Vec<(&str, &str)> = self
             .context
             .metadata

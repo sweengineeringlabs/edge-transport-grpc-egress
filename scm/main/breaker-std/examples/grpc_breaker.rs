@@ -34,12 +34,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .allow_plaintext()
             .build()?,
     )?;
-    let client = StdGrpcBreakerFactory::new(GrpcBreakerConfig {
-        failure_threshold: 2,
-        cool_down_seconds: 30,
-        half_open_probe_count: 1,
-    })
-    .build(BuildGrpcBreakerRequest { inner: client })?;
+    let client = StdGrpcBreakerFactory::new(GrpcBreakerConfig::try_new(true, 2, 30, 1)?)
+        .build(BuildGrpcBreakerRequest { inner: client })?;
     let call = || async {
         client
             .call_raw({
@@ -70,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
         ));
     }
-    let state = client.state(ObserveStateRequest).await?.state;
+    let state = client.state(ObserveStateRequest::new()).await?.state();
     assert!(matches!(state, BreakerState::Open { .. }));
 
     // Third call: the circuit is now open. This is the real proof that `DefaultBreakerTransition::admit` executed

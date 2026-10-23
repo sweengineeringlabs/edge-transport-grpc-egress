@@ -8,6 +8,10 @@
 //!
 //! One folder per theme, each with the folders its kinds need (`dto/`, `vo/`, `error/`, `traits/`):
 //! `client`, `channel`, `interceptor`, `loadbalancer`, `cancellation` and `context`.
+//!
+//! ```compile_fail
+//! use grpc_egress_transport::api::channel::vo::GrpcChannelConfig;
+//! ```
 
 mod api;
 

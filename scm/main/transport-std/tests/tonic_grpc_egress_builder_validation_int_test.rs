@@ -32,16 +32,13 @@ fn settings_with_identity() -> TlsSettings {
 }
 
 fn settings(urls: &[&str]) -> LoadbalancerSettings {
-    LoadbalancerSettings {
-        strategy: BalancingStrategy::RoundRobin,
-        backends: urls
-            .iter()
-            .map(|url| BackendTarget {
-                url: (*url).to_string(),
-                weight: 1,
-            })
+    LoadbalancerSettings::try_new(
+        BalancingStrategy::RoundRobin,
+        urls.iter()
+            .map(|url| BackendTarget::try_new(*url, 1).unwrap_or_else(|e| panic!("{e}")))
             .collect(),
-    }
+    )
+    .unwrap_or_else(|e| panic!("{e}"))
 }
 
 fn describe<T>(result: Result<T, GrpcChannelConfigError>) -> String {
@@ -141,23 +138,14 @@ fn test_build_max_encoding_message_size_zero_returns_invalid_option_value_error(
 #[test]
 fn test_build_channel_config_max_message_bytes_zero_returns_invalid_option_value_error(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let config = config_builder("https://service.example:443")
+    let result = config_builder("https://service.example:443")
         .with_max_message_bytes(0)
-        .build()?;
+        .build();
 
-    let result = builder().with_channel_config(&config).build();
-
-    assert!(
-        matches!(
-            result,
-            Err(GrpcChannelConfigError::InvalidOptionValue {
-                option: "max_decoding_message_size",
-                ..
-            })
-        ),
-        "a zero limit of the configuration must be refused, got {}",
-        describe(result)
-    );
+    let error = result
+        .err()
+        .unwrap_or_else(|| panic!("a zero limit must be refused during config construction"));
+    assert!(error.contains("max_message_bytes"), "got {error}");
     Ok(())
 }
 
@@ -203,18 +191,7 @@ async fn test_build_request_timeout_one_nanosecond_is_accepted_edge() {
 /// @covers: GrpcEgressBuilder::build
 #[test]
 fn test_build_loadbalancer_with_no_backends_returns_invalid_option_value_error() {
-    let result = TonicGrpcEgressBuilderSpiFactory::new("")
-        .build(BuildGrpcEgressBuilderRequest)
-        .with_loadbalancer(settings(&[]))
-        .build();
-
-    match result {
-        Err(GrpcChannelConfigError::InvalidOptionValue { option, reason }) => {
-            assert_eq!(option, "loadbalancer");
-            assert!(reason.contains("no backends"), "reason: {reason}");
-        }
-        other => panic!("expected InvalidOptionValue, got {}", describe(other)),
-    }
+    assert!(LoadbalancerSettings::try_new(BalancingStrategy::RoundRobin, Vec::new()).is_err());
 }
 
 /// @covers: GrpcEgressBuilder::build
@@ -313,9 +290,15 @@ fn test_build_loadbalancer_with_a_plaintext_backend_without_plaintext_allowed_is
 #[test]
 fn test_build_channel_config_mtls_files_with_plaintext_allowed_returns_conflict_naming_both_options_error(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = config_builder("https://service.example:443").build()?;
-    config.tls_required = false;
-    config.mtls = Some(mtls_config("client.pem", "client.key"));
+    let config = grpc_egress_transport::GrpcChannelConfig::try_new(
+        "https://service.example:443",
+        false,
+        Some(mtls_config("client.pem", "client.key")?),
+        None,
+        grpc_egress_transport::DEFAULT_MAX_MESSAGE_BYTES,
+        grpc_egress_transport::CompressionMode::None,
+        None,
+    )?;
 
     let result = builder().with_channel_config(&config).build();
 
@@ -349,7 +332,7 @@ fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder 
 fn mtls_config(
     cert: impl Into<String>,
     key: impl Into<String>,
-) -> grpc_egress_transport::MtlsConfig {
+) -> Result<grpc_egress_transport::MtlsConfig, grpc_egress_transport::GrpcChannelConfigError> {
     use grpc_egress_transport::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
         grpc_egress_transport::BuildMtlsConfigRequest {

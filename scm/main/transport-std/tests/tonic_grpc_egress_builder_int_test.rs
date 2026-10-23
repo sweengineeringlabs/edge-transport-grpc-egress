@@ -49,7 +49,7 @@ struct RefusingInterceptor;
 impl GrpcEgressInterceptor for RefusingInterceptor {
     fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Err(CallError::Transport {
-            path: call.get_path().into(),
+            path: call.path().into(),
             code: StatusCode::Aborted,
             reason: "refused by the interceptor".to_string(),
         })
@@ -70,7 +70,7 @@ impl GrpcEgressInterceptor for FailingAfterInterceptor {
 
     fn after_call(&self, reply: &InboundReply<'_>) -> Result<(), CallError> {
         Err(CallError::Transport {
-            path: reply.path.into(),
+            path: reply.path().into(),
             code: StatusCode::DataLoss,
             reason: "the reply was refused by the interceptor".to_string(),
         })

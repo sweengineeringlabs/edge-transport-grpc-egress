@@ -6,6 +6,10 @@
 //! `pub(crate)` types and creates them in `saf/`: a factory is a public type implementing a domain factory trait.
 //! `std/` holds the standard implementations (defaults over the domain crate only); `spi/` holds the code that names
 //! third-party crates.
+//!
+//! ```compile_fail
+//! use grpc_egress_transport_std::saf::TonicGrpcEgressBuilderSpiFactory;
+//! ```
 
 mod saf;
 mod spi;

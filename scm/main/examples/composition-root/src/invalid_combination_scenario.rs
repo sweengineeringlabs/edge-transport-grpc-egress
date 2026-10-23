@@ -1,4 +1,4 @@
-//! `InvalidCombinationScenario` -- every refusal of `build()`, each naming its options.
+//! `InvalidCombinationScenario` -- invalid construction and incompatible build options are refused clearly.
 
 use std::error::Error;
 
@@ -40,7 +40,7 @@ impl InvalidCombinationScenario {
         let endpoint_and_balancer = Self::builder("")
             .with_endpoint("http://127.0.0.1:1")
             .with_plaintext_allowed()
-            .with_loadbalancer(Self::one_backend())
+            .with_loadbalancer(Self::one_backend()?)
             .build()
             .err()
             .map(|e| e.to_string())
@@ -63,19 +63,12 @@ impl InvalidCombinationScenario {
             zero_limit.contains("max_decoding_message_size"),
         );
 
-        let no_backends = Self::builder("")
-            .with_plaintext_allowed()
-            .with_loadbalancer(LoadbalancerSettings {
-                strategy: BalancingStrategy::RoundRobin,
-                backends: Vec::new(),
-            })
-            .build()
+        let no_backends = LoadbalancerSettings::try_new(BalancingStrategy::RoundRobin, Vec::new())
             .err()
-            .map(|e| e.to_string())
             .unwrap_or_default();
         report.record(
-            "a balancer without backends names the option",
-            no_backends.contains("loadbalancer"),
+            "a balancer without backends names the missing backends",
+            no_backends.contains("backends"),
         );
 
         let plaintext = Self::builder("http://127.0.0.1:1")
@@ -94,13 +87,12 @@ impl InvalidCombinationScenario {
         TonicGrpcEgressBuilderSpiFactory::new(endpoint).build(BuildGrpcEgressBuilderRequest)
     }
 
-    fn one_backend() -> LoadbalancerSettings {
-        LoadbalancerSettings {
-            strategy: BalancingStrategy::RoundRobin,
-            backends: vec![BackendTarget {
-                url: "http://127.0.0.1:2".to_string(),
-                weight: 1,
-            }],
-        }
+    fn one_backend() -> Result<LoadbalancerSettings, Box<dyn Error>> {
+        Ok(LoadbalancerSettings::try_new(
+            BalancingStrategy::RoundRobin,
+            vec![BackendTarget::try_new("http://127.0.0.1:2", 1)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?],
+        )
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?)
     }
 }

@@ -337,11 +337,7 @@ impl<T: Send + Sync> BreakerObservable for Observed<T> {
         &self,
         _req: ObserveStateRequest,
     ) -> BoxFuture<'_, Result<ObserveStateResponse, BreakerDomainError>> {
-        Box::pin(async {
-            Ok(ObserveStateResponse {
-                state: BreakerState::Closed,
-            })
-        })
+        Box::pin(async { Ok(ObserveStateResponse::new(BreakerState::Closed)) })
     }
 }
 
@@ -356,7 +352,7 @@ impl GrpcBreakerFactory for CheckingFactory {
         req: BuildGrpcBreakerRequest<T>,
     ) -> Result<impl Transport + RawTransport + BreakerObservable + use<T>, BreakerDomainError>
     {
-        if self.config.failure_threshold == 0 {
+        if self.config.failure_threshold() == 0 {
             return Err(BreakerDomainError::InvalidConfig(
                 "failure_threshold must be >= 1".into(),
             ));
@@ -395,7 +391,7 @@ async fn test_build_valid_policy_returns_a_client_that_can_be_called_both_ways_a
     assert_eq!(raw.get_message(), &Vec::<u8>::new());
     assert_eq!(typed.get_message(), &Bytes(Vec::new()));
     assert_eq!(
-        client.state(ObserveStateRequest).await?.state,
+        client.state(ObserveStateRequest::new()).await?.state(),
         BreakerState::Closed
     );
     Ok(())
@@ -404,14 +400,8 @@ async fn test_build_valid_policy_returns_a_client_that_can_be_called_both_ways_a
 /// @covers: GrpcBreakerFactory::build
 #[test]
 fn test_build_policy_without_a_threshold_returns_invalid_config_error() {
-    let factory = CheckingFactory {
-        config: GrpcBreakerConfig {
-            failure_threshold: 0,
-            ..GrpcBreakerConfig::default()
-        },
-    };
-
-    let result = factory.build(BuildGrpcBreakerRequest { inner: Quiet });
-
-    assert!(matches!(result, Err(BreakerDomainError::InvalidConfig(_))));
+    assert!(matches!(
+        GrpcBreakerConfig::try_new(true, 0, 30, 1),
+        Err(BreakerDomainError::InvalidConfig(_))
+    ));
 }

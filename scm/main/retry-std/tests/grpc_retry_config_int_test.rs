@@ -16,10 +16,10 @@ fn retry_struct_grpc_retry_config_is_accessible_int_test() {
 #[test]
 fn retry_struct_grpc_retry_config_default_passes_validation_int_test() {
     let cfg = GrpcRetryConfig::default();
-    assert!(cfg.max_attempts >= 1);
-    assert!(cfg.backoff_multiplier > 0.0);
-    assert!((0.0..=1.0).contains(&cfg.jitter_factor));
-    assert!(cfg.max_backoff_ms >= cfg.initial_backoff_ms);
+    assert!(cfg.max_attempts() >= 1);
+    assert!(cfg.backoff_multiplier() > 0.0);
+    assert!((0.0..=1.0).contains(&cfg.jitter_factor()));
+    assert!(cfg.max_backoff_ms() >= cfg.initial_backoff_ms());
 }
 
 /// @covers: GrpcRetryConfig::from_config — parses TOML correctly
@@ -37,7 +37,7 @@ fn retry_struct_grpc_retry_config_from_config_parses_full_toml_int_test(
         rate_limit_max_backoff_ms = 5000
     "#;
     let cfg = retry_provider().parse_config(toml)?;
-    assert_eq!(cfg.max_attempts, 3);
+    assert_eq!(cfg.max_attempts(), 3);
     Ok(())
 }
 
@@ -46,14 +46,21 @@ fn retry_struct_grpc_retry_config_from_config_parses_full_toml_int_test(
 fn retry_struct_grpc_retry_config_validate_zero_attempts_is_refused_and_the_default_is_accepted_int_test(
 ) {
     let provider = retry_provider();
-    let zero = GrpcRetryConfig {
+    let defaults = GrpcRetryConfig::default();
+    let zero = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
         max_attempts: 0,
-        ..GrpcRetryConfig::default()
-    };
+        initial_backoff_ms: defaults.initial_backoff_ms(),
+        backoff_multiplier: defaults.backoff_multiplier(),
+        jitter_factor: defaults.jitter_factor(),
+        max_backoff_ms: defaults.max_backoff_ms(),
+        rate_limit_max_attempts: defaults.rate_limit_max_attempts(),
+        rate_limit_initial_backoff_ms: defaults.rate_limit_initial_backoff_ms(),
+        rate_limit_max_backoff_ms: defaults.rate_limit_max_backoff_ms(),
+    });
 
     assert!(provider.validate(&GrpcRetryConfig::default()).is_ok());
     assert!(
-        matches!(provider.validate(&zero), Err(grpc_egress_retry::Error::InvalidConfig(ref m)) if m.contains("max_attempts"))
+        matches!(zero, Err(grpc_egress_retry::Error::InvalidConfig(ref m)) if m.contains("max_attempts"))
     );
 }
 
@@ -70,23 +77,24 @@ fn retry_struct_grpc_retry_config_parse_config_zero_attempts_is_refused_int_test
         rate_limit_initial_backoff_ms = 100
         rate_limit_max_backoff_ms = 5000
     "#;
-    assert!(matches!(
-        retry_provider().parse_config(toml),
-        Err(grpc_egress_retry::Error::InvalidConfig(_))
-    ));
+    assert!(retry_provider().parse_config(toml).is_err());
 }
 
 /// @covers: GrpcRetryConfigProvider::initial_backoff — milliseconds
 #[test]
-fn retry_struct_grpc_retry_config_initial_backoff_is_read_in_milliseconds_int_test() {
+fn retry_struct_grpc_retry_config_initial_backoff_is_read_in_milliseconds_int_test(
+) -> Result<(), grpc_egress_retry::Error> {
     let provider = retry_provider();
-    let config = GrpcRetryConfig {
+    let config = GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+        max_attempts: 5,
         initial_backoff_ms: 250,
+        backoff_multiplier: 2.0,
+        jitter_factor: 0.1,
         max_backoff_ms: 7_000,
+        rate_limit_max_attempts: 2,
         rate_limit_initial_backoff_ms: 1_500,
         rate_limit_max_backoff_ms: 9_000,
-        ..GrpcRetryConfig::default()
-    };
+    })?;
     assert_eq!(
         provider.initial_backoff(&config),
         std::time::Duration::from_millis(250)
@@ -103,6 +111,7 @@ fn retry_struct_grpc_retry_config_initial_backoff_is_read_in_milliseconds_int_te
         provider.rate_limit_max_backoff(&config),
         std::time::Duration::from_millis(9_000)
     );
+    Ok(())
 }
 
 fn retry_provider() -> impl grpc_egress_retry::GrpcRetryConfigProvider {

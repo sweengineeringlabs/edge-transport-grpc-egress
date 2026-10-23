@@ -63,7 +63,7 @@ fn identity_of(pki: &TestPki) -> Result<TlsIdentity, Box<dyn Error>> {
 }
 
 /// The paths of the client identity and the authority, as a configuration file names them.
-fn mtls_files_of(pki: &TestPki) -> MtlsConfig {
+fn mtls_files_of(pki: &TestPki) -> Result<MtlsConfig, GrpcChannelConfigError> {
     mtls_config_with_ca(
         path_of(pki.get_client_cert_pem_path()),
         path_of(pki.get_client_key_pem_path()),
@@ -267,7 +267,7 @@ async fn test_with_channel_config_mtls_files_are_read_and_the_identity_is_presen
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
     let config = config_builder(peer.get_https_endpoint())
-        .with_mtls(mtls_files_of(&pki))
+        .with_mtls(mtls_files_of(&pki)?)
         .build()?;
 
     let client = builder_for(&peer).with_channel_config(&config).build()?;
@@ -283,7 +283,7 @@ async fn test_from_config_mtls_files_are_applied_to_the_client_the_caller_gets_h
     let pki = TestPki::create()?;
     let peer = start_peer(&pki, TlsServerMode::ClientAuthRequired).await?;
     let config = config_builder(peer.get_https_endpoint())
-        .with_mtls(mtls_files_of(&pki))
+        .with_mtls(mtls_files_of(&pki)?)
         .build()?;
     let client = ClientFixture::from_config(&config)?;
 
@@ -305,7 +305,7 @@ async fn test_with_channel_config_mtls_ca_file_of_another_authority_refuses_the_
             path_of(pki.get_client_cert_pem_path()),
             path_of(pki.get_client_key_pem_path()),
             path_of(other.get_ca_pem_path()),
-        ))
+        )?)
         .build()?;
     let client = builder_for(&peer).with_channel_config(&config).build()?;
 
@@ -325,7 +325,7 @@ async fn test_build_mtls_certificate_file_that_does_not_exist_fails_naming_the_p
         .with_mtls(mtls_config(
             missing.clone(),
             path_of(pki.get_client_key_pem_path()),
-        ))
+        )?)
         .build()?;
 
     let result = ClientFixture::from_config(&config);
@@ -351,7 +351,7 @@ async fn test_build_mtls_key_file_without_a_key_fails_naming_the_path_error(
         .with_mtls(mtls_config(
             path_of(pki.get_client_cert_pem_path()),
             not_a_key.clone(),
-        ))
+        )?)
         .build()?;
 
     let result = ClientFixture::from_config(&config);
@@ -379,7 +379,7 @@ async fn test_build_mtls_ca_file_without_a_certificate_fails_naming_the_path_err
             path_of(pki.get_client_cert_pem_path()),
             path_of(pki.get_client_key_pem_path()),
             empty.clone(),
-        ))
+        )?)
         .build()?;
 
     let result = ClientFixture::from_config(&config);
@@ -401,9 +401,9 @@ async fn test_build_mtls_ca_file_without_a_certificate_fails_naming_the_path_err
 fn test_resolve_identity_and_root_ca_reads_the_bytes_of_every_file_happy(
 ) -> Result<(), Box<dyn Error>> {
     let pki = TestPki::create()?;
-    let mtls = mtls_files_of(&pki);
+    let mtls = mtls_files_of(&pki)?;
 
-    let settings = resolve_tls(Some(&mtls), mtls.ca_pem_path.as_deref())?;
+    let settings = resolve_tls(Some(&mtls), mtls.ca_pem_path())?;
 
     assert_eq!(
         settings.get_trust_roots_pem(),
@@ -476,7 +476,7 @@ fn test_resolve_identity_key_file_with_text_but_no_key_returns_unusable_tls_file
     let text = pki.get_dir().join("not-a-key.pem");
     std::fs::write(&text, "this is not a key")?;
     let text = path_of(text);
-    let mtls = mtls_config(path_of(pki.get_client_cert_pem_path()), text.clone());
+    let mtls = mtls_config(path_of(pki.get_client_cert_pem_path()), text.clone())?;
 
     let result = resolve_tls(Some(&mtls), None);
 
@@ -505,7 +505,7 @@ fn new_config_builder() -> impl grpc_egress_transport::GrpcChannelConfigBuilder 
 fn mtls_config(
     cert: impl Into<String>,
     key: impl Into<String>,
-) -> grpc_egress_transport::MtlsConfig {
+) -> Result<grpc_egress_transport::MtlsConfig, GrpcChannelConfigError> {
     use grpc_egress_transport::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
         grpc_egress_transport::BuildMtlsConfigRequest {
@@ -520,7 +520,7 @@ fn mtls_config_with_ca(
     cert: impl Into<String>,
     key: impl Into<String>,
     ca: impl Into<String>,
-) -> grpc_egress_transport::MtlsConfig {
+) -> Result<grpc_egress_transport::MtlsConfig, GrpcChannelConfigError> {
     use grpc_egress_transport::MtlsConfigFactory;
     grpc_egress_transport_std::StdMtlsConfigFactory.build(
         grpc_egress_transport::BuildMtlsConfigRequest {
@@ -541,5 +541,5 @@ fn resolve_tls(
     };
     grpc_egress_transport_std::StdTlsSettingsResolverFactory
         .build(BuildTlsSettingsResolverRequest)
-        .resolve(ResolveTlsSettingsRequest { identity, root_ca })
+        .resolve(ResolveTlsSettingsRequest::new(identity, root_ca))
 }

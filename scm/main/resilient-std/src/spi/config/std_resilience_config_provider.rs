@@ -19,56 +19,66 @@ impl ResilienceConfigProvider for StdResilienceConfigProvider {
 
     /// Validate that all numeric fields are within their valid ranges.
     fn validate(&self, config: &ResilienceConfig) -> Result<(), ResilientTransportError> {
-        if config.max_attempts == 0 {
+        if config.max_attempts() == 0 {
             return Err(ResilientTransportError::InvalidResilience(
                 "max_attempts must be >= 1".into(),
             ));
         }
-        if config.rate_limit_max_attempts == 0 {
+        if config.rate_limit_max_attempts() == 0 {
             return Err(ResilientTransportError::InvalidResilience(
                 "rate_limit_max_attempts must be >= 1".into(),
             ));
         }
-        if config.jitter_factor < 0.0 || config.jitter_factor > 1.0 {
+        if config.jitter_factor() < 0.0 || config.jitter_factor() > 1.0 {
             return Err(ResilientTransportError::InvalidResilience(format!(
                 "jitter_factor must be in [0.0, 1.0], got {:.4}",
-                config.jitter_factor
+                config.jitter_factor()
             )));
         }
-        if config.half_open_probe_count == 0 {
+        if config.half_open_probe_count() == 0 {
             return Err(ResilientTransportError::InvalidResilience(
                 "half_open_probe_count must be >= 1".into(),
             ));
         }
-        if config.rate_limit_max_backoff_ms < config.rate_limit_initial_backoff_ms {
+        if config.rate_limit_max_backoff_ms() < config.rate_limit_initial_backoff_ms() {
             return Err(ResilientTransportError::InvalidResilience(format!(
                 "rate_limit_max_backoff_ms ({}) must be >= rate_limit_initial_backoff_ms ({})",
-                config.rate_limit_max_backoff_ms, config.rate_limit_initial_backoff_ms
+                config.rate_limit_max_backoff_ms(),
+                config.rate_limit_initial_backoff_ms()
             )));
         }
         Ok(())
     }
 
     /// crate's own config shape.
-    fn to_retry_config(&self, config: &ResilienceConfig) -> GrpcRetryConfig {
-        GrpcRetryConfig {
-            max_attempts: config.max_attempts,
-            initial_backoff_ms: config.initial_backoff_ms,
-            backoff_multiplier: config.backoff_multiplier,
-            jitter_factor: config.jitter_factor,
-            max_backoff_ms: config.max_backoff_ms,
-            rate_limit_max_attempts: config.rate_limit_max_attempts,
-            rate_limit_initial_backoff_ms: config.rate_limit_initial_backoff_ms,
-            rate_limit_max_backoff_ms: config.rate_limit_max_backoff_ms,
-        }
+    fn to_retry_config(
+        &self,
+        config: &ResilienceConfig,
+    ) -> Result<GrpcRetryConfig, ResilientTransportError> {
+        GrpcRetryConfig::try_new(grpc_egress_retry::BuildGrpcRetryConfigRequest {
+            max_attempts: config.max_attempts(),
+            initial_backoff_ms: config.initial_backoff_ms(),
+            backoff_multiplier: config.backoff_multiplier(),
+            jitter_factor: config.jitter_factor(),
+            max_backoff_ms: config.max_backoff_ms(),
+            rate_limit_max_attempts: config.rate_limit_max_attempts(),
+            rate_limit_initial_backoff_ms: config.rate_limit_initial_backoff_ms(),
+            rate_limit_max_backoff_ms: config.rate_limit_max_backoff_ms(),
+        })
+        .map_err(|error| ResilientTransportError::InvalidResilience(error.to_string()))
     }
 
     /// config shape.
-    fn to_breaker_config(&self, config: &ResilienceConfig) -> GrpcBreakerConfig {
-        GrpcBreakerConfig {
-            failure_threshold: config.failure_threshold,
-            cool_down_seconds: config.cool_down_seconds,
-            half_open_probe_count: config.half_open_probe_count,
-        }
+    fn to_breaker_config(
+        &self,
+        config: &ResilienceConfig,
+    ) -> Result<GrpcBreakerConfig, ResilientTransportError> {
+        GrpcBreakerConfig::try_new(
+            config.breaker_enabled(),
+            config.failure_threshold(),
+            config.cool_down_seconds(),
+            config.half_open_probe_count(),
+        )
+        .map_err(|error| ResilientTransportError::InvalidResilience(error.to_string()))
     }
 }

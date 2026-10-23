@@ -22,9 +22,9 @@ use proto_pattern::Metadata;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = egress_config_builder()
-        .secret(BearerSecret::Hs256 {
-            secret: b"an-example-secret-of-32-bytes!!!".to_vec(),
-        })
+        .secret(BearerSecret::hs256(
+            b"an-example-secret-of-32-bytes!!!".to_vec(),
+        )?)
         .issuer("svc-a")
         .audience("svc-b")
         .subject("svc-a-client")
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_metadata(Metadata::default());
     chain.run_before(&mut call)?;
 
-    let values = call.get_header_values(AUTHORIZATION_HEADER);
+    let values = call.header_values(AUTHORIZATION_HEADER);
     let [header] = values.as_slice() else {
         return Err("the interceptor did not add exactly one authorization header".into());
     };

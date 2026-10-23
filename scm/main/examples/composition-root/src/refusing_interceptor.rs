@@ -9,7 +9,7 @@ pub struct RefusingInterceptor;
 impl GrpcEgressInterceptor for RefusingInterceptor {
     fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError> {
         Err(CallError::Transport {
-            path: call.get_path().into(),
+            path: call.path().into(),
             code: StatusCode::PermissionDenied,
             reason: "refused by the example".to_string(),
         })

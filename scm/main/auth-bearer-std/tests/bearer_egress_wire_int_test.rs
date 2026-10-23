@@ -30,14 +30,10 @@ struct Claims {
     aud: String,
 }
 
-fn config(secret: BearerSecret) -> BearerEgressConfig {
-    BearerEgressConfig {
-        secret,
-        issuer: "wire-iss".into(),
-        audience: "wire-aud".into(),
-        subject: "wire-sub".into(),
-        lifetime_seconds: 60,
-    }
+fn config(
+    secret: BearerSecret,
+) -> Result<BearerEgressConfig, grpc_egress_auth_bearer::BearerAuthError> {
+    BearerEgressConfig::try_new(secret, "wire-iss", "wire-aud", "wire-sub", 60)
 }
 
 async fn peer() -> Result<RunningPeer, Box<dyn Error>> {
@@ -91,9 +87,7 @@ async fn test_call_raw_hs256_sends_a_bearer_token_that_verifies_with_the_secret(
     let peer = peer().await?;
     let client = client_signing(
         &peer,
-        config(BearerSecret::Hs256 {
-            secret: b"wire-secret".to_vec(),
-        }),
+        config(BearerSecret::hs256(b"wire-secret".to_vec())?)?,
     )?;
 
     client
@@ -125,9 +119,7 @@ async fn test_call_raw_rs256_sends_a_bearer_token_that_verifies_with_the_public_
     let peer = peer().await?;
     let client = client_signing(
         &peer,
-        config(BearerSecret::Rs256 {
-            private_pem: RS256_PRIVATE_PEM.to_vec(),
-        }),
+        config(BearerSecret::rs256(RS256_PRIVATE_PEM.to_vec())?)?,
     )?;
 
     client
@@ -158,9 +150,7 @@ async fn test_call_raw_with_an_authorization_header_sends_the_callers_and_not_a_
     let peer = peer().await?;
     let client = client_signing(
         &peer,
-        config(BearerSecret::Hs256 {
-            secret: b"wire-secret".to_vec(),
-        }),
+        config(BearerSecret::hs256(b"wire-secret".to_vec())?)?,
     )?;
     let mine = Metadata::create(vec![MetadataEntry::create(
         AUTHORIZATION_HEADER,
@@ -190,9 +180,7 @@ async fn test_call_raw_with_an_rs256_key_that_is_not_a_key_fails_with_transport_
     let peer = peer().await?;
     let client = client_signing(
         &peer,
-        config(BearerSecret::Rs256 {
-            private_pem: b"this is not a pem key".to_vec(),
-        }),
+        config(BearerSecret::rs256(b"this is not a pem key".to_vec())?)?,
     )?;
 
     let failure = client
