@@ -15,6 +15,19 @@ DTOs and return fallible response envelopes. Typed unary `CallRequest` and `Call
 use `new`. Engine configuration starts at `tonic_dual_builder()` and terminates with
 `DualTransportBuilder::build`. The historical mapping below records the original migration.
 
+## Issue 61: current cross-cutting ownership
+
+| Concern | Current owner and mapping |
+|---|---|
+| Typed/raw pre-call identity and options | Pattern `CallIdentity`, `CallKind`, `CallStart`, and `TransportInterceptor::before_call`; `InterceptedTransport` delegates through a per-call adapter. |
+| Lifecycle notifications | Pattern `CallEvent`; the adapter emits `Started`, stream `Opened`/`MessageRead`, and one terminal `Completed`/`Failed`/`Cancelled`, then forwards events to the egress chain in registration order. Metadata is converted to the engine's concrete `Metadata` only for this synchronous callback; conversion failure suppresses observation and does not change the RPC result. |
+| Egress runtime registration | `GrpcEgressInterceptor` and its ordered `Arc<dyn ...>` chain stay in egress because Pattern's generic callback is not object-safe. Its default `on_event` is an object-safe bridge over Pattern's existing `CallEvent` type and tonic metadata; it does not define a second event model. |
+| Fallible reply policy | `after_call` stays egress-owned. It runs only after successful unary and client-streaming calls and may still reject the reply. Pattern events remain observational; egress reports `Failed` when its reply policy rejects a result. |
+| Retry, breaker, resilience, authentication, trace policy, load-balancing policy, and validation | Remain in their current domain/security/consumer owners; none duplicate Pattern call lifecycle or service transport construction. ADR-007 continues to order egress interceptors inside retry and the breaker outside retry. |
+| Builder options | `GrpcEgressBuilder` remains the consumer facade and keeps current per-option precedence, file conversion, and load-balancer behavior. Its portable endpoint/TLS/timeout/limit/compression values are applied through Pattern's builder contract by `proto-svc`; HTTP/2 keep-alive remains a service option. Egress retains the collection state needed to replay the same settings for each load-balanced backend and preserve `with_channel_config` overlays. |
+
+The egress-owned adapter types provide runtime registration and reply-refusal behavior that neither Pattern nor the service owns. No separate egress lifecycle event enum or portable transport configuration type is introduced.
+
 ## The finding that shaped the rest
 
 `GrpcEgress` was a byte-oriented call over a path given as a string: `GrpcRequest { method: String, body: Vec<u8>, .. }`.

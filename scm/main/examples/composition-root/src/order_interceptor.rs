@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex, PoisonError};
 
 use grpc_egress_transport::{GrpcEgressInterceptor, InboundReply, OutboundCall};
-use proto_pattern::CallError;
+use proto_pattern::{CallError, CallEvent, Metadata};
 
 /// An interceptor that appends `before:<label>` and `after:<label>` to a shared log when it runs.
 pub struct OrderInterceptor {
@@ -33,5 +33,20 @@ impl GrpcEgressInterceptor for OrderInterceptor {
             .unwrap_or_else(PoisonError::into_inner)
             .push(format!("after:{}", self.label));
         Ok(())
+    }
+
+    fn on_event(&self, event: &CallEvent<'_, Metadata>) {
+        let phase = match event {
+            CallEvent::Started { .. } => "started",
+            CallEvent::Opened { .. } => "opened",
+            CallEvent::MessageRead { .. } => "message_read",
+            CallEvent::Completed { .. } => "completed",
+            CallEvent::Failed { .. } => "failed",
+            CallEvent::Cancelled { .. } => "cancelled",
+        };
+        self.log
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(format!("event:{phase}:{}", self.label));
     }
 }

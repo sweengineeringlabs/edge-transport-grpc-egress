@@ -87,7 +87,7 @@ impl AllOptionsScenario {
         report.record(
             "the interceptor ran around the call",
             log.lock()
-                .map(|entries| entries.len() == 2)
+                .map(|entries| entries.len() == 4)
                 .unwrap_or(false),
         );
 

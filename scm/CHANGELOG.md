@@ -9,6 +9,13 @@ word.
 
 ## [Unreleased]
 
+### Issue 61: Pattern call lifecycle adapter
+
+- Route typed and raw call identities/options through Pattern v0.12.0 `TransportInterceptor` and report stream open, message, completion, failure, and cancellation events to registered egress interceptors.
+- Keep the existing `GrpcEgressInterceptor` registration and fallible `after_call` behavior. The added event callback is observational and uses Pattern `CallEvent` with tonic's concrete `Metadata`, which keeps runtime registration object-safe and preserves existing implementors through a default method.
+- Migration: existing `with_interceptor` and `with_trace_context` call sites remain unchanged. New event observers may implement `GrpcEgressInterceptor::on_event`; there is no path rewrite API in Pattern's pre-call contract.
+- The egress builder remains the consumer facade; portable construction settings still flow into Pattern's `TransportConfiguration` through the tonic engine, while keep-alive remains an engine option.
+
 ### Issue 62: validated, immutable configuration values
 
 - **Breaking for direct struct construction and field access.** Configuration value objects now keep state private and expose read-only accessors. Use their validated constructors, existing builders, or the documented serde representation.

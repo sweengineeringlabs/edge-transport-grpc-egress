@@ -60,7 +60,7 @@ real server:
 
 1. every transport option (`AllOptionsScenario`)
 2. a loaded config and one overriding option (`LoadedConfigScenario`)
-3. interceptors and the trace context (`InterceptorScenario`)
+3. interceptors and the trace context (`InterceptorScenario`), including Pattern `CallEvent` lifecycle observations through the existing runtime chain
 4. a load balancer over several backends (`LoadbalancerScenario`)
 5. retry and breaker applied by the root after `build()` (`DecoratorScenario`)
 6. every invalid combination (`InvalidCombinationScenario`)

@@ -78,3 +78,7 @@ python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json -
 ```
 
 The transport group was split into package-scoped batches and corrected-entry reruns to keep the target directory within the reserve. The breaker, bearer, retry and resilience groups were run separately so unrelated mutants were tested by their owning package suites.
+
+## Issue #61 Pattern lifecycle mutants
+
+Seven lifecycle mutations were added to `scripts/mutation/mutants.json` and run against the unmutated real-peer interceptor suite and then individually. All seven were caught: changed pre-call options, omitted `Started`, `Opened`, `MessageRead`, `Completed`, `Failed`, or `Cancelled`. The first `Failed` mutation targeted an unused helper and survived; it was retargeted to the actual event-forwarding branch and caught by `test_pattern_lifecycle_reports_typed_raw_stream_completion_and_cancellation`. No invalid mutants or unexplained survivors remain. The test suite contains 26 interceptor integration tests, one more than before this change.

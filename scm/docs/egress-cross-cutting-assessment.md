@@ -1,12 +1,12 @@
 # Egress cross-cutting and builder assessment (#61)
 
-**Status:** Assessment draft for owner decision. No migration is authorized by this document.
+**Status:** Accepted for implementation by the repository owner on 2026-10-23; tracked in issue #61.
 **Egress source:** `dev` at `48f5d55eb48b67165b4cb5ca1a2c99950e034822` (after #62).
 **Contract source:** `proto-client-pattern` v0.12.0, commit `1bdc96af815d693f9520d72d07a27ad6fd19bb51`.
 **Engine source:** `proto-client-svc` v0.4.2, commit `1a2363232b0cf207823ba206d712c1f46720f552`.
 **Builder comparison:** `edge-transport-grpc-ingress` `dev` at `fd609edcb160eb225ce4810913006e71d747b457`.
 
-This records the egress side requested by #61. It separates generic call mechanics from protocol, deployment, and security policy. The proposal below is not an owner decision. The current v0.9.0 API remains in force until the owner accepts, amends, or rejects the proposal on #61.
+This records the egress side requested by #61. It separates generic call mechanics from protocol, deployment, and security policy. The implementation preserves the released egress API and records its decisions in ADR-012.
 
 ## Findings
 
@@ -82,9 +82,9 @@ Known consumer impact:
 
 Pure removal is limited to the duplicate portable-option plumbing between `GrpcEgressBuilderImpl` and Pattern's builder, if the endpoint-bound facade and all existing precedence/validation behavior are preserved. Moving the interceptor contract, changing `after_call` semantics, changing runtime dispatch, or changing decorator order is not pure removal. Retry, breaker, auth, trace, load-balancer, and resilience tests and policy do not move under this assessment.
 
-## Proposed owner decision
+## Accepted owner decision
 
-Accept the ownership split above; keep retry/breaker/resilience, authentication, trace policy, load-balancer policy, and domain validation in egress/security/consumer layers. Authorize a separate, one-concern-at-a-time implementation plan for the Pattern `TransportInterceptor` integration only after deciding the `after_call` behavior and dynamic-registration adapter. Keep the builder's public call shape stable while delegating portable options to Pattern and engine-specific settings to the client service. If the owner does not accept this split, amend or reject it on #61 before implementation.
+The owner accepted the ownership split and authorized implementation by saying “start working” on #61. Retry/breaker/resilience, authentication, trace policy, load-balancer policy, and domain validation stay in egress/security/consumer layers. Pattern's `TransportInterceptor` supplies the pre-call identity/options and lifecycle reporting; egress retains a runtime adapter because Pattern's generic callback is not object-safe, and retains fallible `after_call` because callers can rely on it to reject unary and client-streaming replies. The egress builder facade and per-field precedence stay stable while transport construction continues to delegate to Pattern and the engine. ADR-012 records the implementation and compatibility boundary.
 
 Sources reviewed:
 

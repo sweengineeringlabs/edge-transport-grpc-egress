@@ -53,8 +53,18 @@ impl InterceptorScenario {
 
         let order = log.lock().unwrap_or_else(PoisonError::into_inner).clone();
         report.record(
-            "before_call and after_call both run in registration order",
-            order == ["before:a", "before:b", "after:a", "after:b"],
+            "legacy hooks keep registration order and Pattern lifecycle reaches every interceptor",
+            order
+                == [
+                    "before:a",
+                    "before:b",
+                    "event:started:a",
+                    "event:started:b",
+                    "after:a",
+                    "after:b",
+                    "event:completed:a",
+                    "event:completed:b",
+                ],
         );
         report.record(
             "the trace context reaches the peer",

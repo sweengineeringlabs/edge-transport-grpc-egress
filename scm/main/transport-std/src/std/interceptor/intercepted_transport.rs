@@ -1,21 +1,19 @@
 //! `InterceptedTransport` -- a client whose calls run through a chain of interceptors.
 
+use crate::std::{PendingCall, StdGrpcEgressInterceptorChain, StdMetadataExtender};
 use grpc_egress_transport::proto_pattern::{
     BidiStreamMethod, CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
-    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequest,
-    CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse, CallRawClientStreamRequest,
-    CallRawClientStreamRequestBuilder, CallRawClientStreamResponse, CallRawRequest,
-    CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
+    CallClientStreamResponse, CallError, CallEvent, CallIdentity, CallKind, CallOptions,
+    CallRawBidiStreamRequest, CallRawBidiStreamRequestBuilder, CallRawBidiStreamResponse,
+    CallRawClientStreamRequest, CallRawClientStreamRequestBuilder, CallRawClientStreamResponse,
+    CallRawRequest, CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequest,
     CallRawServerStreamRequestBuilder, CallRawServerStreamResponse, CallRequest, CallResponse,
-    CallServerStreamRequest, CallServerStreamResponse, ClientStreamMethod, MessageStream,
-    MetadataView, RawTransport, ResponseStream, ServerStreamMethod, StatusCode, Transport,
-    UnaryMethod,
+    CallServerStreamRequest, CallServerStreamResponse, CallStart, ClientStreamMethod,
+    GetHeadersRequest, GetHeadersResponse, MessageStream, MetadataView, RawTransport,
+    ReadMessageRequest, ReadMessageResponse, ReadTrailersRequest, ReadTrailersResponse,
+    ResponseStream, ServerStreamMethod, StatusCode, Transport, TransportInterceptor, UnaryMethod,
 };
-use grpc_egress_transport::InboundReply;
-
-use crate::std::client::StdMetadataExtender;
-use crate::std::{PendingCall, StdGrpcEgressInterceptorChain};
-use grpc_egress_transport::{GrpcEgressInterceptorChain, MetadataExtender};
+use grpc_egress_transport::{GrpcEgressInterceptorChain, InboundReply, MetadataExtender};
 
 /// Runs `chain` around every call of `inner`: `before_call` on every shape before anything is sent, `after_call`
 /// after a unary or client-streaming response. A call with no interceptor in the chain is forwarded as it is.
@@ -35,17 +33,46 @@ impl<T> From<(T, StdGrpcEgressInterceptorChain)> for InterceptedTransport<T> {
 
 impl<T> InterceptedTransport<T> {
     /// The options a call carries after every `before_call` has run.
-    fn run_before(&self, path: &str, options: CallOptions) -> Result<CallOptions, CallError> {
-        if self.chain.is_empty() {
-            return Ok(options);
-        }
-        let mut call = PendingCall::from((path, &options));
-        self.chain.run_before(&mut call)?;
-        Ok(CallOptions::from(call))
+    fn run_before(
+        &self,
+        adapter: &PatternEgressInterceptor,
+        path: &str,
+        kind: CallKind,
+        options: CallOptions,
+    ) -> Result<CallOptions, CallError> {
+        let identity = CallIdentity::new(path, kind);
+        let options = adapter.before_call(CallStart::new(identity, options))?;
+        adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Started {
+            call: identity,
+        });
+        Ok(options)
     }
 
-    /// Run every `after_call` on a response with a message.
+    /// Preserve egress's fallible reply policy, then report Pattern's single terminal event.
     fn run_after<H: MetadataView>(
+        &self,
+        adapter: &PatternEgressInterceptor,
+        path: &str,
+        kind: CallKind,
+        headers: &H,
+        trailers: &H,
+    ) -> Result<(), CallError> {
+        if let Err(error) = self.run_after_egress(path, headers, trailers) {
+            adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Failed {
+                call: CallIdentity::new(path, kind),
+                error: &error,
+            });
+            return Err(error);
+        }
+        adapter.on_event::<H>(CallEvent::Completed {
+            call: CallIdentity::new(path, kind),
+            headers: Some(headers),
+            trailers,
+        });
+        Ok(())
+    }
+
+    fn run_after_egress<H: MetadataView>(
         &self,
         path: &str,
         headers: &H,
@@ -72,6 +99,19 @@ impl<T> InterceptedTransport<T> {
         self.chain
             .run_after(&InboundReply::new(path, headers, trailers))
     }
+
+    fn on_error(
+        &self,
+        adapter: &PatternEgressInterceptor,
+        path: &str,
+        kind: CallKind,
+        error: &CallError,
+    ) {
+        adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Failed {
+            call: CallIdentity::new(path, kind),
+            error,
+        });
+    }
 }
 
 impl<T: Transport + RawTransport> Transport for InterceptedTransport<T> {
@@ -82,12 +122,26 @@ impl<T: Transport + RawTransport> Transport for InterceptedTransport<T> {
         request: CallRequest<M::Request>,
     ) -> Result<CallResponse<M::Response, <Self as Transport>::Metadata>, CallError> {
         let (message, options) = request.into_parts();
-        let options = self.run_before(M::PATH, options)?;
-        let response = self
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, M::PATH, CallKind::Unary, options)?;
+        let response = match self
             .inner
             .call::<M>(CallRequest::new(message, options))
-            .await?;
-        self.run_after(M::PATH, response.get_headers(), response.get_trailers())?;
+            .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, M::PATH, CallKind::Unary, &error);
+                return Err(error);
+            }
+        };
+        self.run_after(
+            &adapter,
+            M::PATH,
+            CallKind::Unary,
+            response.get_headers(),
+            response.get_trailers(),
+        )?;
         Ok(response)
     }
 
@@ -101,11 +155,29 @@ impl<T: Transport + RawTransport> Transport for InterceptedTransport<T> {
         CallError,
     > {
         let (message, options) = request.into_parts();
-
-        let options = self.run_before(M::PATH, options)?;
-        self.inner
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, M::PATH, CallKind::ServerStream, options)?;
+        let response = match self
+            .inner
             .call_server_stream::<M>(CallServerStreamRequest::new(message, options))
             .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, M::PATH, CallKind::ServerStream, &error);
+                return Err(error);
+            }
+        };
+        let mut stream = PatternResponseStream {
+            inner: response.into_stream(),
+            adapter,
+            path: M::PATH.to_owned(),
+            kind: CallKind::ServerStream,
+            opened: std::sync::atomic::AtomicBool::new(false),
+            terminal: false,
+        };
+        stream.notify_opened::<M::Response>();
+        Ok(CallServerStreamResponse::new(stream))
     }
 
     async fn call_client_stream<M: ClientStreamMethod, S: MessageStream<M::Request> + 'static>(
@@ -114,13 +186,27 @@ impl<T: Transport + RawTransport> Transport for InterceptedTransport<T> {
     ) -> Result<CallClientStreamResponse<M::Response, <Self as Transport>::Metadata>, CallError>
     {
         let (requests, options) = request.into_parts();
-        let options = self.run_before(M::PATH, options)?;
-        let response = self
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, M::PATH, CallKind::ClientStream, options)?;
+        let response = match self
             .inner
             .call_client_stream::<M, S>(CallClientStreamRequest::new(requests, options))
             .await
-            .map(CallClientStreamResponse::into_response)?;
-        self.run_after(M::PATH, response.get_headers(), response.get_trailers())?;
+            .map(CallClientStreamResponse::into_response)
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, M::PATH, CallKind::ClientStream, &error);
+                return Err(error);
+            }
+        };
+        self.run_after(
+            &adapter,
+            M::PATH,
+            CallKind::ClientStream,
+            response.get_headers(),
+            response.get_trailers(),
+        )?;
         Ok(CallClientStreamResponse::new(response))
     }
 
@@ -134,10 +220,29 @@ impl<T: Transport + RawTransport> Transport for InterceptedTransport<T> {
         CallError,
     > {
         let (requests, options) = request.into_parts();
-        let options = self.run_before(M::PATH, options)?;
-        self.inner
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, M::PATH, CallKind::BidiStream, options)?;
+        let response = match self
+            .inner
             .call_bidi_stream::<M, S>(CallBidiStreamRequest::new(requests, options))
             .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, M::PATH, CallKind::BidiStream, &error);
+                return Err(error);
+            }
+        };
+        let mut stream = PatternResponseStream {
+            inner: response.into_stream(),
+            adapter,
+            path: M::PATH.to_owned(),
+            kind: CallKind::BidiStream,
+            opened: std::sync::atomic::AtomicBool::new(false),
+            terminal: false,
+        };
+        stream.notify_opened::<M::Response>();
+        Ok(CallBidiStreamResponse::new(stream))
     }
 }
 
@@ -149,9 +254,10 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
         request: CallRawRequest,
     ) -> Result<CallRawResponse<<Self as RawTransport>::Metadata>, CallError> {
         let (path, message, options) = request.into_parts();
-
-        let options = self.run_before(path.get_path(), options)?;
-        let response = self
+        let path_str = path.get_path().to_owned();
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, &path_str, CallKind::Unary, options)?;
+        let response = match self
             .inner
             .call_raw(
                 CallRawRequestBuilder::new()
@@ -161,9 +267,18 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
                     .build(),
             )
             .await
-            .map(CallRawResponse::into_response)?;
+            .map(CallRawResponse::into_response)
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, &path_str, CallKind::Unary, &error);
+                return Err(error);
+            }
+        };
         self.run_after(
-            path.get_path(),
+            &adapter,
+            &path_str,
+            CallKind::Unary,
             response.get_headers(),
             response.get_trailers(),
         )?;
@@ -180,9 +295,11 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
         CallError,
     > {
         let (path, message, options) = request.into_parts();
-
-        let options = self.run_before(path.get_path(), options)?;
-        self.inner
+        let path_str = path.get_path().to_owned();
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, &path_str, CallKind::ServerStream, options)?;
+        let response = match self
+            .inner
             .call_raw_server_stream(
                 CallRawServerStreamRequestBuilder::new()
                     .with_path(path)
@@ -191,6 +308,23 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
                     .build(),
             )
             .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, &path_str, CallKind::ServerStream, &error);
+                return Err(error);
+            }
+        };
+        let mut stream = PatternResponseStream {
+            inner: response.into_stream(),
+            adapter,
+            path: path_str,
+            kind: CallKind::ServerStream,
+            opened: std::sync::atomic::AtomicBool::new(false),
+            terminal: false,
+        };
+        stream.notify_opened::<Vec<u8>>();
+        Ok(CallRawServerStreamResponse::new(stream))
     }
 
     async fn call_raw_client_stream<S: MessageStream<Vec<u8>> + 'static>(
@@ -198,8 +332,10 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
         request: CallRawClientStreamRequest<S>,
     ) -> Result<CallRawClientStreamResponse<<Self as RawTransport>::Metadata>, CallError> {
         let (path, requests, options) = request.into_parts();
-        let options = self.run_before(path.get_path(), options)?;
-        let response = self
+        let path_str = path.get_path().to_owned();
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, &path_str, CallKind::ClientStream, options)?;
+        let response = match self
             .inner
             .call_raw_client_stream(
                 CallRawClientStreamRequestBuilder::new()
@@ -209,9 +345,18 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
                     .build(),
             )
             .await
-            .map(CallRawClientStreamResponse::into_response)?;
+            .map(CallRawClientStreamResponse::into_response)
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, &path_str, CallKind::ClientStream, &error);
+                return Err(error);
+            }
+        };
         self.run_after(
-            path.get_path(),
+            &adapter,
+            &path_str,
+            CallKind::ClientStream,
             response.get_headers(),
             response.get_trailers(),
         )?;
@@ -228,8 +373,11 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
         CallError,
     > {
         let (path, requests, options) = request.into_parts();
-        let options = self.run_before(path.get_path(), options)?;
-        self.inner
+        let path_str = path.get_path().to_owned();
+        let adapter = PatternEgressInterceptor::new(self.chain.clone());
+        let options = self.run_before(&adapter, &path_str, CallKind::BidiStream, options)?;
+        let response = match self
+            .inner
             .call_raw_bidi_stream(
                 CallRawBidiStreamRequestBuilder::new()
                     .with_path(path)
@@ -238,5 +386,24 @@ impl<T: Transport + RawTransport> RawTransport for InterceptedTransport<T> {
                     .build(),
             )
             .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                self.on_error(&adapter, &path_str, CallKind::BidiStream, &error);
+                return Err(error);
+            }
+        };
+        let mut stream = PatternResponseStream {
+            inner: response.into_stream(),
+            adapter,
+            path: path_str,
+            kind: CallKind::BidiStream,
+            opened: std::sync::atomic::AtomicBool::new(false),
+            terminal: false,
+        };
+        stream.notify_opened::<Vec<u8>>();
+        Ok(CallRawBidiStreamResponse::new(stream))
     }
 }
+
+include!("pattern_egress_interceptor.rs");

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use grpc_egress_transport::proto_pattern::CallError;
+use grpc_egress_transport::proto_pattern::{CallError, CallEvent, Metadata};
 use grpc_egress_transport::{
     GrpcEgressInterceptor, GrpcEgressInterceptorChain, InboundReply, OutboundCall,
 };
@@ -41,5 +41,12 @@ impl GrpcEgressInterceptorChain for StdGrpcEgressInterceptorChain {
             interceptor.after_call(reply)?;
         }
         Ok(())
+    }
+
+    /// Notify registered interceptors in registration order, preserving the Pattern event value.
+    fn run_event(&self, event: &CallEvent<'_, Metadata>) {
+        for interceptor in &self.interceptors {
+            interceptor.on_event(event);
+        }
     }
 }

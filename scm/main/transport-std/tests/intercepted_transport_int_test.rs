@@ -4,12 +4,13 @@
 
 use proto_pattern::{
     CallBidiStreamRequest, CallBidiStreamResponse, CallClientStreamRequest,
-    CallClientStreamResponse, CallError, CallOptions, CallRawBidiStreamRequestBuilder,
+    CallClientStreamResponse, CallError, CallEvent, CallOptions, CallRawBidiStreamRequestBuilder,
     CallRawBidiStreamResponse, CallRawClientStreamRequestBuilder, CallRawClientStreamResponse,
     CallRawRequestBuilder, CallRawResponse, CallRawServerStreamRequestBuilder,
     CallRawServerStreamResponse, CallRequest, CallServerStreamRequest, CallServerStreamResponse,
     GetValuesRequest, GetValuesResponse, MessageStream, Metadata, MetadataEntry, MetadataView,
-    RawTransport, ReadMessageRequest, ReadMessageResponse, StatusCode, Transport,
+    RawTransport, ReadMessageRequest, ReadMessageResponse, ReadTrailersRequest, ResponseStream,
+    StatusCode, Transport,
 };
 use std::error::Error;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -183,6 +184,34 @@ impl GrpcEgressInterceptor for SeeTimeout {
 
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
+    }
+}
+
+/// Captures Pattern lifecycle events delivered through the egress runtime adapter.
+struct Lifecycle(Arc<Mutex<Vec<String>>>);
+
+impl GrpcEgressInterceptor for Lifecycle {
+    fn before_call(&self, _: &mut dyn OutboundCall) -> Result<(), CallError> {
+        Ok(())
+    }
+
+    fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
+        Ok(())
+    }
+
+    fn on_event(&self, event: &CallEvent<'_, Metadata>) {
+        let label = match event {
+            CallEvent::Started { call } => format!("started:{:?}", call.get_kind()),
+            CallEvent::Opened { call, .. } => format!("opened:{:?}", call.get_kind()),
+            CallEvent::MessageRead { call } => format!("message:{:?}", call.get_kind()),
+            CallEvent::Completed { call, .. } => format!("completed:{:?}", call.get_kind()),
+            CallEvent::Failed { call, .. } => format!("failed:{:?}", call.get_kind()),
+            CallEvent::Cancelled { call } => format!("cancelled:{:?}", call.get_kind()),
+        };
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(label);
     }
 }
 
@@ -731,6 +760,91 @@ async fn test_call_after_call_runs_for_unary_and_client_stream_and_not_for_the_o
         before.load(Ordering::SeqCst),
         4,
         "before_call runs on every shape"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+/// @covers: GrpcEgressInterceptorChain::run_event
+async fn test_pattern_lifecycle_reports_typed_raw_stream_completion_and_cancellation(
+) -> Result<(), Box<dyn Error>> {
+    let peer = RunningPeer::start().await;
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let client = Fixture::client(&peer, vec![Arc::new(Lifecycle(Arc::clone(&events)))])?;
+
+    let mut typed = client
+        .call_server_stream::<Numbers>({
+            let (message, options) = Fixture::typed("2").into_parts();
+            CallServerStreamRequest::new(message, options)
+        })
+        .await?
+        .into_stream();
+    while typed
+        .read_message(ReadMessageRequest::new())
+        .await?
+        .into_message()
+        .is_some()
+    {}
+    typed.read_trailers(ReadTrailersRequest::new()).await?;
+
+    let mut raw = client
+        .call_raw_bidi_stream(
+            CallRawBidiStreamRequestBuilder::new()
+                .with_path(CallFixture::path("/test.Peer/Chat"))
+                .with_requests(ListStream::of(vec![Fixture::encode("one")]))
+                .with_options(CallOptions::default())
+                .build(),
+        )
+        .await?
+        .into_stream();
+    raw.read_message(ReadMessageRequest::new()).await?;
+    while raw
+        .read_message(ReadMessageRequest::new())
+        .await?
+        .into_message()
+        .is_some()
+    {}
+    raw.read_trailers(ReadTrailersRequest::new()).await?;
+
+    let cancelled = client
+        .call_server_stream::<Numbers>({
+            let (message, options) = Fixture::typed("2").into_parts();
+            CallServerStreamRequest::new(message, options)
+        })
+        .await?
+        .into_stream();
+    drop(cancelled);
+
+    let failed = client
+        .call::<Echo>(CallRequest::new(
+            Say::failing(StatusCode::NotFound.get_code()),
+            CallOptions::default(),
+        ))
+        .await;
+    assert!(matches!(failed, Err(CallError::Status { .. })));
+
+    let events = events
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    assert_eq!(
+        events,
+        [
+            "started:ServerStream",
+            "opened:ServerStream",
+            "message:ServerStream",
+            "message:ServerStream",
+            "completed:ServerStream",
+            "started:BidiStream",
+            "opened:BidiStream",
+            "message:BidiStream",
+            "completed:BidiStream",
+            "started:ServerStream",
+            "opened:ServerStream",
+            "cancelled:ServerStream",
+            "started:Unary",
+            "failed:Unary",
+        ]
     );
     Ok(())
 }

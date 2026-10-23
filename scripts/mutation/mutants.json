@@ -652,5 +652,47 @@
     "file": "scm/main/auth-bearer-std/src/std/std_jwt_claims_builder.rs",
     "find": "iss: self.iss.ok_or(\"iss is required\")?,",
     "replace": "iss: self.aud.clone().ok_or(\"iss is required\")?,"
+  },
+  {
+    "name": "P01 the Pattern pre-call adapter drops changed options",
+    "file": "scm/main/transport-std/src/std/interceptor/pattern_egress_interceptor.rs",
+    "find": "Ok(CallOptions::from(pending))",
+    "replace": "Ok(options)"
+  },
+  {
+    "name": "P02 the Pattern adapter omits Started",
+    "file": "scm/main/transport-std/src/std/interceptor/intercepted_transport.rs",
+    "find": "adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Started {\n            call: identity,\n        });",
+    "replace": "// Started omitted by mutant"
+  },
+  {
+    "name": "P03 the response wrapper omits Opened",
+    "file": "scm/main/transport-std/src/std/interceptor/pattern_egress_interceptor.rs",
+    "find": "self.adapter.on_event::<S::Metadata>(CallEvent::Opened {\n                    call: self.identity(),\n                    headers: metadata,\n                });",
+    "replace": "// Opened omitted by mutant"
+  },
+  {
+    "name": "P04 the response wrapper omits MessageRead",
+    "file": "scm/main/transport-std/src/std/interceptor/pattern_egress_interceptor.rs",
+    "find": "self.adapter\n                        .on_event::<S::Metadata>(CallEvent::MessageRead {\n                            call: self.identity(),\n                        });",
+    "replace": "// MessageRead omitted by mutant"
+  },
+  {
+    "name": "P05 the response wrapper omits Completed",
+    "file": "scm/main/transport-std/src/std/interceptor/pattern_egress_interceptor.rs",
+    "find": "self.adapter.on_event::<S::Metadata>(CallEvent::Completed {\n                    call: self.identity(),\n                    headers: None,\n                    trailers: &trailers,\n                });",
+    "replace": "// Completed omitted by mutant"
+  },
+  {
+    "name": "P06 the adapter omits Failed",
+    "file": "scm/main/transport-std/src/std/interceptor/pattern_egress_interceptor.rs",
+    "find": "CallEvent::Failed { call, error } => {\n                self.chain.run_event(&CallEvent::Failed { call, error })\n            }",
+    "replace": "CallEvent::Failed { .. } => {}"
+  },
+  {
+    "name": "P07 the response wrapper omits Cancelled",
+    "file": "scm/main/transport-std/src/std/interceptor/pattern_egress_interceptor.rs",
+    "find": "self.adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Cancelled {\n                call: self.identity(),\n            });",
+    "replace": "// Cancelled omitted by mutant"
   }
 ]
