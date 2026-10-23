@@ -65,10 +65,10 @@ Rule 21, `every_function_a_method` (no free function in `src/` of any crate: eve
   `pub(crate)` type (`GrpcRetryClient`, `InterceptedTransport`, `CancellableResponseStream`), and one that builds from a
   domain request is `From<Request>` (`CancellableTransport`, `ContextTransport`): the request envelope of the domain
   factory is the input, so the `saf/` factory body is `Type::from(req)`.
-- **Public types of the implementation crates.** A type that has no function other than trait impls and `From` is
-  allowed by rule 19 even when it is `pub` (`HealthCheck` and its messages, `TokenCancellation`,
-  `SecurityContextIdentity`): a caller has to name it. Every builder, resolver, chain and classifier, which a caller
-  uses through a trait, becomes `pub(crate)`.
+- **Public types of the implementation crates.** Rule 19 checks public behavior and declarations, but a public type
+  still belongs in the domain API when callers need to name it. Issue #60's follow-up moves the health method and its
+  wire DTOs into `grpc-egress-transport`; cancellation-token and security-context adapters are caller-owned types
+  implementing `CancellationSignal` and `CallerIdentity`.
 - **`saf/` factories** keep their `new(..)` constructor that binds the factory's construction value (the endpoint of
   `TonicGrpcEgressBuilderSpiFactory`, the policy of `StdGrpcRetryFactory`), as ADR-006 and issue #16 record. It is
   outside rules 19 and 20; it is the path JustRag (#53) uses.
@@ -256,3 +256,21 @@ one (it failed on `sources` at 6b6559b because `proto-pattern` and `proto-svc` w
 - ADR-006's table of extension traits is superseded by the table above.
 - The test counts do not fall; tests that changed their call syntax keep their names, and the removed ones are in
   `scm/docs/removed-tests.md`.
+
+## Issue #60 follow-up: public egress implementation paths
+
+The audit in `scm/docs/egress-conformance.md` found seven public egress implementation-root exports outside the SAF
+factories. Their disposition is:
+
+| Old public path | Disposition | New use |
+|---|---|---|
+| `grpc_egress_transport_std::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` | moved | `grpc_egress_transport::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` in the domain client API |
+| `grpc_egress_transport_std::TokenCancellation` | removed | implement `CancellationSignal` for a caller-owned wrapper around the caller's token |
+| `grpc_egress_transport_std::SecurityContextIdentity` | removed | implement `CallerIdentity` for a caller-owned wrapper around the security context |
+| `grpc_egress_transport_std::SecurityContext` | removed re-export | depend on and import `edge_security_runtime::SecurityContext` directly |
+
+The health payloads implement the contract's `Payload` with the standard protobuf wire encoding. The domain manifest does
+not gain `prost` or another engine dependency. Cancellation and caller identity behavior remain in their existing views;
+the example demonstrates the two adapters in consumer code. The issue's acceptance criteria scope rule 20 to `std/`
+under implementation crates; contract crates remain outside that rule, while implementation `std/` code accesses Pattern
+through the domain crate's re-export.

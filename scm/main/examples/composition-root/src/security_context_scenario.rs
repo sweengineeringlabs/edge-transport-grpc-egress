@@ -6,17 +6,46 @@ use proto_pattern::{
 use std::error::Error;
 use std::time::Duration;
 
+use edge_security_runtime::SecurityContext;
 use grpc_egress_test_support::CallFixture;
 use grpc_egress_transport::{
-    BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, GrpcCallerIdentityFactory,
-    GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, CallerIdentity,
+    GrpcCallerIdentityFactory, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{
-    SecurityContext, SecurityContextIdentity, StdGrpcCallerIdentityFactory,
-    TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::{StdGrpcCallerIdentityFactory, TonicGrpcEgressBuilderSpiFactory};
 
 use crate::{EchoServer, ScenarioReport};
+
+struct ScenarioIdentity<'a>(&'a SecurityContext);
+
+impl CallerIdentity for ScenarioIdentity<'_> {
+    fn trace_id(&self) -> Option<&str> {
+        self.0.trace_id.as_deref()
+    }
+
+    fn tenant_id(&self) -> Option<&str> {
+        self.0.tenant_id.as_deref()
+    }
+
+    fn bearer_token(&self) -> Option<&str> {
+        if self.0.authenticated {
+            self.0.token.as_deref()
+        } else {
+            None
+        }
+    }
+
+    fn headers(&self) -> Vec<(&str, &str)> {
+        let mut entries: Vec<(&str, &str)> = self
+            .0
+            .metadata
+            .iter()
+            .map(|(key, value)| (key.as_str(), value.as_str()))
+            .collect();
+        entries.sort_unstable();
+        entries
+    }
+}
 
 /// Binds a client to the identity a security context stands for and looks at the headers the peer receives.
 pub struct SecurityContextScenario;
@@ -41,7 +70,7 @@ impl SecurityContextScenario {
         ctx.token = Some("jwt-abc".to_string());
         let bound = StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
             inner: &client,
-            identity: &SecurityContextIdentity::from(&ctx),
+            identity: &ScenarioIdentity(&ctx),
         });
         bound
             .call_raw({
@@ -85,7 +114,7 @@ impl SecurityContextScenario {
         let unauthenticated =
             StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
                 inner: &client,
-                identity: &SecurityContextIdentity::from(&ctx),
+                identity: &ScenarioIdentity(&ctx),
             });
         unauthenticated
             .call_raw({

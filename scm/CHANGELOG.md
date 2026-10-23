@@ -9,6 +9,12 @@ word.
 
 ## [Unreleased]
 
+### Issue 60 follow-up: implementation types belong behind domain interfaces
+
+- **Breaking API boundary:** `HealthCheck`, `HealthCheckRequest`, `HealthCheckResponse`, and `HealthStatus` are now exported from `grpc_egress_transport`; their old `grpc_egress_transport_std` paths are removed. They retain the standard `grpc.health.v1` wire format.
+- **Breaking API boundary:** `grpc_egress_transport_std` no longer re-exports `TokenCancellation`, `SecurityContextIdentity`, or `edge_security_runtime::SecurityContext`. Implement `CancellationSignal` and `CallerIdentity` for a caller-owned type, and import `SecurityContext` from `edge_security_runtime` directly. The composition-root example shows both adapters.
+- The implementation crate root now exports its SAF factories only. `JustRag #53` consumes the builder factory and traits, which remain unchanged; no external build was available in this workspace.
+
 ### Issue 61: Pattern call lifecycle adapter
 
 - Route typed and raw call identities/options through Pattern v0.12.0 `TransportInterceptor` and report stream open, message, completion, failure, and cancellation events to registered egress interceptors.
@@ -62,8 +68,9 @@ type of the same crate that implements the domain factory trait of the same name
 | `grpc_egress_transport_std::LoadbalancerSettingsProvider` (`LoadbalancerSettings::from_config`) | `grpc_egress_transport::LoadbalancerSettingsProvider::parse_config(text)`, created by `StdLoadbalancerSettingsProviderFactory` (`from_config` is renamed because clippy forbids a `from_*` method that takes `&self`) |
 | `grpc_egress_transport_std::GrpcEgressInterceptorChain` (`new`, `push`, `len`, `is_empty`, `run_before`, `run_after`) | domain trait `grpc_egress_transport::GrpcEgressInterceptorChain`, created by `StdGrpcEgressInterceptorChainFactory` |
 | `grpc_egress_transport_std::TraceContextGrpcEgressInterceptor` (`pass_through`, `with_static`) | `StdGrpcEgressInterceptorFactory::new(TraceContextSource::PassThrough or Static { .. }).build(BuildGrpcEgressInterceptorRequest)`; the type is `pub(crate)` |
-| `TokenCancellation::new(token)` | `TokenCancellation::from(token)` |
-| `SecurityContextIdentity::new(&context)` | `SecurityContextIdentity::from(&context)` |
+| `grpc_egress_transport_std::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}` | `grpc_egress_transport::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus}`; health payloads retain the `grpc.health.v1` wire format |
+| `grpc_egress_transport_std::TokenCancellation` | implement the domain `CancellationSignal` trait on a caller-owned wrapper around the caller's cancellation token |
+| `grpc_egress_transport_std::{SecurityContextIdentity, SecurityContext}` | import `SecurityContext` from `edge_security_runtime` and implement `grpc_egress_transport::CallerIdentity` on a caller-owned wrapper |
 | `grpc_egress_retry_std::GrpcRetryConfigProvider` (`GrpcRetryConfig::from_config`, `initial_backoff`, `max_backoff`, `rate_limit_initial_backoff`, `rate_limit_max_backoff`, `validate`) | `grpc_egress_retry::GrpcRetryConfigProvider` (`parse_config(text)`, and the others take the config as an argument), created by `StdGrpcRetryConfigProviderFactory` |
 | `grpc_egress_retry_std::GrpcRetryConfigBuilder` (type, `new`) | domain trait `grpc_egress_retry::GrpcRetryConfigBuilder`, created by `StdGrpcRetryConfigBuilderFactory` |
 | `grpc_egress_retry_std::RetryDecision` (`classify`, `should_retry`, `is_rate_limit`, `read_retry_after`, `parse_retry_after_hint`) and `ResourceExhaustedContext::classify` | the enums `RetryDecision` and `ResourceExhaustedContext` are values of `grpc_egress_retry`; the operations are methods of `grpc_egress_retry::RetryClassifier` (`classify`, `should_retry(decision)`, `is_rate_limit(decision)`, `read_retry_after`, `parse_retry_after_hint`, `classify_resource_exhausted`), created by `StdRetryClassifierFactory` |

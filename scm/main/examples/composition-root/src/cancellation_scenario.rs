@@ -8,12 +8,10 @@ use std::error::Error;
 use std::time::{Duration, Instant};
 
 use grpc_egress_transport::{
-    BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, GrpcCancellationFactory,
-    GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, CancellationSignal,
+    GrpcCancellationFactory, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{
-    StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::{StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory};
 use proto_test_peer::{RunningPeer, Say};
 use tokio_util::sync::CancellationToken;
 
@@ -25,6 +23,14 @@ const PEER_DELAY_MS: u32 = 5000;
 const CANCELLED_WITHIN: Duration = Duration::from_secs(2);
 /// The longest the scenario waits for the peer to notice a cancelled call.
 const NOTICE_LIMIT: Duration = Duration::from_secs(3);
+
+struct ScenarioCancellation(CancellationToken);
+
+impl CancellationSignal for ScenarioCancellation {
+    async fn wait_cancelled(&self) {
+        self.0.cancelled().await;
+    }
+}
 
 /// Against a real `tonic` server that answers slowly: a call whose future is dropped ends on the server; a call
 /// bound to a token that fires fails with `Cancelled` long before the peer answers; a token that never fires
@@ -68,7 +74,7 @@ impl CancellationScenario {
         let token = CancellationToken::new();
         let bound = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
             inner: &client,
-            signal: TokenCancellation::from(token.clone()),
+            signal: ScenarioCancellation(token.clone()),
         });
         let canceller = tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -100,7 +106,7 @@ impl CancellationScenario {
 
         let quiet = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
             inner: &client,
-            signal: TokenCancellation::from(CancellationToken::new()),
+            signal: ScenarioCancellation(CancellationToken::new()),
         });
         let answered = quiet
             .call_raw({

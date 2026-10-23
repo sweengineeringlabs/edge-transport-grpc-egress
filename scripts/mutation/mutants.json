@@ -235,13 +235,13 @@
   },
   {
     "name": "N01 the health request names the service in another field",
-    "file": "scm/main/transport-std/src/spi/client/health/dto/health_check_request.rs",
-    "find": "    #[prost(string, tag = \"1\")]",
-    "replace": "    #[prost(string, tag = \"2\")]"
+    "file": "scm/main/transport/src/api/client/dto/health_check_request.rs",
+    "find": "            HealthProtoCodec::write_varint(out, 0x0a);",
+    "replace": "            HealthProtoCodec::write_varint(out, 0x12);"
   },
   {
     "name": "N02 the health call goes to Watch",
-    "file": "scm/main/transport-std/src/spi/client/health/health_check.rs",
+    "file": "scm/main/transport/src/api/client/health_check.rs",
     "find": "\"/grpc.health.v1.Health/Check\"",
     "replace": "\"/grpc.health.v1.Health/Watch\""
   },
@@ -480,12 +480,6 @@
     "replace": "headers: Vec::new(),"
   },
   {
-    "name": "D20 a token cancellation never fires",
-    "file": "scm/main/transport-std/src/spi/cancellation/signal/token_cancellation.rs",
-    "find": "self.token.cancelled().await;",
-    "replace": "std::future::pending::<()>().await;"
-  },
-  {
     "name": "D21 a balanced endpoint builds no pool",
     "file": "scm/main/transport-std/src/spi/client/protosvc/endpoint_transport.rs",
     "find": "Some(settings) => Some(Arc::new(Self::create_pool(settings)?)),",
@@ -694,5 +688,41 @@
     "file": "scm/main/transport-std/src/std/interceptor/pattern_egress_interceptor.rs",
     "find": "self.adapter.on_event::<grpc_egress_transport::proto_pattern::Metadata>(CallEvent::Cancelled {\n                call: self.identity(),\n            });",
     "replace": "// Cancelled omitted by mutant"
+  },
+  {
+    "name": "H60-01 health request encoding omits the service",
+    "file": "scm/main/transport/src/api/client/dto/health_check_request.rs",
+    "find": "if !self.service.is_empty() {",
+    "replace": "if false {"
+  },
+  {
+    "name": "H60-02 health request decoding drops the service",
+    "file": "scm/main/transport/src/api/client/dto/health_check_request.rs",
+    "find": "service = std::str::from_utf8(value)\n                    .map_err(|_| {\n                        DecodeError::create(Self::FULL_NAME, \"service is not valid UTF-8\")\n                    })?\n                    .to_owned();",
+    "replace": "let _ = value;\n                service = String::new();"
+  },
+  {
+    "name": "H60-03 health response encoding omits status",
+    "file": "scm/main/transport/src/api/client/dto/health_check_response.rs",
+    "find": "if self.status != 0 {",
+    "replace": "if false {"
+  },
+  {
+    "name": "H60-04 health response decoding drops status",
+    "file": "scm/main/transport/src/api/client/dto/health_check_response.rs",
+    "find": "status = reader.read_varint()? as i32;",
+    "replace": "reader.read_varint()?; status = 0;"
+  },
+  {
+    "name": "H60-05 unknown health statuses do not map to Unknown",
+    "file": "scm/main/transport/src/api/client/vo/health_status.rs",
+    "find": "_ => Self::Unknown,",
+    "replace": "_ => Self::Serving,"
+  },
+  {
+    "name": "H60-06 health method path is incorrect",
+    "file": "scm/main/transport/src/api/client/health_check.rs",
+    "find": "const PATH: &'static str = \"/grpc.health.v1.Health/Check\";",
+    "replace": "const PATH: &'static str = \"/grpc.health.v1.Health/Watch\";"
   }
 ]

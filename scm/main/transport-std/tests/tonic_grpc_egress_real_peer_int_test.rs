@@ -20,18 +20,25 @@ use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::{CallFixture, ClosedPort, Fixture};
 use grpc_egress_transport::{
-    BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, GrpcCancellationFactory,
-    GrpcChannelConfigBuilder as _, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, CancellationSignal,
+    GrpcCancellationFactory, GrpcChannelConfigBuilder as _, GrpcEgressBuilder,
+    GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{
-    StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::{StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory};
 use proto_test_peer::{Count, Say};
 use tokio_util::sync::CancellationToken;
 
 use tonic_peer::TonicPeer;
 
 const SHORT: Duration = Duration::from_secs(5);
+
+struct TestCancellation(CancellationToken);
+
+impl CancellationSignal for TestCancellation {
+    async fn wait_cancelled(&self) {
+        self.0.cancelled().await;
+    }
+}
 
 /// `/meta.Peer/Reflect`, typed.
 struct Reflect;
@@ -680,7 +687,7 @@ async fn test_call_raw_through_a_fired_token_fails_cancelled_long_before_the_pee
     let token = CancellationToken::new();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        signal: TokenCancellation::from(token.clone()),
+        signal: TestCancellation(token.clone()),
     });
     let canceller = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -735,7 +742,7 @@ async fn test_call_typed_through_a_token_that_is_not_fired_returns_the_peers_ans
     let client = Fixtures::client(&peer)?;
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        signal: TokenCancellation::from(CancellationToken::new()),
+        signal: TestCancellation(CancellationToken::new()),
     });
 
     let response = view
@@ -760,7 +767,7 @@ async fn test_call_server_stream_through_a_token_fired_mid_stream_keeps_the_mess
     let token = CancellationToken::new();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: &client,
-        signal: TokenCancellation::from(token.clone()),
+        signal: TestCancellation(token.clone()),
     });
 
     let mut stream = view
@@ -821,7 +828,7 @@ async fn test_call_raw_on_the_client_after_a_token_ended_a_call_through_a_view_s
     token.cancel();
     let view = StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
         inner: client.as_ref(),
-        signal: TokenCancellation::from(token),
+        signal: TestCancellation(token),
     });
 
     let ended = view

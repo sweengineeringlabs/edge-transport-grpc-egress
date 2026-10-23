@@ -26,7 +26,8 @@ pub use api::channel::{
     DEFAULT_MAX_MESSAGE_BYTES, DEFAULT_REQUEST_TIMEOUT_SECS,
 };
 pub use api::client::{
-    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, MetadataExtender,
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, HealthCheck,
+    HealthCheckRequest, HealthCheckResponse, HealthStatus, MetadataExtender,
 };
 pub use api::context::{BuildGrpcCallerIdentityRequest, CallerIdentity, GrpcCallerIdentityFactory};
 pub use api::interceptor::{

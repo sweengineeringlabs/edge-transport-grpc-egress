@@ -81,8 +81,8 @@ clients did not forward them and answered `Unimplemented`; that was a defect).
 | Retry | `grpc-egress-retry-std` | unary only; classifies by `StatusCode` and the trailers (`retry-after`) |
 | Breaker | `grpc-egress-breaker-std` | admits or short-circuits with `Transport(Unavailable)`; records the outcome of a unary call and the open of a stream |
 | Resilient | `grpc-egress-resilient-std` | retry inside breaker, as ADR-007 |
-| Cancellation | `grpc-egress-transport-std` | a view bound to a `CancellationSignal` (an interface of the domain; `TokenCancellation` adapts a `tokio-util` token): every call, and every message read from a stream, is raced against the signal and fails with `Transport(Cancelled)` |
-| Caller identity | `grpc-egress-transport-std` | a view bound to a `CallerIdentity` (an interface of the domain; `SecurityContextIdentity` adapts a `SecurityContext`): adds `x-trace-id`, `x-tenant-id`, `authorization: Bearer <token>` (when the identity holds a token to send) and the further headers it lists, before the call |
+| Cancellation | `grpc-egress-transport-std` | a view bound to a caller-owned `CancellationSignal` implementation (an interface of the domain): every call, and every message read from a stream, is raced against the signal and fails with `Transport(Cancelled)` |
+| Caller identity | `grpc-egress-transport-std` | a view bound to a caller-owned `CallerIdentity` implementation (an interface of the domain): adds `x-trace-id`, `x-tenant-id`, `authorization: Bearer <token>` (when the identity holds a token to send) and the further headers it lists, before the call |
 | Bearer auth | `grpc-egress-auth-bearer-std` | an interceptor that signs a JWT into `authorization` |
 
 The interceptor list stays a runtime list (`Arc<dyn GrpcEgressInterceptor>`): it is heterogeneous by nature, and the
@@ -121,16 +121,16 @@ call.
 Dropping a call's future cancels the call (tonic cancels the stream when the future is dropped; a test proves the peer
 sees it end). A caller that holds a way to say "stop" keeps it, behind an interface: `CancellationSignal` has one
 method, `wait_cancelled`, that resolves when the calls must end; the view races every call and every stream read against
-it. `TokenCancellation` adapts a `tokio-util` `CancellationToken`.
+it. A caller implements `CancellationSignal` for its token wrapper.
 
 The identity of the caller is carried the same way, by a view, because the old method took the context per call and the
 contract has no per-call extension point. The view knows `CallerIdentity` (a trace id, a tenant, a bearer token that is
-to be sent, further headers); `SecurityContextIdentity` adapts a `SecurityContext`. The identity is given to the factory
+to be sent, further headers); a caller-owned type adapts a `SecurityContext`. The identity is given to the factory
 as `&dyn CallerIdentity` and read once, when the view is made, so the view does not keep it borrowed.
 
 ### 8. Health
 
-The `grpc.health.v1.Health/Check` call as a `Method` (`HealthCheck`) with its messages, in `grpc-egress-transport-std`
+The `grpc.health.v1.Health/Check` call as a `Method` (`HealthCheck`) with its messages, in `grpc-egress-transport`
 (`Payload` by `prost`, a dependency of that crate). The old `health_check` opened a TCP connection and said nothing about the
 service; this asks it. Tested against a real health service (`tonic-health`).
 

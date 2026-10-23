@@ -15,12 +15,10 @@ use std::time::{Duration, Instant};
 
 use grpc_egress_test_support::CallFixture;
 use grpc_egress_transport::{
-    BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, GrpcCancellationFactory,
-    GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, CancellationSignal,
+    GrpcCancellationFactory, GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{
-    StdGrpcCancellationFactory, TokenCancellation, TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::{StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory};
 use proto_test_peer::{Chat, Count, Echo, Join, RunningPeer, Say};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -30,6 +28,14 @@ const FIRE_AFTER: Duration = Duration::from_millis(100);
 
 /// The longest a call that was cancelled may take: far less than the 3 s the slow peer would take.
 const PROMPT: Duration = Duration::from_millis(2000);
+
+struct TestCancellation(CancellationToken);
+
+impl CancellationSignal for TestCancellation {
+    async fn wait_cancelled(&self) {
+        self.0.cancelled().await;
+    }
+}
 
 /// A request stream the test feeds by hand: it ends only when the test drops the sender.
 struct ChannelStream<T> {
@@ -64,7 +70,7 @@ impl Fixture {
     ) -> impl Transport + RawTransport + use<'a, T> {
         StdGrpcCancellationFactory::new().build(BuildGrpcCancellationRequest {
             inner: client,
-            signal: TokenCancellation::from(token.clone()),
+            signal: TestCancellation(token.clone()),
         })
     }
 

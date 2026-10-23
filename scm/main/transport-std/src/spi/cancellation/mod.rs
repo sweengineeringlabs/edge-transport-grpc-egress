@@ -3,4 +3,3 @@
 pub(crate) mod signal;
 
 pub(crate) use signal::CancellableTransport;
-pub use signal::TokenCancellation;

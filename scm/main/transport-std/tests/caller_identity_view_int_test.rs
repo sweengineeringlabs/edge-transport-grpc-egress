@@ -13,16 +13,45 @@ use proto_pattern::{
 use std::error::Error;
 use std::time::{Duration, Instant};
 
+use edge_security_runtime::SecurityContext;
 use grpc_egress_test_support::CallFixture;
 use grpc_egress_transport::{
-    BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, GrpcCallerIdentityFactory,
-    GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, CallerIdentity,
+    GrpcCallerIdentityFactory, GrpcChannelConfigError, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{
-    SecurityContext, SecurityContextIdentity, StdGrpcCallerIdentityFactory,
-    TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::{StdGrpcCallerIdentityFactory, TonicGrpcEgressBuilderSpiFactory};
 use proto_test_peer::{Chat, Echo, Join, ListStream, Numbers, RunningPeer, Say};
+
+struct TestContextIdentity<'a>(&'a SecurityContext);
+
+impl CallerIdentity for TestContextIdentity<'_> {
+    fn trace_id(&self) -> Option<&str> {
+        self.0.trace_id.as_deref()
+    }
+
+    fn tenant_id(&self) -> Option<&str> {
+        self.0.tenant_id.as_deref()
+    }
+
+    fn bearer_token(&self) -> Option<&str> {
+        if self.0.authenticated {
+            self.0.token.as_deref()
+        } else {
+            None
+        }
+    }
+
+    fn headers(&self) -> Vec<(&str, &str)> {
+        let mut entries: Vec<(&str, &str)> = self
+            .0
+            .metadata
+            .iter()
+            .map(|(key, value)| (key.as_str(), value.as_str()))
+            .collect();
+        entries.sort_unstable();
+        entries
+    }
+}
 
 struct Fixture;
 
@@ -43,7 +72,7 @@ impl Fixture {
     ) -> impl Transport + RawTransport + use<'a, T> {
         StdGrpcCallerIdentityFactory::new().build(BuildGrpcCallerIdentityRequest {
             inner: client,
-            identity: &SecurityContextIdentity::from(ctx),
+            identity: &TestContextIdentity(ctx),
         })
     }
 

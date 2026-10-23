@@ -8,11 +8,10 @@ use std::time::Duration;
 
 use grpc_egress_test_support::{ClosedPort, Fixture};
 use grpc_egress_transport::{
-    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
+    BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, HealthCheck,
+    HealthCheckRequest, HealthStatus,
 };
-use grpc_egress_transport_std::{
-    HealthCheck, HealthCheckRequest, HealthStatus, TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{CallError, CallOptions, CallRequest, Metadata, StatusCode, Transport};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;

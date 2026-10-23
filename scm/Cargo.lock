@@ -641,6 +641,7 @@ dependencies = [
 name = "grpc-egress-example-composition-root"
 version = "0.8.0"
 dependencies = [
+ "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",
  "grpc-egress-breaker",
  "grpc-egress-breaker-std",
  "grpc-egress-retry",

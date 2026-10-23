@@ -2,7 +2,5 @@
 
 pub(crate) mod cancellable_response_stream;
 pub(crate) mod cancellable_transport;
-pub(crate) mod token_cancellation;
 
 pub(crate) use cancellable_transport::CancellableTransport;
-pub use token_cancellation::TokenCancellation;

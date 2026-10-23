@@ -5,9 +5,4 @@
 //! wrapper types live here, not in `api/` and not in `std/`.
 pub(crate) mod cancellation;
 pub(crate) mod client;
-pub(crate) mod context;
 pub(crate) mod loadbalancer;
-
-pub use cancellation::TokenCancellation;
-pub use client::{HealthCheck, HealthCheckRequest, HealthCheckResponse, HealthStatus};
-pub use context::SecurityContextIdentity;
