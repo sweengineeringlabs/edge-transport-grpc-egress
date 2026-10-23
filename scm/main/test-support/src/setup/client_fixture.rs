@@ -4,7 +4,7 @@ use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcChannelConfigError, GrpcEgressBuilder,
     GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{RawTransport, Transport};
 
 /// Builds clients for tests the way a caller does: a factory for the endpoint, a builder, the

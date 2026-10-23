@@ -1,0 +1,48 @@
+[package]
+name = "grpc-egress-retry-spi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Provider-backed gRPC retry decorator and TOML policy readers"
+keywords = ["grpc", "retry", "decorator"]
+categories = ["network-programming"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type = "processor"
+
+[package.metadata.arch]
+application_type = "lib"
+service_type = "processor"
+
+[[example]]
+name = "grpc_retry"
+path = "examples/grpc_retry.rs"
+
+[dependencies]
+grpc-egress-retry = { path = "../retry" }
+grpc-egress-retry-std = { path = "../retry-std" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
+edge-transport-retry = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
+toml = "0.8"
+tokio = { version = "1.52", features = ["macros", "net", "rt", "sync", "time"] }
+tracing = "0.1"
+
+[dev-dependencies]
+grpc-egress-transport = { path = "../transport" }
+grpc-egress-transport-std = { path = "../transport-std" }
+grpc-egress-test-support = { path = "../test-support" }
+swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+futures = "0.3"
+tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

@@ -36,6 +36,14 @@ class ApiCoverageTests(unittest.TestCase):
         )
         self.assertFalse(any("method_test" in failure for failure in self.failures()))
 
+    def test_method_coverage_in_spi_package_passes(self):
+        spi_tests = self.root / "scm/main/foo-spi/tests"
+        spi_tests.mkdir(parents=True)
+        (spi_tests / "service_test.rs").write_text(
+            "// @covers: Service::call\n#[test] fn test_call() {}\n", encoding="utf-8"
+        )
+        self.assertFalse(any("method_test" in failure for failure in self.failures()))
+
     def test_dto_placement_and_private_vo_encapsulation_are_checked(self):
         (self.api / "request.rs").write_text(
             "pub struct GetRequest { value: String }\n", encoding="utf-8"

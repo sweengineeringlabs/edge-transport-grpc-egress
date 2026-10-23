@@ -1,6 +1,6 @@
 //! `grpc_egress_retry` -- the retry domain: the contracts, requests, responses, errors and the
 //! retry policy value. The implementation (the decorator that wraps a `Transport` and a `RawTransport`) is in
-//! `grpc-egress-retry-std`.
+//! `grpc-egress-retry-spi` (with the standard policy implementation from `grpc-egress-retry-std`).
 //!
 //! ```compile_fail
 //! use grpc_egress_retry::api::vo::GrpcRetryConfig;

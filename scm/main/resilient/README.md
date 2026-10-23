@@ -7,7 +7,7 @@
 The resilience domain of the gRPC egress: the contracts, requests, responses, errors and the resilience
 policy value (`ResilienceConfig`). No implementation.
 
-The decorator that wraps a `Transport + RawTransport` client in retry and a circuit breaker is in `grpc-egress-resilient-std`.
+The decorator that wraps a `Transport + RawTransport` client in retry and a circuit breaker is in `grpc-egress-resilient-spi`.
 
 ## WHY
 
@@ -23,4 +23,4 @@ Use the domain interfaces described above and the standard factory for this crat
 
 ## Documentation
 
-See the [standard composition](../resilient-std/README.md), [retry](../retry/README.md), and [breaker](../breaker/README.md) contracts.
+See the [SPI composition](../resilient-spi/README.md), [retry](../retry/README.md), and [breaker](../breaker/README.md) contracts.

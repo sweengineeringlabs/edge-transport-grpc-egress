@@ -90,7 +90,7 @@ let guarded = StdGrpcResilientFactory::new(resilience_config)
 ```
 
 Runnable versions: `scm/main/transport-std/examples/basic_transport.rs`,
-`scm/main/resilient-std/examples/resilient.rs` and the composition-root example
+`scm/main/resilient-spi/examples/resilient.rs` and the composition-root example
 (`cargo run -p grpc-egress-example-composition-root`).
 
 ### Scope

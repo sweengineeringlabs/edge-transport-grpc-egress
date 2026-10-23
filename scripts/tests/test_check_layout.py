@@ -64,6 +64,50 @@ class LayoutCheckerTest(unittest.TestCase):
         tree = self.tree()
         self.assertEqual([f.format_line() for f in tree.check()], [])
 
+    def test_check_all_a_domain_and_spi_only_implementation_passes(self):
+        files = {k: v for k, v in GOOD.items() if not k.startswith("scm/main/foo-std/")}
+        files.update({
+            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo = { path = "../foo" }\n'),
+            "scm/main/foo-spi/src/lib.rs": "mod spi;\nmod saf;\n",
+            "scm/main/foo-spi/src/spi/mod.rs": "",
+            "scm/main/foo-spi/src/saf/mod.rs": "",
+        })
+        tree = Tree(files)
+        self.addCleanup(tree.close)
+        self.assertEqual([f.format_line() for f in tree.check()], [])
+
+    def test_check_all_spi_package_rejects_std_layer(self):
+        files = {
+            "scm/main/foo/Cargo.toml": manifest("grpc-egress-foo"),
+            "scm/main/foo/src/lib.rs": "mod api;\n",
+            "scm/main/foo/src/api/mod.rs": "",
+            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo = { path = "../foo" }\n'),
+            "scm/main/foo-spi/src/lib.rs": "mod spi;\nmod std;\n",
+            "scm/main/foo-spi/src/spi/mod.rs": "",
+            "scm/main/foo-spi/src/std/mod.rs": "",
+        }
+        self.assertIn("spi_package_has_std", self.rules(files))
+
+    def test_check_all_std_package_rejects_spi_layer(self):
+        files = dict(GOOD)
+        files["scm/main/foo-std/src/spi/mod.rs"] = ""
+        self.assertIn("std_package_has_spi", self.rules(files))
+
+    def test_check_all_std_package_requires_actual_std_implementation(self):
+        files = {k: v for k, v in GOOD.items() if k != "scm/main/foo-std/src/std/mod.rs" and not k.startswith("scm/main/foo-std/src/std/client/")}
+        self.assertIn("std_package_missing_std", self.rules(files))
+
+    def test_check_all_spi_package_requires_actual_spi_implementation(self):
+        files = {
+            "scm/main/foo/Cargo.toml": manifest("grpc-egress-foo"),
+            "scm/main/foo/src/lib.rs": "mod api;\n",
+            "scm/main/foo/src/api/mod.rs": "",
+            "scm/main/foo-spi/Cargo.toml": manifest("grpc-egress-foo-spi", 'grpc-egress-foo = { path = "../foo" }\n'),
+            "scm/main/foo-spi/src/lib.rs": "mod saf;\n",
+            "scm/main/foo-spi/src/saf/mod.rs": "",
+        }
+        self.assertIn("spi_package_missing_spi", self.rules(files))
+
     def test_check_all_package_starting_with_edge_transport_fails(self):
         files = dict(GOOD)
         files["scm/main/foo/Cargo.toml"] = manifest("edge-transport-grpc-egress-foo")

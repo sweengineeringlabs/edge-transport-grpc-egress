@@ -5,15 +5,18 @@ resolver = "2"
 members = [
     "main/auth-bearer",
     "main/auth-bearer-std",
+    "main/auth-bearer-spi",
     "main/breaker",
-    "main/breaker-std",
+    "main/breaker-spi",
     "main/resilient",
-    "main/resilient-std",
+    "main/resilient-spi",
     "main/retry",
     "main/retry-std",
+    "main/retry-spi",
     "main/test-support",
     "main/transport",
     "main/transport-std",
+    "main/transport-spi",
     "main/examples/composition-root",
 ]
 

@@ -1,4 +1,4 @@
-//! Domain error types for `grpc_egress_breaker_std`.
+//! Domain error types for `grpc_egress_breaker_spi`.
 
 // Moved to edge-transport-breaker-policy (ADR-004/ADR-003): the error variants
 // (ParseFailed/InvalidConfig) are protocol-agnostic config-loading errors.

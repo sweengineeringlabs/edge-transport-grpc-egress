@@ -11,7 +11,7 @@ use grpc_egress_transport::{
     BuildGrpcCancellationRequest, BuildGrpcEgressBuilderRequest, CancellationSignal,
     GrpcCancellationFactory, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_spi::{StdGrpcCancellationFactory, TonicGrpcEgressBuilderSpiFactory};
 use proto_test_peer::{RunningPeer, Say};
 use tokio_util::sync::CancellationToken;
 

@@ -14,9 +14,8 @@ use grpc_egress_transport::{
     GrpcEgressBuilder, GrpcEgressBuilderFactory, KeepAliveConfig, MtlsConfigFactory,
     ResolveTlsSettingsRequest, TlsSettingsResolver, TlsSettingsResolverFactory, TraceContextSource,
 };
-use grpc_egress_transport_std::{
-    StdMtlsConfigFactory, StdTlsSettingsResolverFactory, TonicGrpcEgressBuilderSpiFactory,
-};
+use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_std::{StdMtlsConfigFactory, StdTlsSettingsResolverFactory};
 
 use crate::{EchoServer, OrderInterceptor, ScenarioReport};
 

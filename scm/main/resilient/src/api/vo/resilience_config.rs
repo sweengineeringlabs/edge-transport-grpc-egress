@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 /// Resilience policy for a single outbound gRPC channel.
 ///
-/// Used by `GrpcResilientFacade::apply_resilience` (in `grpc-egress-resilient-std`) to compose
+/// Used by `GrpcResilientFacade::apply_resilience` (in `grpc-egress-resilient-spi`) to compose
 /// a retry client and a circuit-breaker client around an already-built bare client (a `Transport` and a `RawTransport`)
 /// transport client.
 ///

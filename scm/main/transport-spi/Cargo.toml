@@ -1,0 +1,66 @@
+[package]
+name = "grpc-egress-transport-spi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Provider-backed gRPC egress client over proto-svc and the load balancer"
+keywords = ["gateway", "egress", "grpc", "tonic"]
+categories = ["network-programming"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type = "processor"
+
+[package.metadata.arch]
+application_type = "lib"
+service_type = "processor"
+
+[[example]]
+name = "basic_transport"
+path = "examples/basic_transport.rs"
+
+[dependencies]
+grpc-egress-transport = { path = "../transport" }
+grpc-egress-transport-std = { path = "../transport-std" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
+proto-tonic-spi = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.2" }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+futures = "0.3"
+http = "1"
+tokio = { version = "1.53", features = ["rt", "net", "time", "macros", "sync"] }
+swe-edge-loadbalancer = { git = "https://github.com/sweengineeringlabs/edge-loadbalancer.git", tag = "v0.4.0" }
+tracing = "0.1"
+
+[dev-dependencies]
+grpc-egress-test-support = { path = "../test-support" }
+proto-test-peer = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.2" }
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "time", "net", "sync"] }
+hyper = { version = "1", features = ["http2", "server"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+bytes = "1"
+edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
+http = "1"
+http-body = "1"
+http-body-util = "0.1"
+futures = "0.3"
+prost = "0.14"
+flate2 = "1"
+zstd = "0.14"
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
+tokio-util = { version = "0.7", default-features = false }
+tonic = { version = "0.14.6", default-features = false, features = ["transport", "codegen", "router"] }
+tonic-prost = "0.14.6"
+tokio-stream = { version = "0.1.19", features = ["net"] }
+tonic-health = "0.14"
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

@@ -8,5 +8,5 @@ pub trait GrpcEgressInterceptorChainFactory {
     fn build(
         &self,
         req: BuildGrpcEgressInterceptorChainRequest,
-    ) -> impl GrpcEgressInterceptorChain + use<Self>;
+    ) -> impl GrpcEgressInterceptorChain + Send + Sync + use<Self>;
 }

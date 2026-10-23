@@ -590,13 +590,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-auth-bearer-std"
+name = "grpc-egress-auth-bearer-spi"
 version = "0.9.0"
 dependencies = [
  "edge-security-transport-egress-grpc",
  "grpc-egress-auth-bearer",
+ "grpc-egress-auth-bearer-std",
  "grpc-egress-test-support",
  "grpc-egress-transport",
+ "grpc-egress-transport-spi",
  "grpc-egress-transport-std",
  "jsonwebtoken",
  "proto-pattern",
@@ -605,6 +607,13 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+]
+
+[[package]]
+name = "grpc-egress-auth-bearer-std"
+version = "0.9.0"
+dependencies = [
+ "grpc-egress-auth-bearer",
 ]
 
 [[package]]
@@ -620,7 +629,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-breaker-std"
+name = "grpc-egress-breaker-spi"
 version = "0.9.0"
 dependencies = [
  "edge-transport-breaker",
@@ -643,11 +652,12 @@ version = "0.9.0"
 dependencies = [
  "edge-security-runtime 0.3.8 (git+https://github.com/sweengineeringlabs/edge-security.git?tag=v0.3.25)",
  "grpc-egress-breaker",
- "grpc-egress-breaker-std",
+ "grpc-egress-breaker-spi",
  "grpc-egress-retry",
- "grpc-egress-retry-std",
+ "grpc-egress-retry-spi",
  "grpc-egress-test-support",
  "grpc-egress-transport",
+ "grpc-egress-transport-spi",
  "grpc-egress-transport-std",
  "prost",
  "proto-pattern",
@@ -674,15 +684,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-resilient-std"
+name = "grpc-egress-resilient-spi"
 version = "0.9.0"
 dependencies = [
  "futures",
  "grpc-egress-breaker",
- "grpc-egress-breaker-std",
+ "grpc-egress-breaker-spi",
  "grpc-egress-resilient",
  "grpc-egress-retry",
- "grpc-egress-retry-std",
+ "grpc-egress-retry-spi",
  "grpc-egress-test-support",
  "grpc-egress-transport",
  "grpc-egress-transport-std",
@@ -704,12 +714,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-retry-std"
+name = "grpc-egress-retry-spi"
 version = "0.9.0"
 dependencies = [
  "edge-transport-retry",
  "futures",
  "grpc-egress-retry",
+ "grpc-egress-retry-std",
  "grpc-egress-test-support",
  "grpc-egress-transport",
  "grpc-egress-transport-std",
@@ -721,11 +732,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "grpc-egress-retry-std"
+version = "0.9.0"
+dependencies = [
+ "grpc-egress-retry",
+]
+
+[[package]]
 name = "grpc-egress-test-support"
 version = "0.9.0"
 dependencies = [
  "bytes",
  "grpc-egress-transport",
+ "grpc-egress-transport-spi",
  "grpc-egress-transport-std",
  "http",
  "http-body-util",
@@ -752,7 +771,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc-egress-transport-std"
+name = "grpc-egress-transport-spi"
 version = "0.9.0"
 dependencies = [
  "bytes",
@@ -761,6 +780,7 @@ dependencies = [
  "futures",
  "grpc-egress-test-support",
  "grpc-egress-transport",
+ "grpc-egress-transport-std",
  "http",
  "http-body",
  "http-body-util",
@@ -782,6 +802,13 @@ dependencies = [
  "tonic-prost",
  "tracing",
  "zstd 0.14.2",
+]
+
+[[package]]
+name = "grpc-egress-transport-std"
+version = "0.9.0"
+dependencies = [
+ "grpc-egress-transport",
 ]
 
 [[package]]

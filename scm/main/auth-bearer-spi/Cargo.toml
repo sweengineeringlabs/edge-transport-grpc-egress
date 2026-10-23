@@ -1,0 +1,49 @@
+[package]
+name = "grpc-egress-auth-bearer-spi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Provider-backed JWT bearer interceptor and constant-time secret guard"
+keywords = ["grpc", "jwt", "bearer", "auth", "interceptor"]
+categories = ["network-programming", "authentication"]
+
+[package.metadata.struct-engine]
+application_type = "lib"
+service_type = "processor"
+
+[package.metadata.arch]
+application_type = "lib"
+service_type = "processor"
+
+[[example]]
+name = "auth_bearer"
+path = "examples/auth_bearer.rs"
+
+[dependencies]
+grpc-egress-auth-bearer = { path = "../auth-bearer" }
+grpc-egress-transport = { path = "../transport" }
+proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
+swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22" }
+tracing = "0.1"
+jsonwebtoken = "9"
+subtle = "2"
+
+[dev-dependencies]
+grpc-egress-auth-bearer-std = { path = "../auth-bearer-std" }
+grpc-egress-transport-std = { path = "../transport-std" }
+grpc-egress-transport-spi = { path = "../transport-spi" }
+grpc-egress-test-support = { path = "../test-support" }
+toml = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

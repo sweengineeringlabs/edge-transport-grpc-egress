@@ -16,10 +16,11 @@ service_type = "processor"
 [dependencies]
 grpc-egress-transport = { path = "../../transport" }
 grpc-egress-transport-std = { path = "../../transport-std" }
+grpc-egress-transport-spi = { path = "../../transport-spi" }
 grpc-egress-retry = { path = "../../retry" }
-grpc-egress-retry-std = { path = "../../retry-std" }
+grpc-egress-retry-spi = { path = "../../retry-spi" }
 grpc-egress-breaker = { path = "../../breaker" }
-grpc-egress-breaker-std = { path = "../../breaker-std" }
+grpc-egress-breaker-spi = { path = "../../breaker-spi" }
 # The in-process peer the scenarios talk to (an example of a composition root has no server of its own).
 grpc-egress-test-support = { path = "../../test-support" }
 edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }

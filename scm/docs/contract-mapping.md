@@ -85,8 +85,8 @@ uses `Transport`; both come from one client (`DualTransportFactory`, one engine)
 | Crate | Disposition | Reason |
 |---|---|---|
 | `grpc-egress-retry`, `-retry-std` | kept, over the contract | the contract has none; generic over `Transport + RawTransport`, retries unary only, classifies by `StatusCode`; its typed unary call encodes once and retries over bytes; streams are forwarded (the old client answered `Unimplemented` for them: a defect) |
-| `grpc-egress-breaker`, `-breaker-std` | kept, over the contract | same; admits or short-circuits with `Transport(Unavailable)`, records unary outcomes and stream opens; streams forwarded (same defect fixed) |
-| `grpc-egress-resilient`, `-resilient-std` | kept, over the contract | retry inside breaker, as ADR-007 |
+| `grpc-egress-breaker`, `-breaker-spi` | kept, over the contract | same; admits or short-circuits with `Transport(Unavailable)`, records unary outcomes and stream opens; streams forwarded (same defect fixed) |
+| `grpc-egress-resilient`, `-resilient-spi` | kept, over the contract | retry inside breaker, as ADR-007 |
 | `grpc-egress-auth-bearer`, `-auth-bearer-std` | kept | bearer auth is an interceptor; it sets `authorization` through `Metadata`. Whether this crate stays in this repository is for #6, #7 and #8 |
 
 ## What this table does not cover

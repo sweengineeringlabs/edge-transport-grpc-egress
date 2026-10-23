@@ -23,13 +23,14 @@ import subprocess
 import sys
 
 # Our five crates, old package name to new package name. The new name is the implementation
-# crate (`-std`); the domain crate of a theme takes the name without the suffix and is created, not
-# renamed. Nothing else may be renamed by this script.
+# crate; standard implementations use `-std`, while breaker and resilient are SPI-only and use
+# `-spi`. The domain crate of a theme takes the name without the suffix and is created, not renamed.
+# Nothing else may be renamed by this script.
 TABLE = {
     "edge-transport-grpc-egress-transport": "grpc-egress-transport-std",
     "edge-transport-grpc-egress-retry": "grpc-egress-retry-std",
-    "edge-transport-grpc-egress-breaker": "grpc-egress-breaker-std",
-    "edge-transport-grpc-egress-resilient": "grpc-egress-resilient-std",
+    "edge-transport-grpc-egress-breaker": "grpc-egress-breaker-spi",
+    "edge-transport-grpc-egress-resilient": "grpc-egress-resilient-spi",
     "edge-transport-grpc-egress-auth-bearer": "grpc-egress-auth-bearer-std",
 }
 

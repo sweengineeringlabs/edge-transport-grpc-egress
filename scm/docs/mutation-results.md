@@ -13,14 +13,14 @@ Run it in groups, one test command per group (from the repository root, `--manif
 
 | Group | Mutants | Covered by | Result |
 |---|---|---|---|
-| Interceptors, chain, trace, call (`I`, `C`, `T`, `H`) | I01-I05, C01-C03, T01-T02, H01 | `grpc-egress-transport-std` | all caught |
-| Trait impls of `std/`, `spi/` and `saf/` of the transport (`D`) | D01-D24: channel builder (D01-D07), mutual-TLS factory (D08-D09), load balancer settings provider (D10), interceptor chain (D11-D13), metadata extender (D14), pending call (D15-D16), trace-context interceptor and its factory (D17, D24), caller identity (D18-D19), token cancellation (D20), endpoint and builder constructors (D21-D23) | `grpc-egress-transport-std` | all caught |
-| Metadata extension, balancing, errors (`M`, `E`) | M01-M02, E01, E03-E04 | `grpc-egress-transport-std` | all caught |
-| Cancellation, caller identity (`X`, `Y`) | X01-X04, Y01-Y04 | `grpc-egress-transport-std` | all caught |
-| Builder, TLS, compression (`L`, `B`, `N`) | L01-L03, B01, B03-B13, N01-N02 | `grpc-egress-transport-std` | all caught |
-| Retry (`RT`) | RT01-RT19 (the classifier, the policy provider and builder, the client constructor) | `grpc-egress-retry-std`, `grpc-egress-resilient-std` | all caught |
-| Breaker (`BR`) | BR01-BR11 (the classifier, the policy provider, the client constructor and the factory) | `grpc-egress-breaker-std`, `grpc-egress-resilient-std` | all caught |
-| Resilient (`RS`) | RS01-RS05 (the policy provider and its projections, the factory) | `grpc-egress-resilient-std` | all caught |
+| Interceptors, chain, trace, call (`I`, `C`, `T`, `H`) | I01-I05, C01-C03, T01-T02, H01 | `grpc-egress-transport-std`, `grpc-egress-transport-spi` | all caught |
+| Trait impls of `std/`, `spi/` and `saf/` of the transport (`D`) | D01-D24: channel builder (D01-D07), mutual-TLS factory (D08-D09), load balancer settings provider (D10), interceptor chain (D11-D13), metadata extender (D14), pending call (D15-D16), trace-context interceptor and its factory (D17, D24), caller identity (D18-D19), token cancellation (D20), endpoint and builder constructors (D21-D23) | `grpc-egress-transport-std`, `grpc-egress-transport-spi` | all caught |
+| Metadata extension, balancing, errors (`M`, `E`) | M01-M02, E01, E03-E04 | `grpc-egress-transport-std`, `grpc-egress-transport-spi` | all caught |
+| Cancellation, caller identity (`X`, `Y`) | X01-X04, Y01-Y04 | `grpc-egress-transport-std`, `grpc-egress-transport-spi` | all caught |
+| Builder, TLS, compression (`L`, `B`, `N`) | L01-L03, B01, B03-B13, N01-N02 | `grpc-egress-transport-std`, `grpc-egress-transport-spi` | all caught |
+| Retry (`RT`) | RT01-RT19 (the classifier, the policy provider and builder, the client constructor) | `grpc-egress-retry-std`, `grpc-egress-resilient-spi` | all caught |
+| Breaker (`BR`) | BR01-BR11 (the classifier, the policy provider, the client constructor and the factory) | `grpc-egress-breaker-spi`, `grpc-egress-resilient-spi` | all caught |
+| Resilient (`RS`) | RS01-RS05 (the policy provider and its projections, the factory) | `grpc-egress-resilient-spi` | all caught |
 | Bearer authentication (`BA`) | BA01-BA07 (the secret guard and both builders included) | `grpc-egress-auth-bearer-std` | all caught |
 
 ## What the first run found, and what was done
@@ -60,21 +60,21 @@ The complete 107-entry manifest was rerun against the strengthened API. Each pac
 | Group | Manifest entries | Test command packages | Result |
 |---|---|---|---|
 | Transport, metadata, identity, TLS, cancellation, health, channel and load-balancer (`I`, `C`, `T`, `H`, `M`, `E`, `X`, `Y`, `L`, `B`, `N`, `D`) | 65 | `grpc-egress-transport-std` | All behavior mutations caught. The corrected endpoint-bypass mutant D07 is caught by the existing missing-endpoint builder test. |
-| Breaker (`BR`) | 11 | `grpc-egress-breaker`, `grpc-egress-breaker-std`, `grpc-egress-resilient`, `grpc-egress-resilient-std` | 9 caught; BR07 and BR11 are expected survivors because private `GrpcBreakerConfig` construction/deserialization validates the policy before provider/factory validation. |
+| Breaker (`BR`) | 11 | `grpc-egress-breaker`, `grpc-egress-breaker-spi`, `grpc-egress-resilient`, `grpc-egress-resilient-spi` | 9 caught; BR07 and BR11 are expected survivors because private `GrpcBreakerConfig` construction/deserialization validates the policy before provider/factory validation. |
 | Bearer authentication (`BA`) | 7 | `grpc-egress-auth-bearer`, `grpc-egress-auth-bearer-std` | All caught. |
-| Retry (`RT`) | 19 | `grpc-egress-retry`, `grpc-egress-retry-std`, `grpc-egress-resilient`, `grpc-egress-resilient-std` | 16 caught; RT14, RT16 and RT17 are expected survivors because `GrpcRetryConfig` construction and deserialization validate before the redundant provider checks. |
-| Resilience (`RS`) | 5 | `grpc-egress-resilient`, `grpc-egress-resilient-std`, `grpc-egress-retry`, `grpc-egress-retry-std`, `grpc-egress-breaker`, `grpc-egress-breaker-std` | 4 caught; RS01 is an expected survivor because private `ResilienceConfig` construction and deserialization validate its embedded policies. |
+| Retry (`RT`) | 19 | `grpc-egress-retry`, `grpc-egress-retry-std`, `grpc-egress-resilient`, `grpc-egress-resilient-spi` | 16 caught; RT14, RT16 and RT17 are expected survivors because `GrpcRetryConfig` construction and deserialization validate before the redundant provider checks. |
+| Resilience (`RS`) | 5 | `grpc-egress-resilient`, `grpc-egress-resilient-spi`, `grpc-egress-retry`, `grpc-egress-retry-std`, `grpc-egress-breaker`, `grpc-egress-breaker-spi` | 4 caught; RS01 is an expected survivor because private `ResilienceConfig` construction and deserialization validate its embedded policies. |
 
 The stale mutations from the previous API revision were repaired before their final rerun: I05 now swaps `InboundReply::new` arguments; M02 targets the binary-copy loop in the extension path; Y04 uses `CallerIdentity::headers`; B01/B04/B13 use current channel accessors and the TLS resolver; D04-D10/D14 target current builder, mTLS, load-balancer and metadata code; BR07/BR08 and RT14/RT15/RT17/RT18 use value-object accessors and the current builders; RS01-RS05 target the current projection and factory paths; and BA06 targets the builder's current `try_new` argument. D10 now tests rejection of a valid parsed backend list because the immutable `LoadbalancerSettings` constructor correctly prevents creating an invalid empty-backend value.
 
 Representative commands (all run from the repository root with the common target directory and a 2 GB free-space reserve):
 
 ```powershell
-python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-transport-std" --only I C T H M E X Y L N D B01 B03 B04 B05 B06 B07 B08 B09 B10 B11 B12 B13 --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
-python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-breaker -p grpc-egress-breaker-std -p grpc-egress-resilient -p grpc-egress-resilient-std" --only BR --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-transport-std -p grpc-egress-transport-spi" --only I C T H M E X L N D B01 B03 B04 B05 B06 B07 B08 B09 B10 B11 B12 B13 --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-breaker -p grpc-egress-breaker-spi -p grpc-egress-resilient -p grpc-egress-resilient-spi" --only BR --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
 python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-auth-bearer -p grpc-egress-auth-bearer-std" --only BA --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
-python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-retry -p grpc-egress-retry-std -p grpc-egress-resilient -p grpc-egress-resilient-std" --only RT --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
-python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-resilient -p grpc-egress-resilient-std -p grpc-egress-retry -p grpc-egress-retry-std -p grpc-egress-breaker -p grpc-egress-breaker-std" --only RS --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-retry -p grpc-egress-retry-std -p grpc-egress-resilient -p grpc-egress-resilient-spi" --only RT --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
+python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-resilient -p grpc-egress-resilient-spi -p grpc-egress-retry -p grpc-egress-retry-std -p grpc-egress-breaker -p grpc-egress-breaker-spi" --only RS --target-dir C:\Users\elvis\.cargo\target --min-free-gb 2
 ```
 
 The transport group was split into package-scoped batches and corrected-entry reruns to keep the target directory within the reserve. The breaker, bearer, retry and resilience groups were run separately so unrelated mutants were tested by their owning package suites.
@@ -103,7 +103,7 @@ Nine behavior-breaking mutants were added for the nine current composition-root 
 | E16-08 cancellation never observes signal | `test_run_cancellation_scenario_ends_the_call_on_the_peer_and_on_a_fired_token` |
 | E16-09 security context drops tenant identity | `test_run_security_context_scenario_carries_the_context_as_headers` |
 
-The current 128-entry manifest therefore has **122 caught, 6 documented expected survivors, and 0 invalid or unexplained survivors**. Command:
+Issue #63 removes Y02 because `SecurityContext` now comes from the external `edge-security-runtime` crate; its caller-identity integration behavior remains covered by `test_call_unauthenticated_context_that_holds_a_token_sends_no_authorization`. The current 127-entry manifest therefore has **121 caught, 6 documented expected survivors, and 0 invalid or unexplained survivors**. Command:
 
 ```powershell
 python scripts/mutation/run_mutants.py --mutants scripts/mutation/mutants.json --cmd "cargo test --manifest-path scm/Cargo.toml -p grpc-egress-example-composition-root --test composition_root_int_test" --only E16 --target-dir C:\temp\egress61-target --min-free-gb 2

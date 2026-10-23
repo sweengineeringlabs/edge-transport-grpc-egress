@@ -6,7 +6,7 @@ use std::error::Error;
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcChannelConfig, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
 
 /// Loads a channel configuration from TOML text and assembles clients from it.
 pub struct CompositionRoot {

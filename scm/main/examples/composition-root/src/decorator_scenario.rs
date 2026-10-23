@@ -10,17 +10,17 @@ use grpc_egress_breaker::{
     BreakerObservable, BreakerState, BuildGrpcBreakerRequest, GrpcBreakerConfig,
     GrpcBreakerFactory, ObserveStateRequest,
 };
-use grpc_egress_breaker_std::StdGrpcBreakerFactory;
+use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
 use grpc_egress_retry::{
     BuildGrpcRetryConfigBuilderRequest, BuildGrpcRetryRequest, GrpcRetryConfigBuilder,
     GrpcRetryConfigBuilderFactory, GrpcRetryFactory,
 };
-use grpc_egress_retry_std::{StdGrpcRetryConfigBuilderFactory, StdGrpcRetryFactory};
+use grpc_egress_retry_spi::{StdGrpcRetryConfigBuilderFactory, StdGrpcRetryFactory};
 use grpc_egress_test_support::{CallFixture, PeerBehaviour};
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
 
 use crate::{EchoServer, ScenarioReport};
 

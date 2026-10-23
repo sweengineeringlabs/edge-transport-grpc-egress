@@ -1,8 +1,8 @@
 # ADR-010: Programming over the interface: nothing new is defined in `std/` or `spi/`
 
-**Status:** Accepted (the owner's rule, 2026-10-18)
-**Date:** 2026-10-18
-**Tracking:** [#60](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/60) (follow-up of [#17](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/17) and [#16](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/16))
+**Status:** Accepted (the owner's rule, 2026-10-18; package boundary clarified by #63, 2026-10-23)
+**Date:** 2026-10-18; amended 2026-10-23
+**Tracking:** [#63](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/63), [#60](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/60) (follow-up of [#17](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/17) and [#16](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/16))
 **See also:** [ADR-006](ADR-006-domain-first.md) (the domain crate comes first; amended by this record), [ADR-007](ADR-007-decorators-wrap-a-built-client.md)
 
 ---
@@ -28,6 +28,10 @@ crate; `spi/` is the only layer that does.
 | `std/` | the standard implementation: defaults only | the domain crate, `core`, `std`, `alloc`; no third-party crate | nothing new: implementations of domain traits on `pub(crate)` types, and private helper methods (no free function) |
 | `spi/` | the service provider implementation: the only layer with third-party dependencies | any library | nothing new: implementations of domain traits on `pub(crate)` types, and private helper methods (no free function) |
 | `saf/` | the factories | the domain crate and the two layers above | one public type per factory, implementing a domain factory trait; no logic, no re-exports |
+
+### Package boundary (clarified by issue #63)
+
+The `std/` and `spi/` source layers are separate Cargo packages named `<theme>-std` and `<theme>-spi`. Each package owns its own `saf/` factories and depends on the domain package. A package exists only when that layer has implementation code: SPI-only themes use `<theme>-spi` and do not get an empty `<theme>-std`. When one implementation needs another package's behavior, it composes through public domain factory contracts instead of exposing crate-private implementation types.
 
 ### What is allowed in `std/` and `spi/`
 

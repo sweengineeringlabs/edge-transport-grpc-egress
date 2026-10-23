@@ -15,7 +15,7 @@ impl GrpcEgressInterceptorChainFactory for StdGrpcEgressInterceptorChainFactory 
     fn build(
         &self,
         _req: BuildGrpcEgressInterceptorChainRequest,
-    ) -> impl GrpcEgressInterceptorChain + use<> {
+    ) -> impl GrpcEgressInterceptorChain + Send + Sync + use<> {
         StdGrpcEgressInterceptorChain::default()
     }
 }

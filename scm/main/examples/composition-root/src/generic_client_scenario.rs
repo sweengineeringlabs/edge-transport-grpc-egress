@@ -3,13 +3,13 @@
 use std::error::Error;
 
 use grpc_egress_breaker::{BuildGrpcBreakerRequest, GrpcBreakerConfig, GrpcBreakerFactory};
-use grpc_egress_breaker_std::StdGrpcBreakerFactory;
+use grpc_egress_breaker_spi::StdGrpcBreakerFactory;
 use grpc_egress_retry::{BuildGrpcRetryRequest, GrpcRetryConfig, GrpcRetryFactory};
-use grpc_egress_retry_std::StdGrpcRetryFactory;
+use grpc_egress_retry_spi::StdGrpcRetryFactory;
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{CallOptions, CallRequest, Transport};
 
 use crate::echo_text::{EchoText, Text};

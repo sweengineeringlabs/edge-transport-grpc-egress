@@ -7,9 +7,10 @@ Every failure line names the path and the rule. Exit code 1 when there is a fail
 
 The layout: `scm/main/<crate>/` is a crate (`scm/main/examples/<name>/` an example crate). A domain
 crate `grpc-egress-<theme>` holds only the domain, all of it under `src/api/` (traits, plain data,
-errors; one folder per theme, each with `dto/`, `vo/`, `error/`, `traits/` as needed). Its implementation crate
-`grpc-egress-<theme>-std` holds `std/`, `spi/` (only for a library boundary) and `saf/` (factories),
-and depends on the domain crate by path.
+errors; one folder per theme, each with `dto/`, `vo/`, `error/`, `traits/` as needed). Its implementation
+packages are `grpc-egress-<theme>-std` and `grpc-egress-<theme>-spi`; each layer has its own package,
+owns the factories for its implementations under `saf/`, and depends on the domain crate by path. A package
+exists only for a layer that has an implementation.
 
 Rule 19, `program_over_the_interface` (#60): nothing new is defined in `std/` or `spi/`. A trait is declared only
 under `api/` (checked in every crate, the test-support crate and the examples included); a `pub` or `pub(crate)`
@@ -31,7 +32,7 @@ LAYER_DIRS = ("std", "spi", "saf")
 IMPLEMENTATION_LAYERS = ("std", "spi", "saf", "core")
 # The crate that holds fixtures of the tests is not a domain or an implementation of one.
 EXEMPT_CRATES = {"grpc-egress-test-support"}
-PACKAGE_NAME = re.compile(r"^grpc-egress-[a-z][a-z0-9-]*?(-std)?$")
+PACKAGE_NAME = re.compile(r"^grpc-egress-[a-z][a-z0-9-]*?(-(std|spi))?$")
 LOGIC_LINE = re.compile(r"^\s*(pub(\([a-z]+\))?\s+)?(unsafe\s+)?(async\s+)?(fn|struct|enum|trait|impl|const|static|type)\b")
 ALLOW_ATTRIBUTE = re.compile(r"#!?\[(?:cfg_attr\([^\]]*?)?allow\(")
 TEST_CONFIG = re.compile(r"#\[cfg\(test\)\]")
@@ -129,7 +130,7 @@ class LayoutChecker:
 
     def check_value_object_fields(self, crate_dir, package):
         """Every named field of a domain VO is private; construction goes through its API."""
-        if package is None or package.endswith("-std"):
+        if package is None or self.is_implementation_package(package):
             return
         api = os.path.join(crate_dir, "src", "api")
         if not os.path.isdir(api):
@@ -158,10 +159,10 @@ class LayoutChecker:
         if "/examples/" in crate_dir.replace("\\", "/") + "/":
             return
         if package.startswith("edge-transport-"):
-            self.fail(crate_dir, "package_name", "'%s' starts with edge-transport-; our crates are grpc-egress-<theme>[-std]" % package)
+            self.fail(crate_dir, "package_name", "'%s' starts with edge-transport-; our crates are grpc-egress-<theme>[-std|-spi]" % package)
         elif not PACKAGE_NAME.match(package):
-            self.fail(crate_dir, "package_name", "'%s' is not grpc-egress-<theme> or grpc-egress-<theme>-std" % package)
-        if package.endswith("-std") and base != package[len("grpc-egress-"):]:
+            self.fail(crate_dir, "package_name", "'%s' is not grpc-egress-<theme>[-std|-spi]" % package)
+        if self.is_implementation_package(package) and base != package[len("grpc-egress-"):]:
             self.fail(crate_dir, "package_name", "folder '%s' does not match package '%s'" % (base, package))
 
     def check_no_nested_main(self, crate_dir):
@@ -174,11 +175,19 @@ class LayoutChecker:
             return
         if "/examples/" in crate_dir.replace("\\", "/") + "/":
             return
-        if package.endswith("-std"):
+        if self.is_implementation_package(package):
             if os.path.isdir(os.path.join(src, "core")):
                 self.fail(os.path.join(src, "core"), "no_core_folder", "the implementation folder is std/, not core/")
             if os.path.isdir(os.path.join(src, "api")):
                 self.fail(os.path.join(src, "api"), "implementation_declares_domain", "an implementation crate declares no domain item; it has no api/")
+            if package.endswith("-spi") and os.path.isdir(os.path.join(src, "std")):
+                self.fail(os.path.join(src, "std"), "spi_package_has_std", "an SPI package contains provider implementations only; move std/ to its own -std package")
+            if package.endswith("-spi") and not os.path.isdir(os.path.join(src, "spi")):
+                self.fail(src, "spi_package_missing_spi", "an -spi package contains SPI implementation code under src/spi/")
+            if package.endswith("-std") and os.path.isdir(os.path.join(src, "spi")):
+                self.fail(os.path.join(src, "spi"), "std_package_has_spi", "a standard package contains standard implementations only; move spi/ to its own -spi package")
+            if package.endswith("-std") and not os.path.isdir(os.path.join(src, "std")):
+                self.fail(src, "std_package_missing_std", "an -std package exists only when it contains standard implementation code under src/std/")
         else:
             for layer in IMPLEMENTATION_LAYERS:
                 if os.path.isdir(os.path.join(src, layer)):
@@ -226,9 +235,9 @@ class LayoutChecker:
     def check_pairs(self, crates):
         by_name = {package: crate_dir for crate_dir, package in crates.items() if package}
         for crate_dir, package in crates.items():
-            if not package or not package.endswith("-std") or package in EXEMPT_CRATES:
+            if not package or not self.is_implementation_package(package) or package in EXEMPT_CRATES:
                 continue
-            domain = package[: -len("-std")]
+            domain = self.domain_package_name(package)
             if domain not in by_name:
                 self.fail(crate_dir, "pair", "implementation crate '%s' has no domain crate '%s'" % (package, domain))
                 continue
@@ -236,14 +245,22 @@ class LayoutChecker:
             if not re.search(r"(?m)^%s\s*(=|\.workspace)" % re.escape(domain), manifest):
                 self.fail(crate_dir, "pair", "'%s' does not depend on its domain crate '%s'" % (package, domain))
         for crate_dir, package in crates.items():
-            if package and not package.endswith("-std") and package not in EXEMPT_CRATES:
+            if package and not self.is_implementation_package(package) and package not in EXEMPT_CRATES:
                 if "/examples/" in crate_dir.replace("\\", "/") + "/":
                     continue
                 if not os.path.isdir(os.path.join(crate_dir, "src")):
                     continue
-                # a domain crate needs an implementation crate unless it is a pure port with none yet
-                if package + "-std" not in by_name:
-                    self.fail(crate_dir, "pair", "domain crate '%s' has no implementation crate '%s-std'" % (package, package))
+                # A domain crate may have either or both implementation layers.
+                if package + "-std" not in by_name and package + "-spi" not in by_name:
+                    self.fail(crate_dir, "pair", "domain crate '%s' has no implementation package '%s-std' or '%s-spi'" % (package, package, package))
+
+    @staticmethod
+    def is_implementation_package(package):
+        return package.endswith(("-std", "-spi"))
+
+    @staticmethod
+    def domain_package_name(package):
+        return package.rsplit("-", 1)[0]
 
     def theme_folders(self, domain_src):
         api = os.path.join(domain_src, "api")
@@ -254,9 +271,9 @@ class LayoutChecker:
     def check_theme_mirroring(self, crates):
         by_name = {package: crate_dir for crate_dir, package in crates.items() if package}
         for crate_dir, package in crates.items():
-            if not package or not package.endswith("-std") or package in EXEMPT_CRATES:
+            if not package or not self.is_implementation_package(package) or package in EXEMPT_CRATES:
                 continue
-            domain_dir = by_name.get(package[: -len("-std")])
+            domain_dir = by_name.get(self.domain_package_name(package))
             if not domain_dir or not os.path.isdir(os.path.join(domain_dir, "src")):
                 continue
             themes = self.theme_folders(os.path.join(domain_dir, "src"))

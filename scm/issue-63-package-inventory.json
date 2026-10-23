@@ -1,0 +1,1402 @@
+{
+  "issue": 63,
+  "mode": "read-only-inventory",
+  "next_step": "Review std/spi source ownership, saf factory ownership, and dependency ownership; then encode that reviewed map before enabling any filesystem or manifest changes.",
+  "package_count": 8,
+  "packages": [
+    {
+      "current_layer": "spi",
+      "declared_dependencies": {
+        "dependencies": [
+          "grpc-egress-auth-bearer",
+          "grpc-egress-transport",
+          "jsonwebtoken",
+          "proto-pattern",
+          "subtle",
+          "swe-edge-security",
+          "tracing"
+        ],
+        "dev-dependencies": [
+          "grpc-egress-auth-bearer-std",
+          "grpc-egress-test-support",
+          "grpc-egress-transport-spi",
+          "grpc-egress-transport-std",
+          "serde",
+          "tokio",
+          "toml"
+        ]
+      },
+      "domain_package": "grpc-egress-auth-bearer",
+      "layers": {
+        "saf": [
+          "scm/main/auth-bearer-spi/src/saf/mod.rs",
+          "scm/main/auth-bearer-spi/src/saf/std_bearer_interceptor_factory.rs",
+          "scm/main/auth-bearer-spi/src/saf/std_bearer_secret_guard_factory.rs"
+        ],
+        "spi": [
+          "scm/main/auth-bearer-spi/src/spi/jsonwebtoken/bearer_egress_interceptor.rs",
+          "scm/main/auth-bearer-spi/src/spi/jsonwebtoken/mod.rs",
+          "scm/main/auth-bearer-spi/src/spi/mod.rs",
+          "scm/main/auth-bearer-spi/src/spi/subtle/mod.rs",
+          "scm/main/auth-bearer-spi/src/spi/subtle/std_bearer_secret_guard.rs"
+        ],
+        "std": []
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/auth-bearer-spi/docs/threat_model.md",
+          "sha256": "35fce17d962eed2c19716fa9e7784218636c35aa96a5d5fa05bb8548879c754c"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/examples/auth_bearer.rs",
+          "sha256": "d75a06304b96a7ce6bd0b5db0c64694be25bb4e45ad1fcb76e04e056d47479ff"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/README.md",
+          "sha256": "cf9b624a22d6d3ba61d0fea5fdee902c9e911a119c732036218c73aba4f7b1ad"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/lib.rs",
+          "sha256": "6b3c3b65842aab02b7de485638e8ca6392c9b44bd761156c2fccaa9b4d4bc6db"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/saf/mod.rs",
+          "sha256": "a3b5520b54427d62013af5900aca88244e7f3fe4cbccb8caefd3ab49b7dfd706"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/saf/std_bearer_interceptor_factory.rs",
+          "sha256": "0fe609448473ea899249675e076499384dceae3077912de7bd40633faeb592c6"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/saf/std_bearer_secret_guard_factory.rs",
+          "sha256": "e4208324ce964420f8e8ffa727cc9f8f1e0a713e9b372fe771b1f6f64c8f576f"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/spi/jsonwebtoken/bearer_egress_interceptor.rs",
+          "sha256": "5807b947920e0a25b1d8bd3945b2ba6bea3277cffcd5d2c0354cbd4af49ae17e"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/spi/jsonwebtoken/mod.rs",
+          "sha256": "282681ff50c80ad84fafff90c9cf819416377b924683c62f7b0bab6f5c8b2eda"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/spi/mod.rs",
+          "sha256": "cf33bb72f8c035d024498f14794aa110b233ccc8fe2e3833aca94ab5bf8e575f"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/spi/subtle/mod.rs",
+          "sha256": "a332b430103c1373b1452d0511ba87b38f61cbce6c514e082be25fc17b83549c"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/src/spi/subtle/std_bearer_secret_guard.rs",
+          "sha256": "571af327ff9c0bd6b193c48ded895f48980c454d239a1467d60d5e34f7d71ae5"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/bearer_egress_config_builder_int_test.rs",
+          "sha256": "a27e97df3ebbc1930d82290e66714801d31020142f08114a319c6fe0607b47aa"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/bearer_egress_interceptor_int_test.rs",
+          "sha256": "fcb1013e2521654e4bef88cd379bafda185cbf25afe05234c05a7b278837d99e"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/bearer_egress_wire_int_test.rs",
+          "sha256": "bce4f2bab2223fa4f5631e9ef6213a9da753952866ab625d083726df07c1b9d4"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/bearer_secret_int_test.rs",
+          "sha256": "61035a91eff39efb274b9374cedb862364ba13d0cdb93cb24dfef05aabaa016d"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/data/rs256_test_private.pem",
+          "sha256": "a593346f82374d373570ad47b10555e17f75b5db142538a22c582283e70e9573"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/data/rs256_test_public.pem",
+          "sha256": "05e59fdee8658be3f8609114a748f254e5a693442cb7926f32d95d1fc47a29ee"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/jwt_claims_builder_int_test.rs",
+          "sha256": "c512f59322f77b2580300246c7be3501448f4ac6eecfb7fdc59a3eabad04b3ae"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/jwt_claims_int_test.rs",
+          "sha256": "5655ee3397295580bb6abf1a0dab261e557ce8e883253fd9625c46da64ff9744"
+        },
+        {
+          "path": "scm/main/auth-bearer-spi/tests/subtle_int_test.rs",
+          "sha256": "65055ef152523a8ff7dd2cb0f153760d9201bdf28300b1883631cc16f2470767"
+        }
+      ],
+      "package": "grpc-egress-auth-bearer-spi",
+      "path": "scm/main/auth-bearer-spi",
+      "related_packages": [
+        "grpc-egress-auth-bearer",
+        "grpc-egress-auth-bearer-spi",
+        "grpc-egress-auth-bearer-std"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "grpc-egress-auth-bearer",
+          "grpc-egress-transport",
+          "jsonwebtoken",
+          "proto-pattern",
+          "subtle",
+          "swe-edge-security",
+          "tracing"
+        ],
+        "dev-dependencies": [
+          "grpc-egress-auth-bearer-std",
+          "grpc-egress-test-support",
+          "grpc-egress-transport-spi",
+          "grpc-egress-transport-std",
+          "serde",
+          "tokio",
+          "toml"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/auth-bearer-spi/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [
+          "scm/main/auth-bearer-spi/examples/auth_bearer.rs"
+        ],
+        "tests": [
+          "scm/main/auth-bearer-spi/tests/bearer_egress_config_builder_int_test.rs",
+          "scm/main/auth-bearer-spi/tests/bearer_egress_interceptor_int_test.rs",
+          "scm/main/auth-bearer-spi/tests/bearer_egress_wire_int_test.rs",
+          "scm/main/auth-bearer-spi/tests/bearer_secret_int_test.rs",
+          "scm/main/auth-bearer-spi/tests/jwt_claims_builder_int_test.rs",
+          "scm/main/auth-bearer-spi/tests/jwt_claims_int_test.rs",
+          "scm/main/auth-bearer-spi/tests/subtle_int_test.rs"
+        ]
+      },
+      "workspace_consumers": []
+    },
+    {
+      "current_layer": "std",
+      "declared_dependencies": {
+        "dependencies": [
+          "grpc-egress-auth-bearer"
+        ]
+      },
+      "domain_package": "grpc-egress-auth-bearer",
+      "layers": {
+        "saf": [
+          "scm/main/auth-bearer-std/src/saf/mod.rs",
+          "scm/main/auth-bearer-std/src/saf/std_bearer_egress_config_builder_factory.rs",
+          "scm/main/auth-bearer-std/src/saf/std_jwt_claims_builder_factory.rs"
+        ],
+        "spi": [],
+        "std": [
+          "scm/main/auth-bearer-std/src/std/mod.rs",
+          "scm/main/auth-bearer-std/src/std/std_bearer_egress_config_builder.rs",
+          "scm/main/auth-bearer-std/src/std/std_jwt_claims_builder.rs"
+        ]
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/auth-bearer-std/CHANGELOG.md",
+          "sha256": "00ff80f542ed2525a599d904a8ca363db792fd310ae79479ff415b41729d5a23"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/deny.toml",
+          "sha256": "ab820c313c15768d045b9c02fe96f793fd60002aeec5b85e1f701ad68cdd342c"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/README.md",
+          "sha256": "c5600be760d773b5a654e9153b40c0b73febf8e7ae71f633b3f86a9845a9354f"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/src/lib.rs",
+          "sha256": "bf5d40f1527f0640b62c3cff031e67d5702a8557d684c20008761c0864e01e23"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/src/saf/mod.rs",
+          "sha256": "cb401529d34a284e2fc4ac8bb27591c46370ee084411f104174e241e4b1a7a91"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/src/saf/std_bearer_egress_config_builder_factory.rs",
+          "sha256": "8f4da95971bb9c48116765e8e1f48b4ab31f62a286225ef6b70ba3d101620ba0"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/src/saf/std_jwt_claims_builder_factory.rs",
+          "sha256": "cf5fb79ddd1e0c0ceb4a743f74a8cd4f18ad93a0aace5bd1fbc9c4845b171e4b"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/src/std/mod.rs",
+          "sha256": "e2ebc82c4f4eb05035cddb1fab1b9d92c3cfe26ccf5c7723263ce0ff8906fe8d"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/src/std/std_bearer_egress_config_builder.rs",
+          "sha256": "5054d77dfec8dc665edfa4056d388931f153fe2b42338f60ecaa6bb6f193f581"
+        },
+        {
+          "path": "scm/main/auth-bearer-std/src/std/std_jwt_claims_builder.rs",
+          "sha256": "155a8377a6a3cc5c9712bd73fb3fdab82eb5b885a30985a1ebbe8824426a9448"
+        }
+      ],
+      "package": "grpc-egress-auth-bearer-std",
+      "path": "scm/main/auth-bearer-std",
+      "related_packages": [
+        "grpc-egress-auth-bearer",
+        "grpc-egress-auth-bearer-spi",
+        "grpc-egress-auth-bearer-std"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "grpc-egress-auth-bearer"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/auth-bearer-std/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [],
+        "tests": []
+      },
+      "workspace_consumers": [
+        {
+          "dependency_section": "dev-dependencies",
+          "manifest": "scm/main/auth-bearer-spi/Cargo.toml",
+          "package": "grpc-egress-auth-bearer-spi"
+        }
+      ]
+    },
+    {
+      "current_layer": "spi",
+      "declared_dependencies": {
+        "dependencies": [
+          "edge-transport-breaker",
+          "edge-transport-breaker-policy",
+          "futures",
+          "grpc-egress-breaker",
+          "proto-pattern",
+          "tokio",
+          "toml",
+          "tracing"
+        ],
+        "dev-dependencies": [
+          "grpc-egress-test-support",
+          "grpc-egress-transport",
+          "grpc-egress-transport-std",
+          "swe-edge-configbuilder",
+          "tokio"
+        ]
+      },
+      "domain_package": "grpc-egress-breaker",
+      "layers": {
+        "saf": [
+          "scm/main/breaker-spi/src/saf/mod.rs",
+          "scm/main/breaker-spi/src/saf/std_grpc_breaker_config_provider_factory.rs",
+          "scm/main/breaker-spi/src/saf/std_grpc_breaker_factory.rs"
+        ],
+        "spi": [
+          "scm/main/breaker-spi/src/spi/config/mod.rs",
+          "scm/main/breaker-spi/src/spi/config/std_grpc_breaker_config_provider.rs",
+          "scm/main/breaker-spi/src/spi/decorator/breaker_egress.rs",
+          "scm/main/breaker-spi/src/spi/decorator/grpc_breaker_client.rs",
+          "scm/main/breaker-spi/src/spi/decorator/mod.rs",
+          "scm/main/breaker-spi/src/spi/decorator/std_failure_classifier.rs",
+          "scm/main/breaker-spi/src/spi/mod.rs"
+        ],
+        "std": []
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/breaker-spi/CHANGELOG.md",
+          "sha256": "8c5564ad0c6e642eec0771e1d2abfb9772c2b2080f1729ba99d0d8de35974a3f"
+        },
+        {
+          "path": "scm/main/breaker-spi/deny.toml",
+          "sha256": "ab820c313c15768d045b9c02fe96f793fd60002aeec5b85e1f701ad68cdd342c"
+        },
+        {
+          "path": "scm/main/breaker-spi/examples/grpc_breaker.rs",
+          "sha256": "4891eed0fe8ab9bc3b93f8ef5190823231932dab7aa8a85ad903f439accbc9a0"
+        },
+        {
+          "path": "scm/main/breaker-spi/README.md",
+          "sha256": "af7c22244b1da839a468f7c283a2508d6204067e1fc5637730043d3d20e768e5"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/lib.rs",
+          "sha256": "053d254a1caa5deb29445c1269cb3ffa5d3f935ed73b754727b99d40e81b86e9"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/saf/mod.rs",
+          "sha256": "904e2d6b98793eca48e696ad46d77e55438a75485afa8fe70f192c7344f59e6f"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/saf/std_grpc_breaker_config_provider_factory.rs",
+          "sha256": "7a177f894f35fbb8c3166c08738cce3da138587ad6fc2e6238fba678b69cee9c"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/saf/std_grpc_breaker_factory.rs",
+          "sha256": "bfb204f11c59a66a5cbcfaab3ce3da15d077b02c37a8bb9c4c51dd417ead1517"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/spi/config/mod.rs",
+          "sha256": "d1a1e539edc469d7766b8ce94bc818df996fd2195bdddf231c29827ed47e20f3"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/spi/config/std_grpc_breaker_config_provider.rs",
+          "sha256": "1be0ceabf86f755acd524d8cda1c360cd25a24fffad6f20c4dc3814faaa799fe"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/spi/decorator/breaker_egress.rs",
+          "sha256": "8e3f19df2c117836dd143ac09060761da493e548eb62dcc2c8bf57147dda46c2"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/spi/decorator/grpc_breaker_client.rs",
+          "sha256": "abdc80604c93159b238f27689abb4caa27341bdadf5ef14d375e9524b1c6441b"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/spi/decorator/mod.rs",
+          "sha256": "7aa7eacf2840485769077efa1c821735abf429c6ffeb9fb5256117803316cad4"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/spi/decorator/std_failure_classifier.rs",
+          "sha256": "016e8e9e6079808471d9b16af25b85b72b1f81143272c36346b546f240a1cda4"
+        },
+        {
+          "path": "scm/main/breaker-spi/src/spi/mod.rs",
+          "sha256": "ae66456a20b387b0d6065323c27a3d8e232c66e069752ffe568e3db71a8d63ec"
+        },
+        {
+          "path": "scm/main/breaker-spi/tests/breaker_config_int_test.rs",
+          "sha256": "3e5a3640ce1e01af80e2664a87b8e010738abff6358ceef6157e6a0f2c49c70b"
+        },
+        {
+          "path": "scm/main/breaker-spi/tests/breaker_engine_int_test.rs",
+          "sha256": "c9840f405491bf147a3037859ef8d58f2fe9c539db07e895225a429890b3e426"
+        },
+        {
+          "path": "scm/main/breaker-spi/tests/breaker_int_test.rs",
+          "sha256": "aea3f9b491a18d0f1a1fa01ef75b9140a0d3c3308aaf65fc69781f5660a55663"
+        },
+        {
+          "path": "scm/main/breaker-spi/tests/grpc_breaker_config_validation_int_test.rs",
+          "sha256": "b347b432d56be608a3ace9c009b7c8fab51d9282f09b39e891e0a15ee102f418"
+        },
+        {
+          "path": "scm/main/breaker-spi/tests/std_grpc_breaker_factory_int_test.rs",
+          "sha256": "490e6ed6bcb26a942062d75b8fb15bd4b7fec7376e4c4fed573670deb37e0c78"
+        }
+      ],
+      "package": "grpc-egress-breaker-spi",
+      "path": "scm/main/breaker-spi",
+      "related_packages": [
+        "grpc-egress-breaker",
+        "grpc-egress-breaker-spi"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "edge-transport-breaker",
+          "edge-transport-breaker-policy",
+          "futures",
+          "grpc-egress-breaker",
+          "proto-pattern",
+          "tokio",
+          "toml",
+          "tracing"
+        ],
+        "dev-dependencies": [
+          "grpc-egress-test-support",
+          "grpc-egress-transport",
+          "grpc-egress-transport-std",
+          "swe-edge-configbuilder",
+          "tokio"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/breaker-spi/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [
+          "scm/main/breaker-spi/examples/grpc_breaker.rs"
+        ],
+        "tests": [
+          "scm/main/breaker-spi/tests/breaker_config_int_test.rs",
+          "scm/main/breaker-spi/tests/breaker_engine_int_test.rs",
+          "scm/main/breaker-spi/tests/breaker_int_test.rs",
+          "scm/main/breaker-spi/tests/grpc_breaker_config_validation_int_test.rs",
+          "scm/main/breaker-spi/tests/std_grpc_breaker_factory_int_test.rs"
+        ]
+      },
+      "workspace_consumers": [
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/examples/composition-root/Cargo.toml",
+          "package": "grpc-egress-example-composition-root"
+        },
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/resilient-spi/Cargo.toml",
+          "package": "grpc-egress-resilient-spi"
+        }
+      ]
+    },
+    {
+      "current_layer": "spi",
+      "declared_dependencies": {
+        "dependencies": [
+          "grpc-egress-breaker",
+          "grpc-egress-breaker-spi",
+          "grpc-egress-resilient",
+          "grpc-egress-retry",
+          "grpc-egress-retry-spi",
+          "grpc-egress-transport",
+          "proto-pattern",
+          "toml"
+        ],
+        "dev-dependencies": [
+          "futures",
+          "grpc-egress-test-support",
+          "grpc-egress-transport-std",
+          "tokio"
+        ]
+      },
+      "domain_package": "grpc-egress-resilient",
+      "layers": {
+        "saf": [
+          "scm/main/resilient-spi/src/saf/mod.rs",
+          "scm/main/resilient-spi/src/saf/std_grpc_resilient_factory.rs",
+          "scm/main/resilient-spi/src/saf/std_resilience_config_provider_factory.rs"
+        ],
+        "spi": [
+          "scm/main/resilient-spi/src/spi/config/mod.rs",
+          "scm/main/resilient-spi/src/spi/config/std_resilience_config_provider.rs",
+          "scm/main/resilient-spi/src/spi/mod.rs"
+        ],
+        "std": []
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/resilient-spi/CHANGELOG.md",
+          "sha256": "5c310518125e99c83728e756f41ed3a52247a0110d2e300433d7ad8b5185c865"
+        },
+        {
+          "path": "scm/main/resilient-spi/deny.toml",
+          "sha256": "ab820c313c15768d045b9c02fe96f793fd60002aeec5b85e1f701ad68cdd342c"
+        },
+        {
+          "path": "scm/main/resilient-spi/examples/resilient.rs",
+          "sha256": "6e589a89bae5054e07d10cc90098b5061948504368d1c1a89dd127aa0b9a03ff"
+        },
+        {
+          "path": "scm/main/resilient-spi/README.md",
+          "sha256": "75c42ef99ffeefd90f1467a4e6256bd88e1c6fb15f4a26b4c4e3ab47b574e62d"
+        },
+        {
+          "path": "scm/main/resilient-spi/src/lib.rs",
+          "sha256": "d6650cbfbd7dd035be1390bfac9388f54065f4ab8a97e4a70808e27e0331ea6c"
+        },
+        {
+          "path": "scm/main/resilient-spi/src/saf/mod.rs",
+          "sha256": "ecf909a3e14e9ffaab8513e6372314390961104a32381373d4f7ea02fd0f995c"
+        },
+        {
+          "path": "scm/main/resilient-spi/src/saf/std_grpc_resilient_factory.rs",
+          "sha256": "2467bf064736816fd72713e8345330718889d6e5ae55abc250e1cb0b459dfbee"
+        },
+        {
+          "path": "scm/main/resilient-spi/src/saf/std_resilience_config_provider_factory.rs",
+          "sha256": "f64da0b30e44106170b72bee55c7df80de017347a0f2777378d756ea9836e09f"
+        },
+        {
+          "path": "scm/main/resilient-spi/src/spi/config/mod.rs",
+          "sha256": "65d472df6a9b5953e4ef77838505aad5cd464aa19b91d353de0f8cea59b0cad4"
+        },
+        {
+          "path": "scm/main/resilient-spi/src/spi/config/std_resilience_config_provider.rs",
+          "sha256": "7f036210f3385f8be07d959f6f5d72ead51fd61c0b0373e08ebb8b057ed603bf"
+        },
+        {
+          "path": "scm/main/resilient-spi/src/spi/mod.rs",
+          "sha256": "5d2df7792a4332c075bf7eb912bd8d7e8c59ce9dcfd17c45aed2ed69c8d6b760"
+        },
+        {
+          "path": "scm/main/resilient-spi/tests/error_int_test.rs",
+          "sha256": "03a8016ba2c6fe993a39445c0120408c4a0503eab5e99c5405090535d273d3e4"
+        },
+        {
+          "path": "scm/main/resilient-spi/tests/resilience_config_provider_int_test.rs",
+          "sha256": "f4e9346b799ba7ee03842bae07a6393a4869da85c615ada6432779baa80e3d1e"
+        },
+        {
+          "path": "scm/main/resilient-spi/tests/resilient_stack_int_test.rs",
+          "sha256": "123e5cba82d6a1932a5c01c10eb24e386497661ca116b50420f8168a80ca13dd"
+        }
+      ],
+      "package": "grpc-egress-resilient-spi",
+      "path": "scm/main/resilient-spi",
+      "related_packages": [
+        "grpc-egress-resilient",
+        "grpc-egress-resilient-spi"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "grpc-egress-breaker",
+          "grpc-egress-breaker-spi",
+          "grpc-egress-resilient",
+          "grpc-egress-retry",
+          "grpc-egress-retry-spi",
+          "grpc-egress-transport",
+          "proto-pattern",
+          "toml"
+        ],
+        "dev-dependencies": [
+          "grpc-egress-test-support",
+          "grpc-egress-transport-std",
+          "tokio"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/resilient-spi/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [
+          "scm/main/resilient-spi/examples/resilient.rs"
+        ],
+        "tests": [
+          "scm/main/resilient-spi/tests/error_int_test.rs",
+          "scm/main/resilient-spi/tests/resilience_config_provider_int_test.rs",
+          "scm/main/resilient-spi/tests/resilient_stack_int_test.rs"
+        ]
+      },
+      "workspace_consumers": []
+    },
+    {
+      "current_layer": "spi",
+      "declared_dependencies": {
+        "dependencies": [
+          "edge-transport-retry",
+          "grpc-egress-retry",
+          "grpc-egress-retry-std",
+          "proto-pattern",
+          "tokio",
+          "toml",
+          "tracing"
+        ],
+        "dev-dependencies": [
+          "futures",
+          "grpc-egress-test-support",
+          "grpc-egress-transport",
+          "grpc-egress-transport-std",
+          "swe-edge-configbuilder",
+          "tokio"
+        ]
+      },
+      "domain_package": "grpc-egress-retry",
+      "layers": {
+        "saf": [
+          "scm/main/retry-spi/src/saf/mod.rs",
+          "scm/main/retry-spi/src/saf/std_grpc_retry_config_builder_factory.rs",
+          "scm/main/retry-spi/src/saf/std_grpc_retry_config_provider_factory.rs",
+          "scm/main/retry-spi/src/saf/std_grpc_retry_factory.rs"
+        ],
+        "spi": [
+          "scm/main/retry-spi/src/spi/config/mod.rs",
+          "scm/main/retry-spi/src/spi/config/std_grpc_retry_config_builder.rs",
+          "scm/main/retry-spi/src/spi/config/std_grpc_retry_config_provider.rs",
+          "scm/main/retry-spi/src/spi/decorator/grpc_retry_client.rs",
+          "scm/main/retry-spi/src/spi/decorator/mod.rs",
+          "scm/main/retry-spi/src/spi/decorator/retry_transport.rs",
+          "scm/main/retry-spi/src/spi/mod.rs"
+        ],
+        "std": []
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/retry-spi/CHANGELOG.md",
+          "sha256": "3c9e15d138d10ee0c8b4214cbbd51d012ad6e41f26b7a7e09720c4fa3efa27ab"
+        },
+        {
+          "path": "scm/main/retry-spi/deny.toml",
+          "sha256": "ab820c313c15768d045b9c02fe96f793fd60002aeec5b85e1f701ad68cdd342c"
+        },
+        {
+          "path": "scm/main/retry-spi/examples/grpc_retry.rs",
+          "sha256": "b8228392ac70f611915ceb51c3799ae682b9529e5d60186e0739ed05fb2137f5"
+        },
+        {
+          "path": "scm/main/retry-spi/README.md",
+          "sha256": "8e42890455f745bceef57fc7c397c411f375ff6108b337ff413a0b6cbc341556"
+        },
+        {
+          "path": "scm/main/retry-spi/src/lib.rs",
+          "sha256": "7e6facb0f0d307db2967b59118f23b12247a4e6a7adf040dedc2d4627fdb8100"
+        },
+        {
+          "path": "scm/main/retry-spi/src/saf/mod.rs",
+          "sha256": "ef77ca995cff16918f406235d50b079060b1835b0b6ea1b6a9c8b9876858146a"
+        },
+        {
+          "path": "scm/main/retry-spi/src/saf/std_grpc_retry_config_builder_factory.rs",
+          "sha256": "061a6ac4f74c2930e77bc88465316319a6fb9ee3f3b60af36526a37f8ba1e88e"
+        },
+        {
+          "path": "scm/main/retry-spi/src/saf/std_grpc_retry_config_provider_factory.rs",
+          "sha256": "fcbe6f6e4b284a0185d002f5fce9db98a146593644cb4b8259a4cfadf5b863cc"
+        },
+        {
+          "path": "scm/main/retry-spi/src/saf/std_grpc_retry_factory.rs",
+          "sha256": "730f1ad0be083e622e557ef4f63af024f41c2433a77a71d334837a2236818828"
+        },
+        {
+          "path": "scm/main/retry-spi/src/spi/config/mod.rs",
+          "sha256": "eed5927dfe904a6b26f973f12f5a857d2c3164ed0c99b29527df04acb42371fb"
+        },
+        {
+          "path": "scm/main/retry-spi/src/spi/config/std_grpc_retry_config_builder.rs",
+          "sha256": "3fe82fd156fa7b60d7419b424cfe4cbed2f95ae9da6aba922707eb5b63fccbf7"
+        },
+        {
+          "path": "scm/main/retry-spi/src/spi/config/std_grpc_retry_config_provider.rs",
+          "sha256": "3041ddbab6fe3709800c50ca1ee21b6ebf4e60156c59a7131a0bde99b192b66e"
+        },
+        {
+          "path": "scm/main/retry-spi/src/spi/decorator/grpc_retry_client.rs",
+          "sha256": "bbfe41de054b3772118cda58068360d9e279f14ff1037f0365d2cc61bca53d80"
+        },
+        {
+          "path": "scm/main/retry-spi/src/spi/decorator/mod.rs",
+          "sha256": "4589e6811e055fb12ad1a9e592ded9a3a812beef8fcc520706212ce4a466eefa"
+        },
+        {
+          "path": "scm/main/retry-spi/src/spi/decorator/retry_transport.rs",
+          "sha256": "53af311f7f8abb883a5d47b7f5ffdf6719141ee0710e5e9ff97f0d0666daa97e"
+        },
+        {
+          "path": "scm/main/retry-spi/src/spi/mod.rs",
+          "sha256": "5f4a40393e91e1c05db72357875c787a6dde4734bdf3da3b5260372fd5ad6d30"
+        },
+        {
+          "path": "scm/main/retry-spi/tests/grpc_retry_config_builder_int_test.rs",
+          "sha256": "15efb7ac1375186d3fd3a73cb6aea64c1a45ca4ccaf3d783580654c2c30d8ef9"
+        },
+        {
+          "path": "scm/main/retry-spi/tests/grpc_retry_config_int_test.rs",
+          "sha256": "43c149fdcb53edeb5bd83314f70ad4ad7bc9aafd8bd577ed62af4b966e2df55d"
+        },
+        {
+          "path": "scm/main/retry-spi/tests/resource_exhausted_context_int_test.rs",
+          "sha256": "4dd1a51dfadd35c14ddbff30bf2926321904447134b8b6997cef947d04eddc88"
+        },
+        {
+          "path": "scm/main/retry-spi/tests/retry_decision_int_test.rs",
+          "sha256": "a9e3d61053bdc80dd77fd593283fd6571309e77e7b3f1f43aa43a5b574a937da"
+        },
+        {
+          "path": "scm/main/retry-spi/tests/retry_int_test.rs",
+          "sha256": "600da155e1a4f644b070ab63fc4be74bef26ff731ccb6aef73a2a4c298cc64a5"
+        },
+        {
+          "path": "scm/main/retry-spi/tests/retry_peer_int_test.rs",
+          "sha256": "fadc8d8dec7707642745d99c47bf7ed5b247cf8dffcd1ef926e808da17497ef8"
+        }
+      ],
+      "package": "grpc-egress-retry-spi",
+      "path": "scm/main/retry-spi",
+      "related_packages": [
+        "grpc-egress-retry",
+        "grpc-egress-retry-spi",
+        "grpc-egress-retry-std"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "edge-transport-retry",
+          "grpc-egress-retry",
+          "grpc-egress-retry-std",
+          "proto-pattern",
+          "tokio",
+          "toml",
+          "tracing"
+        ],
+        "dev-dependencies": [
+          "grpc-egress-test-support",
+          "grpc-egress-transport",
+          "grpc-egress-transport-std",
+          "swe-edge-configbuilder",
+          "tokio"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/retry-spi/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [
+          "scm/main/retry-spi/examples/grpc_retry.rs"
+        ],
+        "tests": [
+          "scm/main/retry-spi/tests/grpc_retry_config_builder_int_test.rs",
+          "scm/main/retry-spi/tests/grpc_retry_config_int_test.rs",
+          "scm/main/retry-spi/tests/resource_exhausted_context_int_test.rs",
+          "scm/main/retry-spi/tests/retry_decision_int_test.rs",
+          "scm/main/retry-spi/tests/retry_int_test.rs",
+          "scm/main/retry-spi/tests/retry_peer_int_test.rs"
+        ]
+      },
+      "workspace_consumers": [
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/examples/composition-root/Cargo.toml",
+          "package": "grpc-egress-example-composition-root"
+        },
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/resilient-spi/Cargo.toml",
+          "package": "grpc-egress-resilient-spi"
+        }
+      ]
+    },
+    {
+      "current_layer": "std",
+      "declared_dependencies": {
+        "dependencies": [
+          "grpc-egress-retry"
+        ]
+      },
+      "domain_package": "grpc-egress-retry",
+      "layers": {
+        "saf": [
+          "scm/main/retry-std/src/saf/mod.rs",
+          "scm/main/retry-std/src/saf/std_retry_classifier_factory.rs"
+        ],
+        "spi": [],
+        "std": [
+          "scm/main/retry-std/src/std/mod.rs",
+          "scm/main/retry-std/src/std/std_retry_classifier.rs"
+        ]
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/retry-std/README.md",
+          "sha256": "9b16fccebe270ddf68a45e6bc4ff5dbcc8ee0231ff98c5f6b2ae03e2e8eaa8b0"
+        },
+        {
+          "path": "scm/main/retry-std/src/lib.rs",
+          "sha256": "28eeb7d30e68973f017c085719db6360cbf32aa7ac7a42e12bfe56372b2759b2"
+        },
+        {
+          "path": "scm/main/retry-std/src/saf/mod.rs",
+          "sha256": "3567e3de38765ea1b461b27bbb6ee95fd0ef92139fb323c7c984574313780648"
+        },
+        {
+          "path": "scm/main/retry-std/src/saf/std_retry_classifier_factory.rs",
+          "sha256": "920a82c66eea40b596d18440f20785544c23024a63ef0fb24f41b0ed4a42327d"
+        },
+        {
+          "path": "scm/main/retry-std/src/std/mod.rs",
+          "sha256": "37e42832163d6a6d66beb2b49161183a6511ece1210077e2553348888143138c"
+        },
+        {
+          "path": "scm/main/retry-std/src/std/std_retry_classifier.rs",
+          "sha256": "328061d3efd28160c5bc8f7211136a69a1ef8625b0d528f45649e5a713188b24"
+        }
+      ],
+      "package": "grpc-egress-retry-std",
+      "path": "scm/main/retry-std",
+      "related_packages": [
+        "grpc-egress-retry",
+        "grpc-egress-retry-spi",
+        "grpc-egress-retry-std"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "grpc-egress-retry"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/retry-std/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [],
+        "tests": []
+      },
+      "workspace_consumers": [
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/retry-spi/Cargo.toml",
+          "package": "grpc-egress-retry-spi"
+        }
+      ]
+    },
+    {
+      "current_layer": "spi",
+      "declared_dependencies": {
+        "dependencies": [
+          "futures",
+          "grpc-egress-transport",
+          "grpc-egress-transport-std",
+          "http",
+          "proto-pattern",
+          "proto-tonic-spi",
+          "serde",
+          "swe-edge-loadbalancer",
+          "tokio",
+          "toml",
+          "tracing"
+        ],
+        "dev-dependencies": [
+          "bytes",
+          "edge-security-runtime",
+          "flate2",
+          "futures",
+          "grpc-egress-test-support",
+          "http",
+          "http-body",
+          "http-body-util",
+          "hyper",
+          "hyper-util",
+          "prost",
+          "proto-test-peer",
+          "rustls",
+          "tokio",
+          "tokio-stream",
+          "tokio-util",
+          "tonic",
+          "tonic-health",
+          "tonic-prost",
+          "zstd"
+        ]
+      },
+      "domain_package": "grpc-egress-transport",
+      "layers": {
+        "saf": [
+          "scm/main/transport-spi/src/saf/cancellation/mod.rs",
+          "scm/main/transport-spi/src/saf/cancellation/std_grpc_cancellation_factory.rs",
+          "scm/main/transport-spi/src/saf/client/grpc_egress_builder_spi_factory.rs",
+          "scm/main/transport-spi/src/saf/client/mod.rs",
+          "scm/main/transport-spi/src/saf/context/mod.rs",
+          "scm/main/transport-spi/src/saf/context/std_grpc_caller_identity_factory.rs",
+          "scm/main/transport-spi/src/saf/loadbalancer/mod.rs",
+          "scm/main/transport-spi/src/saf/loadbalancer/std_loadbalancer_settings_provider_factory.rs",
+          "scm/main/transport-spi/src/saf/mod.rs"
+        ],
+        "spi": [
+          "scm/main/transport-spi/src/spi/cancellation/mod.rs",
+          "scm/main/transport-spi/src/spi/cancellation/signal/cancellable_response_stream.rs",
+          "scm/main/transport-spi/src/spi/cancellation/signal/cancellable_transport.rs",
+          "scm/main/transport-spi/src/spi/cancellation/signal/mod.rs",
+          "scm/main/transport-spi/src/spi/client/intercepted_transport.rs",
+          "scm/main/transport-spi/src/spi/client/mod.rs",
+          "scm/main/transport-spi/src/spi/client/pattern_egress_interceptor.rs",
+          "scm/main/transport-spi/src/spi/client/pending_call.rs",
+          "scm/main/transport-spi/src/spi/client/protosvc/endpoint_transport.rs",
+          "scm/main/transport-spi/src/spi/client/protosvc/grpc_egress_builder.rs",
+          "scm/main/transport-spi/src/spi/client/protosvc/mod.rs",
+          "scm/main/transport-spi/src/spi/client/std_metadata_extender.rs",
+          "scm/main/transport-spi/src/spi/context/context_headers.rs",
+          "scm/main/transport-spi/src/spi/context/context_transport.rs",
+          "scm/main/transport-spi/src/spi/context/mod.rs",
+          "scm/main/transport-spi/src/spi/loadbalancer/mod.rs",
+          "scm/main/transport-spi/src/spi/loadbalancer/settings/loadbalancer_settings_provider.rs",
+          "scm/main/transport-spi/src/spi/loadbalancer/settings/mod.rs",
+          "scm/main/transport-spi/src/spi/mod.rs"
+        ],
+        "std": []
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/transport-spi/CHANGELOG.md",
+          "sha256": "058f6acca08f973dfa4f09c10b7b9388db9c55de7688d34c1d082c43ef7c6556"
+        },
+        {
+          "path": "scm/main/transport-spi/deny.toml",
+          "sha256": "ab820c313c15768d045b9c02fe96f793fd60002aeec5b85e1f701ad68cdd342c"
+        },
+        {
+          "path": "scm/main/transport-spi/examples/basic_transport.rs",
+          "sha256": "30583060198a59a284865a1cad323270e26d2a095501916685bdefce2f9d3517"
+        },
+        {
+          "path": "scm/main/transport-spi/README.md",
+          "sha256": "087ea2b0de68531134b7236eb9c0469684ba43a17732fa22b020f1999b43de20"
+        },
+        {
+          "path": "scm/main/transport-spi/src/lib.rs",
+          "sha256": "585fdb4645b150858a63969c71555ae69befcf37691aa6882fc1769272bb88aa"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/cancellation/mod.rs",
+          "sha256": "d78f247c50f9ed2f2c0b448c5fc1d583786721cc32df55b072bdd4d1a0a2a63a"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/cancellation/std_grpc_cancellation_factory.rs",
+          "sha256": "e8d7c44f090638b37b84cbd16ef2bd761b86bc7c517a4aa9610e3b8463ab0e88"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/client/grpc_egress_builder_spi_factory.rs",
+          "sha256": "056d4d194b9cb3cfe44aad72b677cec336aea5284b327e3b27d3d94b42b44fca"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/client/mod.rs",
+          "sha256": "069d0b4e907314127be293ab02cc29730655dd69f0e01adae177a06606cdd11d"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/context/mod.rs",
+          "sha256": "cb1f236daa3195d6020fdf7c48a2368fed8835a4ecaad9efddba8ee7bce73a05"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/context/std_grpc_caller_identity_factory.rs",
+          "sha256": "90ec2e799bfe72e1ad0e794061a7668b576fb0f1f24e2075cfaa884257e80c49"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/loadbalancer/mod.rs",
+          "sha256": "a43247f63e400154eeb7b4d431db742d2f776baa8f9b80482e62d3b6ebd0154b"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/loadbalancer/std_loadbalancer_settings_provider_factory.rs",
+          "sha256": "fe410f6c804d8579a342210049ba277645edffabe64f71955efe91d2bed7ebb7"
+        },
+        {
+          "path": "scm/main/transport-spi/src/saf/mod.rs",
+          "sha256": "2e4eb72efeb2131fc6a1b724ff823b824e235629ac6cdc0ae19af10b29d5abf0"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/cancellation/mod.rs",
+          "sha256": "05deb357c8daee064528977f705e4b3f732830cbdc3d75c09c0d50153bd50c70"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/cancellation/signal/cancellable_response_stream.rs",
+          "sha256": "a8cded957049dbd2d49066847e6ee65d45485179b188c56456e81e2cbe4481aa"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/cancellation/signal/cancellable_transport.rs",
+          "sha256": "86797d5d0c88eadf0212a2d77f52cf0b66ecdedd8e6fc48b87d7651fc4707a4b"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/cancellation/signal/mod.rs",
+          "sha256": "dba8ba281a035b2212032cc83826ad57e08f599bcd95efe70f18690ea8a9d4f0"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/intercepted_transport.rs",
+          "sha256": "ed31efbc7d5d2a0592ef248382b4c795e51db801b154864f165440d54ad5954f"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/mod.rs",
+          "sha256": "47ca13656b312a5de7f49cdb79a83070fb81ca00a0674c96f889e10c5e5bcddb"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/pattern_egress_interceptor.rs",
+          "sha256": "66063302237bc6813420da15c3fc26119c9f9291007c2c5063e01f47a1238817"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/pending_call.rs",
+          "sha256": "4c61b4ef7290efd05bfc13d815d5f302cf2e58a24ca21f5e7d381ee132993779"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/protosvc/endpoint_transport.rs",
+          "sha256": "90a34de1c9771e6960b0d64f4b751ec4bdf2bc3e9fb200167f96eae476335efe"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/protosvc/grpc_egress_builder.rs",
+          "sha256": "1ee443b4da45f6350e05f585e26d05e4b69b4f281d708d03c3ce3e0792a38aed"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/protosvc/mod.rs",
+          "sha256": "4ef596a8ff15577feaabea4fc0699a4e4651f6819a1f8971d24abfa290795319"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/client/std_metadata_extender.rs",
+          "sha256": "0b8f709aea990434d3f9b4a8837335ab6fcc0ae1899ee36ebe40d2b2625b3d33"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/context/context_headers.rs",
+          "sha256": "aa8e37cdd7f0dc9a5ccf6629576fd8a8492d9cfc4ee2e7ef8a52a9470f9c531a"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/context/context_transport.rs",
+          "sha256": "63f6556fe90be47228c84a99d6c1eb38968c220a94636dea9119d60e8de8fe3e"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/context/mod.rs",
+          "sha256": "ff6f672690c17ebe3b961fa5c8ba1203b4be8f23b28e227ffa15060c38e42b76"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/loadbalancer/mod.rs",
+          "sha256": "56f4cad0df10d35baffba7db61190b3df471c8059d215eb22bd055863d6166fd"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/loadbalancer/settings/loadbalancer_settings_provider.rs",
+          "sha256": "9ea0fa8ac5dc7a3d0b727cecc9233e2a732621b523d4fc2fe5ef96fffc0d990a"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/loadbalancer/settings/mod.rs",
+          "sha256": "422ceab7f0f63deebc25c4dd0e079119d90c69685f402b3ac3a063ee706fe57a"
+        },
+        {
+          "path": "scm/main/transport-spi/src/spi/mod.rs",
+          "sha256": "feec315c56cac86c1eea23604ec8ba229209147694780796780046d85d3696d7"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/caller_identity_view_int_test.rs",
+          "sha256": "480a9d2035ea1ea1d7ed063ab3f9f55117e7074dcb80c1ddaa33ff6ed72aa288"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/cancellation_view_int_test.rs",
+          "sha256": "3c1682acc40ea04ac01302484e622b55861454337bd36a22a574ba1789c40455"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/grpc_channel_config_builder_int_test.rs",
+          "sha256": "f91190c4ef283926a53fbf2aee4d8f8c0592dff1c8e9a8312b644e225a5cd9fe"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/grpc_channel_config_int_test.rs",
+          "sha256": "fdfe91ef2d380cc1df5bd814708d9a45b13cf902561aa6d64b5cd20ba22abcb1"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/grpc_compression_int_test.rs",
+          "sha256": "560d574eec97dac0ab1d3ddc5f7f0ef2148e245dfe639b3a6728ff4fa22cd757"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/grpc_egress_health_int_test.rs",
+          "sha256": "58f71ccf0a5361bee1fc7bd76b235b13c65849ecfa1743e12db8f23b3df5c2de"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/grpc_egress_int_test.rs",
+          "sha256": "c4d7a3aac2fb2565c6f963b9b70d91c0d21a561f9862c6156bcbff7821d0cdb7"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/grpc_egress_interceptor_chain_int_test.rs",
+          "sha256": "e98f62c6b696a62108a9be3a49e303d076dc05b24b53d0c3091b5c4d5b71c6d9"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/grpc_egress_interceptor_int_test.rs",
+          "sha256": "61c01e0f4416caf53c2edc616856a2f99b99e665500ddddc2997f8e98c3fe6a6"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/intercepted_transport_int_test.rs",
+          "sha256": "e8ca106fb547ef37bfe79c34bc0e40d7ff963661bc2b7c2b7df87903cf5fa168"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/loadbalancer_settings_int_test.rs",
+          "sha256": "877dccd714ffc8a4da255a76298bff9b8dd65b0315582bdeb28d03b04b04fa95"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/mtls_config_int_test.rs",
+          "sha256": "f5945c303230fc89eacde7a5ef800e9047f23b16dada5f3544bb7fd8d535d60a"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/std_grpc_egress_interceptor_factory_int_test.rs",
+          "sha256": "4d05cc75d7d3637448518b104d1fc821073f3785a85279915a86e345a95cceeb"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_builder_int_test.rs",
+          "sha256": "b4d98867fea41870c50603701ec37d85096d79f3d3b5766ab67af63f60f03730"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_builder_validation_int_test.rs",
+          "sha256": "b760169bd85ed4e594573c51b0a8234dc88117b86d1b08cf5bcc31dec35d1d65"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_compression_int_test.rs",
+          "sha256": "072f33e33f9297dbb17655ab8b6af5c7bfdf791cf7c2afe08b63f5ef94efad1d"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_int_test.rs",
+          "sha256": "de911701013bf8cd839af5e8ba0bbc9457e226bd57a7ab0721df6841abbe955e"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_keep_alive_int_test.rs",
+          "sha256": "71880a40d95576ee638bd4f59e151cd4cf6cc9cb2a317aaa1804d37116942e53"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_loadbalancer_int_test.rs",
+          "sha256": "d08995b7f05a9754a3cebe3aa04829208d902c3cee4332fa12e3179b78a3e1cf"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_real_peer_int_test.rs",
+          "sha256": "c002645f954fd97762626bc1c80fd0591dd6b1e71aa2ff4e297b8529a0e3ce16"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_tls_int_test.rs",
+          "sha256": "7db692eb6472f9f7c28aae2aae1b55e27e5c80a59b5b69f6a4e88d1acc64cae5"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_grpc_egress_wire_int_test.rs",
+          "sha256": "425797cba46267d918ba1b82576067ad0b409e6169449ecd2221273729f0bb71"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/tonic_peer/mod.rs",
+          "sha256": "2db1013088206967dd73526592c280bb2819127ffdfd6240387ac36e691f6063"
+        },
+        {
+          "path": "scm/main/transport-spi/tests/trace_context_grpc_egress_interceptor_int_test.rs",
+          "sha256": "d378e0a1915bd968095bc83100269553d1492268c9033c1e86b2e015a9f8d1ad"
+        }
+      ],
+      "package": "grpc-egress-transport-spi",
+      "path": "scm/main/transport-spi",
+      "related_packages": [
+        "grpc-egress-transport",
+        "grpc-egress-transport-spi",
+        "grpc-egress-transport-std"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "futures",
+          "grpc-egress-transport",
+          "grpc-egress-transport-std",
+          "http",
+          "proto-pattern",
+          "proto-tonic-spi",
+          "serde",
+          "swe-edge-loadbalancer",
+          "tokio",
+          "toml"
+        ],
+        "dev-dependencies": [
+          "bytes",
+          "edge-security-runtime",
+          "flate2",
+          "futures",
+          "grpc-egress-test-support",
+          "http",
+          "http-body",
+          "http-body-util",
+          "hyper",
+          "hyper-util",
+          "prost",
+          "proto-test-peer",
+          "rustls",
+          "tokio",
+          "tokio-stream",
+          "tokio-util",
+          "tonic",
+          "tonic-health",
+          "tonic-prost",
+          "zstd"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/transport-spi/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [
+          "scm/main/transport-spi/examples/basic_transport.rs"
+        ],
+        "tests": [
+          "scm/main/transport-spi/tests/caller_identity_view_int_test.rs",
+          "scm/main/transport-spi/tests/cancellation_view_int_test.rs",
+          "scm/main/transport-spi/tests/grpc_channel_config_builder_int_test.rs",
+          "scm/main/transport-spi/tests/grpc_channel_config_int_test.rs",
+          "scm/main/transport-spi/tests/grpc_compression_int_test.rs",
+          "scm/main/transport-spi/tests/grpc_egress_health_int_test.rs",
+          "scm/main/transport-spi/tests/grpc_egress_int_test.rs",
+          "scm/main/transport-spi/tests/grpc_egress_interceptor_chain_int_test.rs",
+          "scm/main/transport-spi/tests/grpc_egress_interceptor_int_test.rs",
+          "scm/main/transport-spi/tests/intercepted_transport_int_test.rs",
+          "scm/main/transport-spi/tests/loadbalancer_settings_int_test.rs",
+          "scm/main/transport-spi/tests/mtls_config_int_test.rs",
+          "scm/main/transport-spi/tests/std_grpc_egress_interceptor_factory_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_builder_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_builder_validation_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_compression_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_keep_alive_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_loadbalancer_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_real_peer_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_tls_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_grpc_egress_wire_int_test.rs",
+          "scm/main/transport-spi/tests/tonic_peer/mod.rs",
+          "scm/main/transport-spi/tests/trace_context_grpc_egress_interceptor_int_test.rs"
+        ]
+      },
+      "workspace_consumers": [
+        {
+          "dependency_section": "dev-dependencies",
+          "manifest": "scm/main/auth-bearer-spi/Cargo.toml",
+          "package": "grpc-egress-auth-bearer-spi"
+        },
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/examples/composition-root/Cargo.toml",
+          "package": "grpc-egress-example-composition-root"
+        },
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/test-support/Cargo.toml",
+          "package": "grpc-egress-test-support"
+        }
+      ]
+    },
+    {
+      "current_layer": "std",
+      "declared_dependencies": {
+        "dependencies": [
+          "grpc-egress-transport"
+        ]
+      },
+      "domain_package": "grpc-egress-transport",
+      "layers": {
+        "saf": [
+          "scm/main/transport-std/src/saf/channel/mod.rs",
+          "scm/main/transport-std/src/saf/channel/std_grpc_channel_config_builder_factory.rs",
+          "scm/main/transport-std/src/saf/channel/std_mtls_config_factory.rs",
+          "scm/main/transport-std/src/saf/channel/std_tls_settings_resolver_factory.rs",
+          "scm/main/transport-std/src/saf/interceptor/mod.rs",
+          "scm/main/transport-std/src/saf/interceptor/std_grpc_egress_interceptor_chain_factory.rs",
+          "scm/main/transport-std/src/saf/interceptor/std_grpc_egress_interceptor_factory.rs",
+          "scm/main/transport-std/src/saf/mod.rs"
+        ],
+        "spi": [],
+        "std": [
+          "scm/main/transport-std/src/std/channel/mod.rs",
+          "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+          "scm/main/transport-std/src/std/channel/std_tls_settings_resolver.rs",
+          "scm/main/transport-std/src/std/interceptor/mod.rs",
+          "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
+          "scm/main/transport-std/src/std/interceptor/trace_context_grpc_egress_interceptor.rs",
+          "scm/main/transport-std/src/std/mod.rs"
+        ]
+      },
+      "owned_artifacts": [
+        {
+          "path": "scm/main/transport-std/README.md",
+          "sha256": "963e98575277e87ad0298d64aeb860c6ffe44b0d9429c37e73def8346827f2e0"
+        },
+        {
+          "path": "scm/main/transport-std/src/lib.rs",
+          "sha256": "07e57149be4927397d1a9500654943fda901672c877a96257ef0949baf059e27"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/channel/mod.rs",
+          "sha256": "4337cf40dfa7cc09f536f4e60f73a73dea4fbb51420548d79a6354c3792379a8"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/channel/std_grpc_channel_config_builder_factory.rs",
+          "sha256": "6d68c164607fcc8b506c007cf8eda9149ce73664ca77272acb2627a6e7cd583e"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/channel/std_mtls_config_factory.rs",
+          "sha256": "e7547a9838aea8613b942696f7d06d18db093696e4c9b38ddf288f5117a27888"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/channel/std_tls_settings_resolver_factory.rs",
+          "sha256": "1680e6c53948e3f0e112089475346ffee90ad3c2fd193cdbf0719f5f1a16f0d7"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/interceptor/mod.rs",
+          "sha256": "28d46b8a4bbdfbd8c8cbbef5cfc59b177ea3de4e73571af60a56e2d9c647b8f9"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/interceptor/std_grpc_egress_interceptor_chain_factory.rs",
+          "sha256": "dcba788b42b6bf45834e9212c80ad7151e4c678931ab1f504541d39fb75e20ad"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/interceptor/std_grpc_egress_interceptor_factory.rs",
+          "sha256": "59c0626505891294d5aba1f6081d9b526f8d0d8a4c84912856711ed7ef1b9867"
+        },
+        {
+          "path": "scm/main/transport-std/src/saf/mod.rs",
+          "sha256": "d0c18702b806cf82dad33ba3d57f88f369cad81ecd4229bb28acfd948b0b1eea"
+        },
+        {
+          "path": "scm/main/transport-std/src/std/channel/mod.rs",
+          "sha256": "b294ca758c12b5ede051d7fcb2689f4fe1dbe5ecbeb1b2a2aba6655b2962e7f4"
+        },
+        {
+          "path": "scm/main/transport-std/src/std/channel/std_grpc_channel_config_builder.rs",
+          "sha256": "40d83f94e4122952b9bd5b3bf68971de55867f7198125c001cdd59e84b6afadc"
+        },
+        {
+          "path": "scm/main/transport-std/src/std/channel/std_tls_settings_resolver.rs",
+          "sha256": "b35c5444fd73e7705aeb40f835dbbfe3c1f153d1da0879b310808f6413e9da8d"
+        },
+        {
+          "path": "scm/main/transport-std/src/std/interceptor/mod.rs",
+          "sha256": "ad6bfe85a13e34e19e37ffd08c12c183a0bf9536a6c9bcd2712875a5034c2470"
+        },
+        {
+          "path": "scm/main/transport-std/src/std/interceptor/std_grpc_egress_interceptor_chain.rs",
+          "sha256": "e5115b370c5fd32b46b061adbf3763ba1ce4888a3f5637a16b8c8acef6ce90df"
+        },
+        {
+          "path": "scm/main/transport-std/src/std/interceptor/trace_context_grpc_egress_interceptor.rs",
+          "sha256": "05f910ca1f902b9ff1f1d0058f1a74d24beaafef8adff64cdc7fdd3e6bcb0ba9"
+        },
+        {
+          "path": "scm/main/transport-std/src/std/mod.rs",
+          "sha256": "01d1e15ea95de547ce13031671acac1df8593f14dfefd2f1a08d64167f910952"
+        }
+      ],
+      "package": "grpc-egress-transport-std",
+      "path": "scm/main/transport-std",
+      "related_packages": [
+        "grpc-egress-transport",
+        "grpc-egress-transport-spi",
+        "grpc-egress-transport-std"
+      ],
+      "requires_saf_ownership_map": true,
+      "source_referenced_dependencies": {
+        "dependencies": [
+          "grpc-egress-transport"
+        ]
+      },
+      "unclassified_src_files": [
+        "scm/main/transport-std/src/lib.rs"
+      ],
+      "validation_files": {
+        "benches": [],
+        "examples": [],
+        "tests": []
+      },
+      "workspace_consumers": [
+        {
+          "dependency_section": "dev-dependencies",
+          "manifest": "scm/main/auth-bearer-spi/Cargo.toml",
+          "package": "grpc-egress-auth-bearer-spi"
+        },
+        {
+          "dependency_section": "dev-dependencies",
+          "manifest": "scm/main/breaker-spi/Cargo.toml",
+          "package": "grpc-egress-breaker-spi"
+        },
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/examples/composition-root/Cargo.toml",
+          "package": "grpc-egress-example-composition-root"
+        },
+        {
+          "dependency_section": "dev-dependencies",
+          "manifest": "scm/main/resilient-spi/Cargo.toml",
+          "package": "grpc-egress-resilient-spi"
+        },
+        {
+          "dependency_section": "dev-dependencies",
+          "manifest": "scm/main/retry-spi/Cargo.toml",
+          "package": "grpc-egress-retry-spi"
+        },
+        {
+          "dependency_section": "dev-dependencies",
+          "manifest": "scm/main/test-support/Cargo.toml",
+          "package": "grpc-egress-test-support"
+        },
+        {
+          "dependency_section": "dependencies",
+          "manifest": "scm/main/transport-spi/Cargo.toml",
+          "package": "grpc-egress-transport-spi"
+        }
+      ]
+    }
+  ],
+  "workspace": "scm/Cargo.toml"
+}

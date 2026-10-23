@@ -9,6 +9,13 @@ word.
 
 ## [Unreleased]
 
+### Issue 63: separate standard and SPI implementation packages
+
+- Split `auth-bearer`, `retry`, and `transport` implementation layers into distinct `-std` and `-spi` packages.
+- Rename SPI-only `breaker-std` and `resilient-std` packages to `breaker-spi` and `resilient-spi`; no empty standard packages are created.
+- Update workspace consumers to choose the packages they use. Implementations that previously crossed crate-private boundaries now compose through public domain factory contracts.
+- The implementation package root exports only its SAF factories; SPI provider APIs move to the new `-spi` crate paths.
+
 ## [0.11.0] - 2026-10-23
 
 ### Issue 60 follow-up: implementation types belong behind domain interfaces

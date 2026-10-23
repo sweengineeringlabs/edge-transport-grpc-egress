@@ -8,7 +8,8 @@ The retry domain of the gRPC egress: the contracts (`BackoffScheduler`, `RetryDe
 `RetryInspector`, ...), their requests and responses, the errors and the retry policy value
 (`GrpcRetryConfig`). No implementation.
 
-The decorator that wraps a `Transport + RawTransport` client with retry is in `grpc-egress-retry-std`.
+The standard retry classifier is in [`grpc-egress-retry-std`](../retry-std/README.md). The provider-backed decorator
+and TOML policy readers are in [`grpc-egress-retry-spi`](../retry-spi/README.md).
 
 ## WHY
 
@@ -27,4 +28,4 @@ Use the domain interfaces described above and the standard factory for this crat
 
 ## Documentation
 
-See the [standard implementation](../retry-std/README.md) and [ADR-007](../../docs/adr/ADR-007-decorators-wrap-a-built-client.md).
+See the [standard package](../retry-std/README.md), [SPI package](../retry-spi/README.md), and [ADR-007](../../docs/adr/ADR-007-decorators-wrap-a-built-client.md).

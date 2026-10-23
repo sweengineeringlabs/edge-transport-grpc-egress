@@ -11,6 +11,30 @@ from rename_crate import CrateRenamer  # noqa: E402
 OLD = "edge-transport-grpc-egress-retry"
 NEW = "grpc-egress-retry-std"
 
+_GIT_HOOK_ENV_KEYS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_PREFIX",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+_SAVED_GIT_HOOK_ENV = {}
+
+
+def setUpModule():
+    # Git exports these variables to hooks. They would redirect fixture Git
+    # commands into the repository running the hook instead of the temp repo.
+    for key in _GIT_HOOK_ENV_KEYS:
+        value = os.environ.pop(key, None)
+        if value is not None:
+            _SAVED_GIT_HOOK_ENV[key] = value
+
+
+def tearDownModule():
+    os.environ.update(_SAVED_GIT_HOOK_ENV)
+
 
 class RenameFixture:
     """A git repository with a crate to rename, a dependent, an external crate and a CHANGELOG."""

@@ -1,7 +1,7 @@
 //! gRPC circuit-breaker policy schema.
 //!
 //! Policy **values**: the baseline is [`GrpcBreakerConfig::default`]; a consumer's own TOML goes through
-//! `GrpcBreakerConfig::from_config` of `grpc-egress-breaker-std`.
+//! `GrpcBreakerConfig::from_config` of `grpc-egress-breaker-spi`.
 
 use serde::Deserialize;
 

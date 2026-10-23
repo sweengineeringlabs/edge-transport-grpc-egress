@@ -13,7 +13,7 @@ Key capabilities:
 - **`GrpcChannelConfig`**: typed channel configuration: endpoint, TLS (required by default), keep-alive, message size limit, compression, request timeout
 - **`TonicGrpcEgressBuilderSpiFactory`**: the one way to build a client: a factory for the endpoint hands out a builder with a `with_*` option for every capability (TLS and mTLS, keep-alive, message limits, send and accept compression, request timeout, interceptors, trace context, load balancer), and `build` returns the client
 - **`GrpcEgressInterceptor`** and its chain: hooks before and after each call and observes Pattern lifecycle events through `on_event`; the trace-context interceptor (created by `StdGrpcEgressInterceptorFactory`) injects W3C trace headers when `with_trace_context` attaches it. The adapter preserves fallible `after_call` behavior ([ADR-012](adr/ADR-012-pattern-egress-lifecycle-adapter.md))
-- Workspace crates: `transport`, `retry`, `breaker`, `resilient`, `auth-bearer`, each a domain crate and an implementation crate (`<name>-std`)
+- The `transport`, `retry`, `auth-bearer`, `breaker`, and `resilient` domains have implementation packages only for layers that contain code. Standard implementations use `<name>-std`; service-provider implementations use `<name>-spi`. The `breaker` and `resilient` themes are SPI-only and have no empty `-std` package.
 
 ## WHY
 

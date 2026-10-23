@@ -2,7 +2,7 @@
 
 use grpc_egress_breaker::Error as BreakerDomainError;
 
-/// Error produced by `GrpcResilientFacade::apply_resilience` of `grpc-egress-resilient-std`.
+/// Error produced by `GrpcResilientFacade::apply_resilience` of `grpc-egress-resilient-spi`.
 #[derive(Debug, thiserror::Error)]
 pub enum ResilientTransportError {
     /// The resilience policy contains an invalid field combination.

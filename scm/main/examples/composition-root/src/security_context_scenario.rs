@@ -12,7 +12,7 @@ use grpc_egress_transport::{
     BuildGrpcCallerIdentityRequest, BuildGrpcEgressBuilderRequest, CallerIdentity,
     GrpcCallerIdentityFactory, GrpcEgressBuilder, GrpcEgressBuilderFactory,
 };
-use grpc_egress_transport_std::{StdGrpcCallerIdentityFactory, TonicGrpcEgressBuilderSpiFactory};
+use grpc_egress_transport_spi::{StdGrpcCallerIdentityFactory, TonicGrpcEgressBuilderSpiFactory};
 
 use crate::{EchoServer, ScenarioReport};
 

@@ -7,8 +7,9 @@
 The bearer-auth domain of the gRPC egress: the outbound config (`BearerEgressConfig`), the secret
 (`BearerSecret`), the claims (`JwtClaims`), the errors and the validation contract. No implementation.
 
-The interceptor that signs a JWT and adds `authorization: Bearer <jwt>` to each outbound request is in
-`grpc-egress-auth-bearer-std`.
+Standard configuration and claims builders are in [`grpc-egress-auth-bearer-std`](../auth-bearer-std/README.md).
+The provider-backed JWT interceptor and constant-time secret guard are in
+[`grpc-egress-auth-bearer-spi`](../auth-bearer-spi/README.md).
 
 ## WHY
 
@@ -16,7 +17,7 @@ Separating policy/configuration from signing keeps cryptographic implementation 
 
 ## HOW
 
-Use the domain interfaces described above and the standard factory for this crate.
+Use the domain interfaces described above and depend on the implementation packages required by the application.
 ## API
 
 | Contract | Purpose |
@@ -26,4 +27,4 @@ Use the domain interfaces described above and the standard factory for this crat
 
 ## Documentation
 
-See the [implementation crate](../auth-bearer-std/README.md) for signing and interceptor use, and the [workspace security overview](../../docs/README.md).
+See the [standard package](../auth-bearer-std/README.md), [SPI package](../auth-bearer-spi/README.md), and [workspace security overview](../../docs/README.md).

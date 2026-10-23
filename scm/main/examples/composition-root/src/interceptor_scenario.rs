@@ -9,7 +9,7 @@ use grpc_egress_test_support::CallFixture;
 use grpc_egress_transport::{
     BuildGrpcEgressBuilderRequest, GrpcEgressBuilder, GrpcEgressBuilderFactory, TraceContextSource,
 };
-use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
 
 use crate::{EchoServer, OrderInterceptor, RefusingInterceptor, ScenarioReport};
 

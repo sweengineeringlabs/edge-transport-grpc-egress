@@ -6,7 +6,7 @@ use grpc_egress_transport::{
     BackendTarget, BalancingStrategy, BuildGrpcEgressBuilderRequest, GrpcEgressBuilder,
     GrpcEgressBuilderFactory, LoadbalancerSettings,
 };
-use grpc_egress_transport_std::TonicGrpcEgressBuilderSpiFactory;
+use grpc_egress_transport_spi::TonicGrpcEgressBuilderSpiFactory;
 use proto_pattern::{TlsIdentity, TlsSettings};
 
 use crate::ScenarioReport;
