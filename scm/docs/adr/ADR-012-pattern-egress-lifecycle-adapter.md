@@ -1,6 +1,6 @@
 # ADR-012: Adapt egress interceptors to the Pattern call lifecycle
 
-**Status:** Accepted for issue #61
+**Status:** Implemented on `dev` in `7a5ab54`; issue [#61](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/61) is closed
 **Tracking:** [#61](https://github.com/sweengineeringlabs/edge-transport-grpc-egress/issues/61)
 **Governing contract:** [proto-pattern v0.12.0 `TransportInterceptor`](https://github.com/sweengineeringlabs/proto-pattern/blob/v0.12.0/main/src/traits/transport_interceptor.rs)
 **See also:** [ADR-007](ADR-007-decorators-wrap-a-built-client.md), [ADR-009](ADR-009-the-egress-api-on-the-contract.md)
