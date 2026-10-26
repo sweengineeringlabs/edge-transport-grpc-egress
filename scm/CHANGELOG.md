@@ -9,6 +9,10 @@ word.
 
 ## [Unreleased]
 
+### Issue 65: use load-balancer v0.5.0
+
+- Update the transport SPI's load-balancer dependency to v0.5.0, which removes the configbuilder dependency from the load-balancer primitive.
+
 ### Issue 64: give contract packages explicit API boundaries
 
 - Rename each contract crate to its `grpc-egress-<theme>-api` package and `_api` Rust crate name, separate from its `-std` and `-spi` implementation packages.

@@ -624,7 +624,7 @@ dependencies = [
  "futures",
  "proto-pattern",
  "serde",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
+ "swe-edge-configbuilder",
  "tokio",
 ]
 
@@ -640,7 +640,7 @@ dependencies = [
  "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "proto-pattern",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
+ "swe-edge-configbuilder",
  "tokio",
  "toml",
  "tracing",
@@ -677,7 +677,7 @@ dependencies = [
  "grpc-egress-transport-api",
  "proto-pattern",
  "serde",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
+ "swe-edge-configbuilder",
  "thiserror 2.0.19",
  "tokio",
  "toml",
@@ -709,7 +709,7 @@ dependencies = [
  "grpc-egress-transport-api",
  "proto-pattern",
  "serde",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
+ "swe-edge-configbuilder",
  "tokio",
 ]
 
@@ -725,7 +725,7 @@ dependencies = [
  "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "proto-pattern",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2)",
+ "swe-edge-configbuilder",
  "tokio",
  "toml",
  "tracing",
@@ -1746,18 +1746,6 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "swe-edge-configbuilder"
 version = "0.3.0"
-source = "git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.3.0#e5f50d6308bf30da1e5c51ff9166b9402b70a245"
-dependencies = [
- "dirs",
- "regex",
- "serde",
- "thiserror 2.0.19",
- "toml",
-]
-
-[[package]]
-name = "swe-edge-configbuilder"
-version = "0.3.0"
 source = "git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2#8fe784a7c246c84cc2e04ffa226d940d9d011ad0"
 dependencies = [
  "dirs",
@@ -1769,8 +1757,8 @@ dependencies = [
 
 [[package]]
 name = "swe-edge-loadbalancer"
-version = "0.4.0"
-source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.4.0#3c6b2c1f5df4304316df6873a673116fb5563932"
+version = "0.5.0"
+source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.5.0#8d2fdfe568e9c9c84f601823f016379aebad0399"
 dependencies = [
  "swe-edge-loadbalancer-autoscale",
  "swe-edge-loadbalancer-egress",
@@ -1782,8 +1770,8 @@ dependencies = [
 
 [[package]]
 name = "swe-edge-loadbalancer-autoscale"
-version = "0.4.0"
-source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.4.0#3c6b2c1f5df4304316df6873a673116fb5563932"
+version = "0.5.0"
+source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.5.0#8d2fdfe568e9c9c84f601823f016379aebad0399"
 dependencies = [
  "serde",
  "swe-edge-loadbalancer-tenant",
@@ -1792,20 +1780,19 @@ dependencies = [
 
 [[package]]
 name = "swe-edge-loadbalancer-egress"
-version = "0.4.0"
-source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.4.0#3c6b2c1f5df4304316df6873a673116fb5563932"
+version = "0.5.0"
+source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.5.0#8d2fdfe568e9c9c84f601823f016379aebad0399"
 dependencies = [
  "parking_lot",
  "serde",
- "swe-edge-configbuilder 0.3.0 (git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.3.0)",
  "thiserror 2.0.19",
  "toml",
 ]
 
 [[package]]
 name = "swe-edge-loadbalancer-ingress"
-version = "0.4.0"
-source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.4.0#3c6b2c1f5df4304316df6873a673116fb5563932"
+version = "0.5.0"
+source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.5.0#8d2fdfe568e9c9c84f601823f016379aebad0399"
 dependencies = [
  "serde",
  "swe-edge-loadbalancer-tenant",
@@ -1814,8 +1801,8 @@ dependencies = [
 
 [[package]]
 name = "swe-edge-loadbalancer-registry"
-version = "0.4.0"
-source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.4.0#3c6b2c1f5df4304316df6873a673116fb5563932"
+version = "0.5.0"
+source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.5.0#8d2fdfe568e9c9c84f601823f016379aebad0399"
 dependencies = [
  "parking_lot",
  "serde",
@@ -1827,8 +1814,8 @@ dependencies = [
 
 [[package]]
 name = "swe-edge-loadbalancer-tenant"
-version = "0.4.0"
-source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.4.0#3c6b2c1f5df4304316df6873a673116fb5563932"
+version = "0.5.0"
+source = "git+https://github.com/sweengineeringlabs/edge-loadbalancer.git?tag=v0.5.0#8d2fdfe568e9c9c84f601823f016379aebad0399"
 dependencies = [
  "serde",
 ]
