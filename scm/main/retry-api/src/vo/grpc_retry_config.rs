@@ -4,6 +4,7 @@
 //! provider. Both paths validate before returning a completed value.
 
 use crate::BuildGrpcRetryConfigRequest;
+use configbuilder::ConfigSection;
 use serde::Deserialize;
 
 /// gRPC retry policy schema. Construct custom values with the domain builder trait and standard builder factory,
@@ -217,7 +218,7 @@ impl Default for GrpcRetryConfig {
     }
 }
 
-impl swe_edge_configbuilder::ConfigSection for GrpcRetryConfig {
+impl ConfigSection for GrpcRetryConfig {
     fn section_name() -> &'static str {
         "grpc_retry"
     }

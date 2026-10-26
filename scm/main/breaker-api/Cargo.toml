@@ -23,7 +23,7 @@ proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git
 edge-transport-breaker-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-breaker.git", tag = "v0.1.1" }
 futures = "0.3"
 serde = { version = "1.0", features = ["derive"] }
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+configbuilder = "0.8"
 
 [dev-dependencies]
 tokio = { version = "1.52", features = ["macros", "rt"] }

@@ -34,7 +34,6 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-git = [
     "https://github.com/sweengineeringlabs/edge-security.git",
-    "https://github.com/sweengineeringlabs/edge-configbuilder.git",
     "https://github.com/sweengineeringlabs/edge-loadbalancer.git",
     "https://github.com/sweengineeringlabs/edge-transport-breaker.git",
     "https://github.com/sweengineeringlabs/edge-transport-retry.git",
