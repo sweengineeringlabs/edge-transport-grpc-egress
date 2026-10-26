@@ -15,6 +15,12 @@ word.
 - Move contract modules directly under `src/`, update consumers and workspace metadata, and enforce the package and source layout with the migration and layout-check scripts.
 - Consumers import root-re-exported contract types from `grpc_egress_<theme>_api`; there is no `api::` source module path. The type names and root-level exports are retained.
 
+## [0.13.1] - 2026-10-26
+
+### Issue 65: use load-balancer v0.5.0
+
+- Update the transport SPI's load-balancer dependency to v0.5.0, which removes the configbuilder dependency from the load-balancer primitive.
+
 ## [0.12.0] - 2026-10-23
 
 ### Issue 63: separate standard and SPI implementation packages

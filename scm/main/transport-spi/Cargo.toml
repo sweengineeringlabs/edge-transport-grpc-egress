@@ -32,7 +32,7 @@ toml = "0.8"
 futures = "0.3"
 http = "1"
 tokio = { version = "1.53", features = ["rt", "net", "time", "macros", "sync"] }
-swe-edge-loadbalancer = { git = "https://github.com/sweengineeringlabs/edge-loadbalancer.git", tag = "v0.4.0" }
+swe-edge-loadbalancer = { git = "https://github.com/sweengineeringlabs/edge-loadbalancer.git", tag = "v0.5.0" }
 tracing = "0.1"
 
 [dev-dependencies]
