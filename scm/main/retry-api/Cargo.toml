@@ -23,7 +23,7 @@ grpc-egress-transport-api = { path = "../transport-api" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
 edge-transport-retry-policy = { git = "https://github.com/sweengineeringlabs/edge-transport-retry.git", tag = "v0.1.0" }
 serde = { version = "1.0", features = ["derive"] }
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+configbuilder = "0.8"
 
 [dev-dependencies]
 tokio = { version = "1.52", features = ["macros", "rt"] }

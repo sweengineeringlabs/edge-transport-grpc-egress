@@ -3,6 +3,7 @@
 //! Policy **values**: the baseline is [`GrpcBreakerConfig::default`]; a consumer's own TOML goes through
 //! `GrpcBreakerConfig::from_config` of `grpc-egress-breaker-spi`.
 
+use configbuilder::ConfigSection;
 use serde::Deserialize;
 
 /// gRPC circuit-breaker policy schema.
@@ -138,7 +139,7 @@ impl Default for GrpcBreakerConfig {
     }
 }
 
-impl swe_edge_configbuilder::ConfigSection for GrpcBreakerConfig {
+impl ConfigSection for GrpcBreakerConfig {
     fn section_name() -> &'static str {
         "grpc_breaker"
     }
