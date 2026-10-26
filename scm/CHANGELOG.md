@@ -9,6 +9,11 @@ word.
 
 ## [Unreleased]
 
+### Issue 67: migrate resilience configuration to crates.io configbuilder
+
+- Replace the Git-sourced `swe-edge-configbuilder` dependency with crates.io `configbuilder` 0.8 in breaker, retry, and resilience contracts and tests.
+- Implement the formal `OptionalSection` contract while preserving the existing section names, TOML parsing, defaults, and validation behavior.
+
 ### Issue 64: give contract packages explicit API boundaries
 
 - Rename each contract crate to its `grpc-egress-<theme>-api` package and `_api` Rust crate name, separate from its `-std` and `-spi` implementation packages.

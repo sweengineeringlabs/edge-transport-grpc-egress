@@ -27,6 +27,7 @@
 //! let _ = ResilienceConfig { max_attempts: 0, ..ResilienceConfig::default() };
 //! ```
 
+use configbuilder::ConfigSection;
 use grpc_egress_breaker_api::GrpcBreakerConfig;
 use grpc_egress_retry_api::GrpcRetryConfig;
 use serde::{Deserialize, Serialize};
@@ -284,7 +285,7 @@ impl Default for ResilienceConfig {
     }
 }
 
-impl swe_edge_configbuilder::ConfigSection for ResilienceConfig {
+impl ConfigSection for ResilienceConfig {
     fn section_name() -> &'static str {
         "grpc_resilience"
     }

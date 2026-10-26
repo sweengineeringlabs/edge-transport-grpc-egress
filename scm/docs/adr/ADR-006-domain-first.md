@@ -52,7 +52,8 @@ implementation, and it is the thing the audit rule `api_no_inherent_impl` flags.
 on `edge-security-runtime` and re-exports `SecurityContext`. The dependency is light enough to
 keep: `cargo tree -p grpc-egress-transport-api` shows `edge-security-runtime` pulling in only
 `edge-security-runtime-identity-port` and `thiserror`. None of `tonic`, `hyper`, `hyper-util`,
-`hyper-rustls`, `rustls`, `tower`, `swe-edge-loadbalancer`, `swe-edge-configbuilder` is present
+`hyper-rustls`, `rustls`, `tower`, `swe-edge-loadbalancer`, or the legacy
+`swe-edge-configbuilder` is present
 (acceptance criterion 1).
 
 **Task 7: `spi/`.** The `hyper` client and the balanced client stay in `spi/` for now. The reason is
