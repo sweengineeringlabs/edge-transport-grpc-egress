@@ -25,7 +25,7 @@ grpc-egress-breaker-api = { path = "../breaker-api" }
 grpc-egress-retry-api = { path = "../retry-api" }
 thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+configbuilder = "0.8"
 
 [dev-dependencies]
 futures = "0.3"

@@ -800,7 +800,7 @@ async fn test_build_with_supplied_config_opens_at_the_supplied_threshold(
 /// @covers: GrpcBreakerConfig::section_name
 #[test]
 fn test_grpc_breaker_config_section_name_is_grpc_breaker() {
-    use swe_edge_configbuilder::ConfigSection as _;
+    use configbuilder::ConfigSection as _;
     assert_eq!(GrpcBreakerConfig::section_name(), "grpc_breaker");
 }
 
