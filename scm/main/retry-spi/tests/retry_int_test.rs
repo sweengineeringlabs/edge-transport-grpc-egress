@@ -981,7 +981,7 @@ async fn test_call_typed_message_that_cannot_be_encoded_fails_before_any_attempt
 /// @covers: GrpcRetryConfig::section_name
 #[test]
 fn test_grpc_retry_config_section_name_is_grpc_retry() {
-    use swe_edge_configbuilder::ConfigSection as _;
+    use configbuilder::ConfigSection as _;
     assert_eq!(GrpcRetryConfig::section_name(), "grpc_retry");
 }
 

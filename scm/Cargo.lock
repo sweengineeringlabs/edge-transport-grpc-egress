@@ -218,6 +218,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "configbuilder"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0292bd976e2da46d78c4ca712836abb7cab9a60f683c07399c2f40c766918a7b"
+dependencies = [
+ "dirs",
+ "regex",
+ "serde",
+ "thiserror 2.0.19",
+ "toml",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -620,11 +633,11 @@ dependencies = [
 name = "grpc-egress-breaker-api"
 version = "0.10.0"
 dependencies = [
+ "configbuilder",
  "edge-transport-breaker-policy",
  "futures",
  "proto-pattern",
  "serde",
- "swe-edge-configbuilder",
  "tokio",
 ]
 
@@ -632,6 +645,7 @@ dependencies = [
 name = "grpc-egress-breaker-spi"
 version = "0.10.0"
 dependencies = [
+ "configbuilder",
  "edge-transport-breaker",
  "edge-transport-breaker-policy",
  "futures",
@@ -640,7 +654,6 @@ dependencies = [
  "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "proto-pattern",
- "swe-edge-configbuilder",
  "tokio",
  "toml",
  "tracing",
@@ -671,13 +684,13 @@ dependencies = [
 name = "grpc-egress-resilient-api"
 version = "0.10.0"
 dependencies = [
+ "configbuilder",
  "futures",
  "grpc-egress-breaker-api",
  "grpc-egress-retry-api",
  "grpc-egress-transport-api",
  "proto-pattern",
  "serde",
- "swe-edge-configbuilder",
  "thiserror 2.0.19",
  "tokio",
  "toml",
@@ -705,11 +718,11 @@ dependencies = [
 name = "grpc-egress-retry-api"
 version = "0.10.0"
 dependencies = [
+ "configbuilder",
  "edge-transport-retry-policy",
  "grpc-egress-transport-api",
  "proto-pattern",
  "serde",
- "swe-edge-configbuilder",
  "tokio",
 ]
 
@@ -717,6 +730,7 @@ dependencies = [
 name = "grpc-egress-retry-spi"
 version = "0.10.0"
 dependencies = [
+ "configbuilder",
  "edge-transport-retry",
  "futures",
  "grpc-egress-retry-api",
@@ -725,7 +739,6 @@ dependencies = [
  "grpc-egress-transport-api",
  "grpc-egress-transport-std",
  "proto-pattern",
- "swe-edge-configbuilder",
  "tokio",
  "toml",
  "tracing",
@@ -1742,18 +1755,6 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
-
-[[package]]
-name = "swe-edge-configbuilder"
-version = "0.3.0"
-source = "git+https://github.com/sweengineeringlabs/edge-configbuilder.git?tag=v0.4.2#8fe784a7c246c84cc2e04ffa226d940d9d011ad0"
-dependencies = [
- "dirs",
- "regex",
- "serde",
- "thiserror 2.0.19",
- "toml",
-]
 
 [[package]]
 name = "swe-edge-loadbalancer"

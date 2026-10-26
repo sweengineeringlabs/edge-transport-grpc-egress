@@ -3,8 +3,8 @@
 use grpc_egress_breaker_api::GrpcBreakerConfigProvider as _;
 use std::time::Duration;
 
+use configbuilder::ConfigSection as _;
 use grpc_egress_breaker_api::GrpcBreakerConfig;
-use swe_edge_configbuilder::ConfigSection as _;
 
 /// @covers: from_config
 #[test]

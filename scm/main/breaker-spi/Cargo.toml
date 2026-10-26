@@ -30,7 +30,7 @@ tokio = { version = "1.52", features = ["macros", "net", "rt", "sync", "time"] }
 tracing = "0.1"
 
 [dev-dependencies]
-swe-edge-configbuilder = { git = "https://github.com/sweengineeringlabs/edge-configbuilder.git", tag = "v0.4.2" }
+configbuilder = "0.8"
 grpc-egress-transport-api = { path = "../transport-api" }
 grpc-egress-transport-std = { path = "../transport-std" }
 grpc-egress-test-support = { path = "../test-support" }
