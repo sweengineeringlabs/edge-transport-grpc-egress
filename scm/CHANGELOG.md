@@ -9,6 +9,10 @@ word.
 
 ## [Unreleased]
 
+### Issue 73: use the patched proto tonic client release
+
+- Update the gRPC transport and test peer to proto-svc v0.4.3 and Tonic 0.14.7, preserving gzip, deflate, and zstd behavior while resolving zstd 0.14.3 and zstd-safe 8.2.0.
+
 ### Issue 67: migrate resilience configuration to crates.io configbuilder
 
 - Replace the Git-sourced `swe-edge-configbuilder` dependency with crates.io `configbuilder` 0.8 in breaker, retry, and resilience contracts and tests.
