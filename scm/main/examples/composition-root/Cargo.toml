@@ -23,7 +23,7 @@ grpc-egress-breaker-api = { path = "../../breaker-api" }
 grpc-egress-breaker-spi = { path = "../../breaker-spi" }
 # The in-process peer the scenarios talk to (an example of a composition root has no server of its own).
 grpc-egress-test-support = { path = "../../test-support" }
-edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
+edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.39" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
 # A real tonic server, for the scenarios that need to see a call end on the server (cancellation).
 proto-test-peer = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.3" }
