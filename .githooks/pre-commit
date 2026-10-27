@@ -19,7 +19,7 @@ cargo audit --deny unsound --deny yanked
 echo "  5/7 layout..."
 python "$REPO_ROOT/scripts/check_layout.py"
 echo "  6/7 script tests..."
-python -m unittest discover -s "$REPO_ROOT/scripts/tests" -q
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX python -m unittest discover -s "$REPO_ROOT/scripts/tests" -q
 echo "  7/7 examples..."
 cargo build --workspace --examples
 cargo run -q -p grpc-egress-example-composition-root

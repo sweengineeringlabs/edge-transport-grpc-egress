@@ -36,6 +36,15 @@ impl GrpcEgressInterceptor for TagInterceptor {
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 fn settings(

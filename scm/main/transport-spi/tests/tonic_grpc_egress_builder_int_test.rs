@@ -41,6 +41,15 @@ impl GrpcEgressInterceptor for TagInterceptor {
         }
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Refuses every call before it is sent.
@@ -58,6 +67,15 @@ impl GrpcEgressInterceptor for RefusingInterceptor {
     fn after_call(&self, _reply: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Lets every call go and fails every reply.
@@ -74,6 +92,15 @@ impl GrpcEgressInterceptor for FailingAfterInterceptor {
             code: StatusCode::DataLoss,
             reason: "the reply was refused by the interceptor".to_string(),
         })
+    }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
     }
 }
 

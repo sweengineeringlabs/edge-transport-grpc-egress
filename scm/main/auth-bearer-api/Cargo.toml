@@ -19,7 +19,7 @@ application_type = "port"
 service_type = "processor"
 
 [dependencies]
-swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22" }
+swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.39" }
 thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }
 
