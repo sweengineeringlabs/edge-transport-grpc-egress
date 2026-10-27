@@ -1,4 +1,4 @@
-//! `GrpcEgressInterceptor` trait -- observes and changes a call before it is sent and after it came back.
+//! `GrpcEgressInterceptor` mutates or rejects a call around message exchange and observes lifecycle events.
 
 use proto_pattern::{CallError, CallEvent, Metadata};
 
@@ -6,14 +6,14 @@ use crate::{InboundReply, OutboundCall};
 
 /// An interceptor for outbound gRPC calls.
 pub trait GrpcEgressInterceptor: Send + Sync {
-    /// Run before the request is sent. The call carries the headers and the timeout `call` holds afterwards.
+    /// Mutate or reject a request before it is sent. The call carries the headers and timeout afterward.
     ///
     /// # Errors
     ///
     /// Returning `Err(_)` aborts the call: nothing is sent, and the caller gets the error.
     fn before_call(&self, call: &mut dyn OutboundCall) -> Result<(), CallError>;
 
-    /// Run after a response with a message has been read: a unary call or a client-streaming call.
+    /// Inspect or reject a successful response after a message has been read (unary or client-streaming).
     ///
     /// # Errors
     ///
@@ -24,6 +24,6 @@ pub trait GrpcEgressInterceptor: Send + Sync {
     ///
     /// This object-safe, concrete-metadata adapter lets the egress keep runtime registration while
     /// using Pattern's generic [`CallEvent`] contract. Events are observations and cannot alter a
-    /// call's result. The default keeps existing implementations source-compatible.
-    fn on_event(&self, _event: &CallEvent<'_, Metadata>) {}
+    /// call's result. Implementations with no observer behavior must provide an explicit no-op.
+    fn on_event(&self, event: &CallEvent<'_, Metadata>);
 }
