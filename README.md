@@ -35,6 +35,10 @@ which depend on it
 | `grpc-egress-test-support` | fixtures for tests: an in-process peer (echo, reply, delay, status, TLS, mTLS), a freezable proxy |
 | `grpc-egress-example-composition-root` | what a composition root does with these crates: nine tested scenarios (`scm/main/examples/composition-root`) |
 
+## Interceptor migration
+
+Since `0.11.0`, every `GrpcEgressInterceptor` implementation must define `on_event`. Observing implementations should handle the `CallEvent` variants they use; implementations with no lifecycle observer behavior must add an explicit empty method. `before_call` still mutates or rejects requests, `after_call` can inspect or reject a successful response, and `on_event` reports lifecycle events without changing call results. Custom `GrpcEgressInterceptorChain` implementations must also define `run_event`.
+
 ## WHY
 
 The workspace gives service authors one typed and raw client construction path while keeping transport mechanics, retry, breaker, and bearer authentication in their owning crates. This makes options composable and lets policies wrap the same client contract.

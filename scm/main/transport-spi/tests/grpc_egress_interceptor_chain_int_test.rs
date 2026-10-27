@@ -34,6 +34,15 @@ impl GrpcEgressInterceptor for Recorder {
         self.note("after");
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Fails in `before_call` with `PermissionDenied`.
@@ -53,6 +62,15 @@ impl GrpcEgressInterceptor for DenyBefore {
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Fails in `after_call` with `DataLoss`.
@@ -71,6 +89,15 @@ impl GrpcEgressInterceptor for FailAfter {
             details: Vec::new(),
             trailers: Metadata::default(),
         })
+    }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
     }
 }
 
@@ -94,6 +121,15 @@ impl GrpcEgressInterceptor for CountingInterceptor {
         self.0.after.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Adds the header `key: value` in `before_call`.
@@ -110,6 +146,15 @@ impl GrpcEgressInterceptor for AddHeader {
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Adds `x-second: seen-first` only when `x-first` is already on the call.
@@ -125,6 +170,15 @@ impl GrpcEgressInterceptor for AddWhenFirstIsPresent {
 
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
+    }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
     }
 }
 

@@ -32,6 +32,7 @@ pub trait GrpcEgressInterceptorChain: Sized {
     /// The error of the first interceptor that fails; the ones after it do not run.
     fn run_after(&self, reply: &InboundReply<'_>) -> Result<(), CallError>;
 
-    /// Forward one Pattern lifecycle event to the registered observers in order.
-    fn run_event(&self, _event: &CallEvent<'_, Metadata>) {}
+    /// Forward one Pattern lifecycle event to registered observers in order. Implementations
+    /// must explicitly forward or discard events; there is no default fallback.
+    fn run_event(&self, event: &CallEvent<'_, Metadata>);
 }
