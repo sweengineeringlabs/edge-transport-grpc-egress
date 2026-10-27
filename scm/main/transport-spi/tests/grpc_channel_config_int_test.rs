@@ -142,6 +142,15 @@ async fn transport_struct_channel_config_interceptor_short_circuits_int_test(
         fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
             Ok(())
         }
+
+        fn on_event(
+            &self,
+            _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+                '_,
+                grpc_egress_transport_api::proto_pattern::Metadata,
+            >,
+        ) {
+        }
     }
 
     // The endpoint is a closed port: a call that was not stopped by the interceptor would fail with a
