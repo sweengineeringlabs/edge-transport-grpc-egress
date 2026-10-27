@@ -44,6 +44,15 @@ impl GrpcEgressInterceptor for Tag {
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Records `before:<marker>` and `after:<marker>` in a shared log.
@@ -71,6 +80,15 @@ impl GrpcEgressInterceptor for Log {
         self.note("after");
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Refuses every call before it is sent.
@@ -89,6 +107,15 @@ impl GrpcEgressInterceptor for Deny {
 
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
+    }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
     }
 }
 
@@ -109,6 +136,15 @@ impl GrpcEgressInterceptor for RefuseReply {
             trailers: Metadata::default(),
         })
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Counts the calls of each hook, in counters the test keeps.
@@ -126,6 +162,15 @@ impl GrpcEgressInterceptor for Counting {
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         self.after.fetch_add(1, Ordering::SeqCst);
         Ok(())
+    }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
     }
 }
 
@@ -154,6 +199,15 @@ impl GrpcEgressInterceptor for Capture {
             });
         Ok(())
     }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
+    }
 }
 
 /// Sets the timeout of every call.
@@ -167,6 +221,15 @@ impl GrpcEgressInterceptor for SetTimeout {
 
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
+    }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
     }
 }
 
@@ -184,6 +247,15 @@ impl GrpcEgressInterceptor for SeeTimeout {
 
     fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
         Ok(())
+    }
+
+    fn on_event(
+        &self,
+        _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+            '_,
+            grpc_egress_transport_api::proto_pattern::Metadata,
+        >,
+    ) {
     }
 }
 
@@ -500,6 +572,15 @@ async fn test_call_later_interceptor_sees_the_header_an_earlier_one_added_and_th
 
         fn after_call(&self, _: &InboundReply<'_>) -> Result<(), CallError> {
             Ok(())
+        }
+
+        fn on_event(
+            &self,
+            _event: &grpc_egress_transport_api::proto_pattern::CallEvent<
+                '_,
+                grpc_egress_transport_api::proto_pattern::Metadata,
+            >,
+        ) {
         }
     }
     let peer = RunningPeer::start().await;

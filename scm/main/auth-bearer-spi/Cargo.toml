@@ -26,7 +26,7 @@ path = "examples/auth_bearer.rs"
 grpc-egress-auth-bearer-api = { path = "../auth-bearer-api" }
 grpc-egress-transport-api = { path = "../transport-api" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
-swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.22" }
+swe-edge-security = { package = "edge-security-transport-egress-grpc", git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.39" }
 tracing = "0.1"
 jsonwebtoken = "9"
 subtle = "2"
