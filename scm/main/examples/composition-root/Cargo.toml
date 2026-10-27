@@ -26,7 +26,7 @@ grpc-egress-test-support = { path = "../../test-support" }
 edge-security-runtime = { git = "https://github.com/sweengineeringlabs/edge-security.git", tag = "v0.3.25" }
 proto-pattern = { git = "https://github.com/sweengineeringlabs/proto-pattern.git", tag = "v0.12.0" }
 # A real tonic server, for the scenarios that need to see a call end on the server (cancellation).
-proto-test-peer = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.2" }
+proto-test-peer = { git = "https://github.com/sweengineeringlabs/proto-svc.git", tag = "v0.4.3" }
 prost = "0.14"
 tokio-util = { version = "0.7", default-features = false }
 tokio = { version = "1.52", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
