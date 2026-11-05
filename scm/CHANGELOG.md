@@ -9,6 +9,12 @@ word.
 
 ## [Unreleased]
 
+### Align edge-security with v0.3.41
+
+- Move `edge-security-runtime` and the `edge-security-transport-egress-grpc` adapter from v0.3.39 to v0.3.41 in `auth-bearer-api`, `auth-bearer-spi`, `transport-spi` and the composition-root example.
+- `Cargo.lock` follows the new edge-security dependency graph, including newer RustCrypto crates (`digest` 0.11, `crypto-common` 0.2, `block-buffer` 0.12).
+- Verified: `cargo test --workspace --all-targets` (549 passed, 0 failed), clippy with `-D warnings`, `cargo doc` with `-D warnings`, and `cargo audit`.
+
 ### Issue 73: use the patched proto tonic client release
 
 - Update the gRPC transport and test peer to proto-svc v0.4.3 and Tonic 0.14.7, preserving gzip, deflate, and zstd behavior while resolving zstd 0.14.3 and zstd-safe 8.2.0.
